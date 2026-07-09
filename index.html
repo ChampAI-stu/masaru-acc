@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · รวมไฟล์บัญชีหลายแพลตฟอร์ม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#1F3864; --blue:#2E75B6; --gold:#C9A84C; --red:#D81F2C;
+    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f4f6fa; --card:#ffffff;
+    --tiktok:#111827; --shopee:#ee4d2d; --lazada:#0f146d;
+    --shadow:0 1px 3px rgba(31,56,100,.08),0 8px 24px rgba(31,56,100,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;font-size:14px}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 20px}
+
+  /* Header */
+  header{background:var(--navy);color:#fff;padding:18px 0}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--navy));
+    border:1.5px solid var(--gold);display:grid;place-items:center;font-weight:700;color:var(--gold);font-size:18px}
+  .brand h1{font-size:17px;font-weight:600;letter-spacing:.2px}
+  .brand p{font-size:12px;color:#a9bde0;font-weight:400}
+  .head-badge{font-size:11px;color:#a9bde0;border:1px solid #3a5488;padding:5px 11px;border-radius:20px}
+
+  main{padding:26px 0 60px}
+  .section-label{font-size:12px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--muted);display:flex;align-items:center;gap:9px;margin:0 0 12px}
+  .section-label .n{width:20px;height:20px;border-radius:6px;background:var(--navy);color:#fff;
+    display:grid;place-items:center;font-size:11px;font-family:'IBM Plex Mono',monospace}
+
+  /* Uploaders — เลือกประเภทก่อน แล้วค่อยอัพ */
+  .uploaders{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .up-card{font-family:inherit;text-align:left;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:18px 18px;cursor:pointer;transition:.16s;box-shadow:var(--shadow);
+    display:flex;flex-direction:column;gap:3px;border-top:4px solid var(--line);position:relative}
+  .up-card:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(31,56,100,.14)}
+  .up-card.tiktok:hover{border-top-color:var(--tiktok)}
+  .up-card.shopee:hover{border-top-color:var(--shopee)}
+  .up-card.lazada:hover{border-top-color:var(--lazada)}
+  .up-card .up-ico{font-size:26px}
+  .up-card .up-t{font-size:15px;font-weight:600}
+  .up-card .up-s{font-size:12px;color:var(--muted)}
+  .up-card .up-plus{position:absolute;top:14px;right:16px;font-size:20px;color:var(--muted);font-weight:400}
+
+  /* File cards */
+  .files{margin-top:16px;display:grid;gap:10px}
+  .fcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+    display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
+  .fcard .fname{font-weight:600;flex:1;min-width:180px;word-break:break-all}
+  .fcard .fmeta{font-size:12px;color:var(--muted);margin-top:2px;font-weight:400}
+  .fcard .status-dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .badge{font-size:11px;font-weight:600;padding:5px 12px;border-radius:8px;color:#fff}
+  .badge.tiktok{background:var(--tiktok)} .badge.shopee{background:var(--shopee)}
+  .badge.lazada{background:var(--lazada)} .badge.unknown{background:#b0b7c3}
+  select.plat-sel{font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;color:var(--ink);cursor:pointer}
+  .btn{font-family:inherit;font-size:13px;font-weight:600;border:none;border-radius:9px;padding:10px 18px;
+    cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-primary{background:var(--navy);color:#fff} .btn-primary:hover:not(:disabled){background:#162a4e}
+  .btn-gold{background:var(--gold);color:#3a2f10} .btn-gold:hover:not(:disabled){background:#b8963d}
+  .btn-ghost{background:#fff;color:var(--muted);border:1px solid var(--line)} .btn-ghost:hover{background:#f4f6fa}
+  .btn-sm{padding:7px 12px;font-size:12px}
+  .icon-btn{background:none;border:none;cursor:pointer;color:#c0392b;font-size:18px;padding:2px 6px;line-height:1}
+
+  .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+
+  /* Summary */
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0 16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 16px;box-shadow:var(--shadow);
+    border-left:4px solid var(--blue)}
+  .stat.g{border-left-color:var(--gold)} .stat.n{border-left-color:var(--navy)} .stat.r{border-left-color:var(--red)}
+  .stat .k{font-size:12px;color:var(--muted);font-weight:500}
+  .stat .v{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:3px}
+
+  /* Toolbar */
+  .toolbar{background:var(--card);border:1px solid var(--line);border-radius:12px 12px 0 0;padding:13px 16px;
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:none}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:9px;
+    font-family:inherit;font-size:13px}
+  .search input:focus{outline:none;border-color:var(--blue)}
+  .search .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
+  .toolbar select{font-family:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer}
+  .chk{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--ink);
+    padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;user-select:none}
+  .chk input{width:16px;height:16px;accent-color:var(--red);cursor:pointer}
+  .chk:has(input:checked){border-color:var(--red);background:#fff5f5;color:var(--red)}
+
+  /* Table */
+  .tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:0 0 12px 12px;overflow:auto;
+    box-shadow:var(--shadow);max-height:70vh}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;font-weight:600;text-align:left;
+    padding:11px 12px;font-size:12px;z-index:2}
+  tbody td{padding:9px 12px;border-bottom:1px solid #eef1f6}
+  tbody tr:hover{background:#f7faff}
+  td.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+  td.num.neg{color:var(--red)}
+  .grp-a{border-left:3px solid var(--blue)} .grp-b{border-left:3px solid var(--gold)}
+  .tag{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:6px;color:#fff}
+  .tag.tiktok{background:var(--tiktok)} .tag.shopee{background:var(--shopee)} .tag.lazada{background:var(--lazada)}
+  .ord{font-family:'IBM Plex Mono',monospace;font-weight:500}
+
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .pager .info{font-size:13px;color:var(--muted)}
+  .pager .ctrl{display:flex;gap:6px;align-items:center}
+  .pager button{padding:7px 12px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px}
+  .pager button:disabled{opacity:.4;cursor:not-allowed}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--muted)}
+  .empty .ico{font-size:40px;margin-bottom:10px;opacity:.5}
+  .hidden{display:none!important}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--navy);color:#fff;padding:12px 22px;border-radius:10px;font-size:13px;font-weight:500;
+    box-shadow:0 8px 30px rgba(0,0,0,.2);transition:.25s;z-index:100;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red)}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:34px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>รวมไฟล์บัญชี · หลายแพลตฟอร์ม</h1>
+        <p>MASARU · TikTok Shop / Shopee / Lazada</p>
+      </div>
+    </div>
+    <span class="head-badge">ประมวลผลในเครื่องคุณ · ไม่มีการอัปโหลดข้อมูลออกนอก</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- STEP 1: เลือกประเภท แล้วอัพ -->
+  <div class="section-label"><span class="n">1</span> เลือกประเภทไฟล์ แล้วอัปโหลด</div>
+  <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.csv" class="hidden">
+  <div class="uploaders">
+    <button class="up-card tiktok" data-plat="TikTok">
+      <span class="up-plus">＋</span>
+      <span class="up-ico">🖤</span>
+      <span class="up-t">อัพไฟล์ TikTok</span>
+      <span class="up-s">จับหัวคอลัมน์แบบ TikTok Shop</span>
+    </button>
+    <button class="up-card shopee" data-plat="Shopee">
+      <span class="up-plus">＋</span>
+      <span class="up-ico">🧡</span>
+      <span class="up-t">อัพไฟล์ Shopee</span>
+      <span class="up-s">จับหัวคอลัมน์แบบ Shopee</span>
+    </button>
+    <button class="up-card lazada" data-plat="Lazada">
+      <span class="up-plus">＋</span>
+      <span class="up-ico">💙</span>
+      <span class="up-t">อัพไฟล์ Lazada</span>
+      <span class="up-s">จับหัวคอลัมน์แบบ Lazada</span>
+    </button>
+  </div>
+  <div class="files" id="fileList"></div>
+  <div class="actions" id="actions" style="display:none">
+    <button class="btn btn-ghost btn-sm" id="clearBtn">ล้างทั้งหมด</button>
+  </div>
+
+  <!-- STEP 2: results -->
+  <div id="results" class="hidden">
+    <div class="section-label" style="margin-top:30px"><span class="n">2</span> ผลลัพธ์รวม</div>
+    <div class="summary" id="summary"></div>
+
+    <div class="toolbar">
+      <div class="search">
+        <span class="si">🔍</span>
+        <input type="text" id="searchBox" placeholder="ค้นหา เลขออเดอร์ / SKU / รายการ ...">
+      </div>
+      <select id="platFilter">
+        <option value="">ทุกแพลตฟอร์ม</option>
+        <option value="TikTok">TikTok</option>
+        <option value="Shopee">Shopee</option>
+        <option value="Lazada">Lazada</option>
+      </select>
+      <label class="chk"><input type="checkbox" id="hideNeg"> ไม่เอายอดติดลบ</label>
+      <button class="btn btn-gold btn-sm" id="exportAllBtn">⬇️ ส่งออกทั้งหมด</button>
+      <button class="btn btn-ghost btn-sm" id="exportFilteredBtn" style="display:none">ส่งออกเฉพาะที่กรอง</button>
+    </div>
+    <div class="tbl-wrap">
+      <table id="dataTbl">
+        <thead><tr>
+          <th>เลขคำสั่งซื้อ</th><th>แพลตฟอร์ม</th><th>วันที่</th><th>ประเภทรายการ</th>
+          <th>SKU / สินค้า</th><th>ยอดเงิน</th><th>รายได้รวม</th><th>ค่าธรรมเนียม</th>
+          <th>VAT</th><th>หัก ณ ที่จ่าย</th><th>สถานะ</th><th>หมายเหตุ</th>
+        </tr></thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="info" id="pageInfo"></span>
+      <div class="ctrl">
+        <button id="firstBtn">« แรก</button>
+        <button id="prevBtn">‹ ก่อนหน้า</button>
+        <span id="pageNum" style="font-size:13px;min-width:90px;text-align:center"></span>
+        <button id="nextBtn">ถัดไป ›</button>
+        <button id="lastBtn">สุด »</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="foot">MASARU Internal Tools · ทำงานฝั่งเบราว์เซอร์ทั้งหมด ข้อมูลไม่ถูกส่งออกที่ใด</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ ตั้งค่าการจับแพลตฟอร์ม + แม็ปคอลัมน์ (อ้างอิงชื่อหัวคอลัมน์ ไม่ยึดตำแหน่ง) ============ */
+const norm = s => String(s == null ? '' : s).replace(/\s+/g,' ').trim();
+
+const PLATFORMS = {
+  TikTok: {
+    className:'tiktok',
+    detect: h => h.includes('หมายเลขคำสั่งซื้อ/การปรับ'),
+    cols: {
+      order:['หมายเลขคำสั่งซื้อ/การปรับ'], date:['เวลาที่สร้างคำสั่งซื้อ','เวลาที่ชำระคำสั่งซื้อ'],
+      type:['ประเภทธุรกรรม'], sku:['รายละเอียดสินค้าที่ขายได้'],
+      amount:['จำนวนเงินที่ชำระทั้งหมด'], revenue:['รายได้รวม'], fees:['ค่าธรรมเนียมทั้งหมด'],
+      vat:[], wht:['ภาษีเงินได้บุคคลธรรมดาที่หักไว้จากคอมมิชชั่นของแอฟฟิลิเอต'],
+      status:[], note:['หมายเลขคำสั่งซื้อที่เกี่ยวข้อง']
+    }
+  },
+  Lazada: {
+    className:'lazada',
+    detect: h => h.includes('Order No.') && (h.includes('Fee Name') || h.includes('Lazada SKU')),
+    cols: {
+      order:['Order No.'], date:['Transaction Date'], type:['Fee Name','Transaction Type'],
+      sku:['Seller SKU'], amount:['Amount'], revenue:[], fees:[],
+      vat:['VAT in Amount'], wht:['WHT Amount'], status:['Paid Status'], note:['Details','Comment']
+    }
+  },
+  Shopee: {
+    className:'shopee',
+    detect: h => h.includes('รหัสคำสั่งซื้อ') && (h.includes('รูปแบบธุรกรรม') || h.includes('จำนวนเงิน')),
+    cols: {
+      order:['รหัสคำสั่งซื้อ'], date:['วันที่'], type:['ประเภทการทำธุรกรรม'],
+      sku:[], amount:['จำนวนเงิน'], revenue:[], fees:[],
+      vat:[], wht:[], status:['สถานะ'], note:['คำอธิบาย']
+    }
+  }
+};
+
+/* ============ สถานะรวม ============ */
+let loadedFiles = [];   // {id,name,platform,detected,rows:[unified...],count}
+let merged = [];        // unified records รวมทุกไฟล์ เรียงแล้ว
+let filtered = [];
+let page = 1;
+const PAGE_SIZE = 200;
+let searchTimer = null;
+
+/* ============ ยูทิล ============ */
+const $ = id => document.getElementById(id);
+function toast(msg, isErr){
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (isErr?' err':'');
+  setTimeout(()=>{ t.className = 'toast' + (isErr?' err':''); }, 2600);
+}
+function toNum(v){
+  if(v==null||v==='') return null;
+  const n = parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,''));
+  return isNaN(n) ? null : n;
+}
+function fmtNum(n){
+  if(n==null||n==='') return '';
+  return Number(n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtInt(n){ return Number(n).toLocaleString('th-TH'); }
+
+/* หา index ของคอลัมน์ตามรายชื่อชื่อหัวที่เป็นไปได้ */
+function findCol(header, names){
+  for(const nm of names){
+    const i = header.findIndex(h => norm(h) === norm(nm));
+    if(i !== -1) return i;
+  }
+  // fallback: contains
+  for(const nm of names){
+    const i = header.findIndex(h => norm(h).includes(norm(nm)));
+    if(i !== -1) return i;
+  }
+  return -1;
+}
+
+/* ============ อ่าน + แปลงไฟล์เป็น unified rows ============ */
+function parseSheet(aoa, forcedPlatform){
+  // หาแถวหัวตาราง + แพลตฟอร์ม โดยสแกน 40 แถวแรก
+  let headerRow = -1, platform = forcedPlatform || null, header = null, matched = false;
+  const scan = Math.min(aoa.length, 40);
+  for(let r=0; r<scan; r++){
+    const row = (aoa[r]||[]).map(norm);
+    if(!row.some(c=>c)) continue;
+    if(forcedPlatform){
+      if(PLATFORMS[forcedPlatform].detect(row)){ headerRow=r; header=aoa[r]; matched=true; break; }
+    } else {
+      for(const [name,def] of Object.entries(PLATFORMS)){
+        if(def.detect(row)){ headerRow=r; platform=name; header=aoa[r]; matched=true; break; }
+      }
+      if(headerRow!==-1) break;
+    }
+  }
+  // ถ้าบังคับแพลตฟอร์มแต่หา header ไม่เจอด้วย detect → เดาแถวหัวจากแถวที่มีข้อความมากสุด
+  if(headerRow===-1 && forcedPlatform){
+    let best=-1,bestCnt=0;
+    for(let r=0;r<scan;r++){ const c=(aoa[r]||[]).filter(x=>norm(x)).length; if(c>bestCnt){bestCnt=c;best=r;} }
+    if(best!==-1){ headerRow=best; platform=forcedPlatform; header=aoa[best]; matched=false; }
+  }
+  if(headerRow===-1 || !platform) return {platform:null, rows:[], matched:false};
+
+  const def = PLATFORMS[platform];
+  const map = {};
+  for(const [key,names] of Object.entries(def.cols)){
+    map[key] = names.length ? findCol(header, names) : -1;
+  }
+  const orderIdx = map.order;
+  const rows = [];
+  for(let r=headerRow+1; r<aoa.length; r++){
+    const row = aoa[r]||[];
+    const orderVal = orderIdx>=0 ? norm(row[orderIdx]) : '';
+    // ข้ามแถวว่าง / แถวสรุป (ไม่มีเลขออเดอร์และไม่มียอดเงิน)
+    const amtRaw = map.amount>=0 ? row[map.amount] : '';
+    if(!orderVal && (amtRaw==null || amtRaw==='')) continue;
+    const g = i => (i>=0 && i<row.length) ? norm(row[i]) : '';
+    rows.push({
+      platform,
+      order: orderVal,
+      date: g(map.date),
+      type: g(map.type),
+      sku: g(map.sku),
+      amount: toNum(amtRaw),
+      revenue: map.revenue>=0 ? toNum(row[map.revenue]) : null,
+      fees: map.fees>=0 ? toNum(row[map.fees]) : null,
+      vat: map.vat>=0 ? toNum(row[map.vat]) : null,
+      wht: map.wht>=0 ? toNum(row[map.wht]) : null,
+      status: g(map.status),
+      note: g(map.note)
+    });
+  }
+  return {platform, rows, matched};
+}
+
+async function readFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  // ลองทุก sheet เลือก sheet ที่ parse ได้แถวมากสุด
+  let best = {platform:null, rows:[]};
+  for(const sn of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:'', raw:true});
+    const res = parseSheet(aoa);
+    if(res.platform && res.rows.length > best.rows.length) best = res;
+  }
+  return best;
+}
+
+/* ============ UI: รายการไฟล์ ============ */
+function renderFiles(){
+  const list = $('fileList');
+  list.innerHTML = '';
+  loadedFiles.forEach(f=>{
+    const div = document.createElement('div');
+    div.className = 'fcard';
+    const pl = f.platform;
+    const cls = pl ? PLATFORMS[pl].className : 'unknown';
+    const dotColor = pl ? ({tiktok:'#111827',shopee:'#ee4d2d',lazada:'#0f146d'})[cls] : '#d81f2c';
+    div.innerHTML = `
+      <span class="status-dot" style="background:${dotColor}"></span>
+      <div class="fname">${f.name}
+        <div class="fmeta">${f.count.toLocaleString('th-TH')} แถว ${f.detected?'· จับได้อัตโนมัติ':'· ตั้งเอง'}</div>
+      </div>
+      <span class="badge ${cls}">${pl||'ไม่รู้จัก'}</span>
+      <select class="plat-sel" data-id="${f.id}">
+        <option value="">— เลือกแพลตฟอร์ม —</option>
+        <option value="TikTok" ${pl==='TikTok'?'selected':''}>TikTok</option>
+        <option value="Shopee" ${pl==='Shopee'?'selected':''}>Shopee</option>
+        <option value="Lazada" ${pl==='Lazada'?'selected':''}>Lazada</option>
+      </select>
+      <button class="icon-btn" data-del="${f.id}" title="ลบไฟล์">✕</button>`;
+    list.appendChild(div);
+  });
+  list.querySelectorAll('.plat-sel').forEach(sel=>{
+    sel.onchange = async e=>{
+      const id = e.target.dataset.id, val = e.target.value;
+      const f = loadedFiles.find(x=>x.id===id);
+      if(!f) return;
+      if(!val){ f.platform=null; renderFiles(); return; }
+      toast('กำลังแปลงไฟล์ใหม่...');
+      await reparse(f, val);
+      renderFiles();
+      refreshTable();
+    };
+  });
+  list.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick = ()=>{ loadedFiles = loadedFiles.filter(x=>x.id!==b.dataset.del); renderFiles(); toggleActions(); refreshTable(); };
+  });
+}
+async function reparse(f, platform){
+  let best={platform:null,rows:[]};
+  for(const aoa of f._sheets){
+    const res = parseSheet(aoa, platform);
+    if(res.platform && res.rows.length>best.rows.length) best=res;
+  }
+  f.platform = best.platform || platform;
+  f.rows = best.rows;
+  f.count = best.rows.length;
+  f.detected = false;
+}
+function toggleActions(){
+  $('actions').style.display = loadedFiles.length ? 'flex' : 'none';
+  if(!loadedFiles.length){ $('results').classList.add('hidden'); }
+}
+
+/* ============ โหลดไฟล์ (บังคับแพลตฟอร์มตามปุ่มที่กด) ============ */
+async function handleFiles(fileArr, forcedPlatform){
+  let added=0, warnMismatch=0;
+  for(const file of fileArr){
+    try{
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      const sheets = wb.SheetNames.map(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:'', raw:true}));
+      // ลองทุก sheet ด้วยแพลตฟอร์มที่บังคับ เลือก sheet ที่ได้แถวมากสุด
+      let best={platform:null,rows:[],matched:false};
+      for(const aoa of sheets){
+        const res = parseSheet(aoa, forcedPlatform);
+        if(res.platform && res.rows.length>best.rows.length) best=res;
+      }
+      if(!best.platform){ toast('ไฟล์ '+file.name+' อ่านไม่ได้ หรือไม่ใช่รูปแบบ '+forcedPlatform, true); continue; }
+      if(!best.matched) warnMismatch++;
+      loadedFiles.push({
+        id: 'f'+Date.now()+Math.random().toString(36).slice(2,6),
+        name: file.name,
+        platform: forcedPlatform,
+        detected: best.matched,
+        rows: best.rows,
+        count: best.rows.length,
+        _sheets: sheets
+      });
+      added++;
+    }catch(err){ toast('อ่านไฟล์ '+file.name+' ไม่ได้', true); console.error(err); }
+  }
+  renderFiles(); toggleActions();
+  if(added) mergeAll();          // สร้าง/อัปเดตตารางทันทีหลังอัพ
+  if(warnMismatch) toast('มี '+warnMismatch+' ไฟล์ที่หัวคอลัมน์ไม่ตรงกับ '+forcedPlatform+' — ตรวจสอบด้วย', true);
+  else if(added) toast('เพิ่มไฟล์ '+forcedPlatform+' แล้ว ('+added+')');
+}
+
+function refreshTable(){
+  const ready = loadedFiles.filter(f=>f.platform && f.rows.length);
+  if(ready.length) mergeAll();
+  else { merged=[]; filtered=[]; $('results').classList.add('hidden'); }
+}
+
+/* ============ รวม + เรียง ============ */
+function mergeAll(){
+  const ready = loadedFiles.filter(f=>f.platform && f.rows.length);
+  if(!ready.length){ toast('ยังไม่มีไฟล์ที่พร้อมรวม', true); return; }
+  merged = [];
+  ready.forEach(f => f.rows.forEach(r => merged.push(r)));
+  // เรียงตามเลขคำสั่งซื้อ (แถวออเดอร์เดียวกันมาอยู่ติดกัน) แล้วตามแพลตฟอร์ม
+  merged.sort((a,b)=>{
+    if(a.order < b.order) return -1;
+    if(a.order > b.order) return 1;
+    return a.platform.localeCompare(b.platform);
+  });
+  // ทำ index กลุ่มออเดอร์ (สลับสีเพื่อดูเป็นชุด)
+  let g=0, prev=null;
+  merged.forEach(r=>{ if(r.order!==prev){ g++; prev=r.order; } r._g = g%2; });
+  renderSummary();
+  applyFilter();
+  const wasHidden = $('results').classList.contains('hidden');
+  $('results').classList.remove('hidden');
+  if(wasHidden) $('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderSummary(){
+  const byPlat = {};
+  let totAmt=0, totFee=0;
+  const orders = new Set();
+  merged.forEach(r=>{
+    byPlat[r.platform] = (byPlat[r.platform]||0)+1;
+    if(r.amount!=null) totAmt += r.amount;
+    if(r.fees!=null) totFee += r.fees;
+    if(r.order) orders.add(r.platform+'|'+r.order);
+  });
+  const platStr = Object.entries(byPlat).map(([p,c])=>`${p} ${fmtInt(c)}`).join(' · ');
+  $('summary').innerHTML = `
+    <div class="stat n"><div class="k">แถวทั้งหมด</div><div class="v">${fmtInt(merged.length)}</div></div>
+    <div class="stat"><div class="k">ออเดอร์ไม่ซ้ำ</div><div class="v">${fmtInt(orders.size)}</div></div>
+    <div class="stat g"><div class="k">รวมยอดเงิน</div><div class="v">${fmtNum(totAmt)}</div></div>
+    <div class="stat r"><div class="k">รวมค่าธรรมเนียม</div><div class="v">${fmtNum(totFee)}</div></div>
+    <div class="stat" style="grid-column:1/-1;border-left-color:var(--gold)">
+      <div class="k">แยกตามแพลตฟอร์ม</div><div class="v" style="font-size:15px">${platStr}</div></div>`;
+}
+
+/* ============ ค้นหา + กรอง + แบ่งหน้า ============ */
+function applyFilter(){
+  const q = norm($('searchBox').value).toLowerCase();
+  const pf = $('platFilter').value;
+  const hideNeg = $('hideNeg').checked;
+  filtered = merged.filter(r=>{
+    if(pf && r.platform!==pf) return false;
+    if(hideNeg && r.amount!=null && r.amount<0) return false;
+    if(!q) return true;
+    return (r.order+' '+r.sku+' '+r.type+' '+r.note+' '+r.status).toLowerCase().includes(q);
+  });
+  page = 1;
+  renderTable();
+}
+function renderTable(){
+  const total = filtered.length;
+  const pages = Math.max(1, Math.ceil(total/PAGE_SIZE));
+  if(page>pages) page=pages;
+  const start = (page-1)*PAGE_SIZE;
+  const slice = filtered.slice(start, start+PAGE_SIZE);
+  const body = $('tblBody');
+  if(!total){
+    body.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ico">🔍</div>ไม่พบข้อมูลตามเงื่อนไข</div></td></tr>`;
+  } else {
+    body.innerHTML = slice.map(r=>{
+      const cls = PLATFORMS[r.platform].className;
+      const grp = r._g ? 'grp-a' : 'grp-b';
+      const amtCls = (r.amount!=null && r.amount<0) ? 'num neg' : 'num';
+      const feeCls = (r.fees!=null && r.fees<0) ? 'num neg' : 'num';
+      return `<tr>
+        <td class="ord ${grp}">${r.order||'-'}</td>
+        <td><span class="tag ${cls}">${r.platform}</span></td>
+        <td>${r.date||''}</td>
+        <td>${r.type||''}</td>
+        <td title="${(r.sku||'').replace(/"/g,'&quot;')}">${trunc(r.sku,42)||'<span style="color:#bbb">—</span>'}</td>
+        <td class="${amtCls}">${fmtNum(r.amount)}</td>
+        <td class="num">${fmtNum(r.revenue)}</td>
+        <td class="${feeCls}">${fmtNum(r.fees)}</td>
+        <td class="num">${fmtNum(r.vat)}</td>
+        <td class="num">${fmtNum(r.wht)}</td>
+        <td>${r.status||''}</td>
+        <td title="${(r.note||'').replace(/"/g,'&quot;')}">${trunc(r.note,34)}</td>
+      </tr>`;
+    }).join('');
+  }
+  $('pageInfo').textContent = `แสดง ${total?fmtInt(start+1):0}–${fmtInt(Math.min(start+PAGE_SIZE,total))} จาก ${fmtInt(total)} แถว`;
+  $('pageNum').textContent = `หน้า ${page} / ${pages}`;
+  $('firstBtn').disabled = $('prevBtn').disabled = (page<=1);
+  $('lastBtn').disabled = $('nextBtn').disabled = (page>=pages);
+  // ปรับปุ่มส่งออกให้เห็นจำนวนชัด ๆ
+  $('exportAllBtn').textContent = `⬇️ ส่งออกทั้งหมด (${fmtInt(merged.length)} แถว)`;
+  const isFiltered = filtered.length !== merged.length;
+  const fb = $('exportFilteredBtn');
+  fb.style.display = isFiltered ? 'inline-flex' : 'none';
+  if(isFiltered) fb.textContent = `ส่งออกเฉพาะที่กรอง (${fmtInt(filtered.length)} แถว)`;
+}
+function trunc(s,n){ s=String(s||''); return s.length>n ? s.slice(0,n)+'…' : s; }
+
+/* ============ ส่งออก Excel ============ */
+function exportExcel(source){
+  const rows = source || merged;
+  if(!rows.length){ toast('ไม่มีข้อมูลให้ส่งออก', true); return; }
+  const head = ['เลขคำสั่งซื้อ','แพลตฟอร์ม','วันที่','ประเภทรายการ','SKU / สินค้า','ยอดเงิน',
+    'รายได้รวม','ค่าธรรมเนียม','VAT','ภาษีหัก ณ ที่จ่าย','สถานะ','หมายเหตุ'];
+  const aoa = [head];
+  rows.forEach(r=>aoa.push([
+    r.order, r.platform, r.date, r.type, r.sku,
+    r.amount, r.revenue, r.fees, r.vat, r.wht, r.status, r.note
+  ]));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:22},{wch:10},{wch:20},{wch:26},{wch:34},{wch:13},{wch:13},{wch:13},{wch:10},{wch:12},{wch:16},{wch:30}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'รวมทุกแพลตฟอร์ม');
+  const d = new Date();
+  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `MASARU_รวมบัญชี_${stamp}.xlsx`);
+  toast('ส่งออก '+fmtInt(rows.length)+' แถวแล้ว');
+}
+
+/* ============ Event wiring ============ */
+const fileInput = $('fileInput');
+let pendingPlatform = null;
+document.querySelectorAll('.up-card').forEach(card=>{
+  card.onclick = ()=>{ pendingPlatform = card.dataset.plat; fileInput.click(); };
+});
+fileInput.onchange = e=>{
+  const files = [...e.target.files];
+  if(files.length && pendingPlatform) handleFiles(files, pendingPlatform);
+  fileInput.value=''; pendingPlatform=null;
+};
+
+$('clearBtn').onclick = ()=>{ loadedFiles=[]; merged=[]; filtered=[]; renderFiles(); toggleActions(); $('results').classList.add('hidden'); };
+$('searchBox').oninput = ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(applyFilter,220); };
+$('platFilter').onchange = applyFilter;
+$('hideNeg').onchange = applyFilter;
+$('exportAllBtn').onclick = ()=>exportExcel(merged);
+$('exportFilteredBtn').onclick = ()=>exportExcel(filtered);
+$('firstBtn').onclick = ()=>{page=1;renderTable();};
+$('prevBtn').onclick = ()=>{if(page>1){page--;renderTable();}};
+$('nextBtn').onclick = ()=>{page++;renderTable();};
+$('lastBtn').onclick = ()=>{page=Math.ceil(filtered.length/PAGE_SIZE);renderTable();};
+</script>
+</body>
+</html>
