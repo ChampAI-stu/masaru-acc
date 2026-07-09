@@ -90,10 +90,6 @@
   .search input:focus{outline:none;border-color:var(--blue)}
   .search .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
   .toolbar select{font-family:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer}
-  .chk{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--ink);
-    padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;user-select:none}
-  .chk input{width:16px;height:16px;accent-color:var(--red);cursor:pointer}
-  .chk:has(input:checked){border-color:var(--red);background:#fff5f5;color:var(--red)}
 
   /* Table */
   .tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:0 0 12px 12px;overflow:auto;
@@ -187,7 +183,6 @@
         <option value="Shopee">Shopee</option>
         <option value="Lazada">Lazada</option>
       </select>
-      <label class="chk"><input type="checkbox" id="hideNeg"> ไม่เอายอดติดลบ</label>
       <button class="btn btn-gold btn-sm" id="exportAllBtn">⬇️ ส่งออกทั้งหมด</button>
       <button class="btn btn-ghost btn-sm" id="exportFilteredBtn" style="display:none">ส่งออกเฉพาะที่กรอง</button>
     </div>
@@ -324,12 +319,16 @@ function parseSheet(aoa, forcedPlatform){
   }
   const orderIdx = map.order;
   const rows = [];
+  let negRemoved = 0;
   for(let r=headerRow+1; r<aoa.length; r++){
     const row = aoa[r]||[];
     const orderVal = orderIdx>=0 ? norm(row[orderIdx]) : '';
     // ข้ามแถวว่าง / แถวสรุป (ไม่มีเลขออเดอร์และไม่มียอดเงิน)
     const amtRaw = map.amount>=0 ? row[map.amount] : '';
     if(!orderVal && (amtRaw==null || amtRaw==='')) continue;
+    const amount = toNum(amtRaw);
+    // ตัดยอดติดลบออก — ไม่นำเข้ามา
+    if(amount != null && amount < 0){ negRemoved++; continue; }
     const g = i => (i>=0 && i<row.length) ? norm(row[i]) : '';
     rows.push({
       platform,
@@ -337,7 +336,7 @@ function parseSheet(aoa, forcedPlatform){
       date: g(map.date),
       type: g(map.type),
       sku: g(map.sku),
-      amount: toNum(amtRaw),
+      amount: amount,
       revenue: map.revenue>=0 ? toNum(row[map.revenue]) : null,
       fees: map.fees>=0 ? toNum(row[map.fees]) : null,
       vat: map.vat>=0 ? toNum(row[map.vat]) : null,
@@ -346,7 +345,7 @@ function parseSheet(aoa, forcedPlatform){
       note: g(map.note)
     });
   }
-  return {platform, rows, matched};
+  return {platform, rows, matched, negRemoved};
 }
 
 async function readFile(file){
@@ -375,7 +374,7 @@ function renderFiles(){
     div.innerHTML = `
       <span class="status-dot" style="background:${dotColor}"></span>
       <div class="fname">${f.name}
-        <div class="fmeta">${f.count.toLocaleString('th-TH')} แถว ${f.detected?'· จับได้อัตโนมัติ':'· ตั้งเอง'}</div>
+        <div class="fmeta">${f.count.toLocaleString('th-TH')} แถว ${f.detected?'· จับได้':'· ตั้งเอง'}${f.negRemoved?` · ตัดยอดติดลบ ${f.negRemoved.toLocaleString('th-TH')}`:''}</div>
       </div>
       <span class="badge ${cls}">${pl||'ไม่รู้จัก'}</span>
       <select class="plat-sel" data-id="${f.id}">
@@ -412,6 +411,7 @@ async function reparse(f, platform){
   f.platform = best.platform || platform;
   f.rows = best.rows;
   f.count = best.rows.length;
+  f.negRemoved = best.negRemoved || 0;
   f.detected = false;
 }
 function toggleActions(){
@@ -442,6 +442,7 @@ async function handleFiles(fileArr, forcedPlatform){
         detected: best.matched,
         rows: best.rows,
         count: best.rows.length,
+        negRemoved: best.negRemoved || 0,
         _sheets: sheets
       });
       added++;
@@ -492,11 +493,12 @@ function renderSummary(){
     if(r.order) orders.add(r.platform+'|'+r.order);
   });
   const platStr = Object.entries(byPlat).map(([p,c])=>`${p} ${fmtInt(c)}`).join(' · ');
+  const totNeg = loadedFiles.reduce((a,f)=>a+(f.negRemoved||0),0);
   $('summary').innerHTML = `
     <div class="stat n"><div class="k">แถวทั้งหมด</div><div class="v">${fmtInt(merged.length)}</div></div>
     <div class="stat"><div class="k">ออเดอร์ไม่ซ้ำ</div><div class="v">${fmtInt(orders.size)}</div></div>
     <div class="stat g"><div class="k">รวมยอดเงิน</div><div class="v">${fmtNum(totAmt)}</div></div>
-    <div class="stat r"><div class="k">รวมค่าธรรมเนียม</div><div class="v">${fmtNum(totFee)}</div></div>
+    <div class="stat r"><div class="k">ตัดยอดติดลบออก</div><div class="v">${fmtInt(totNeg)}</div></div>
     <div class="stat" style="grid-column:1/-1;border-left-color:var(--gold)">
       <div class="k">แยกตามแพลตฟอร์ม</div><div class="v" style="font-size:15px">${platStr}</div></div>`;
 }
@@ -505,10 +507,8 @@ function renderSummary(){
 function applyFilter(){
   const q = norm($('searchBox').value).toLowerCase();
   const pf = $('platFilter').value;
-  const hideNeg = $('hideNeg').checked;
   filtered = merged.filter(r=>{
     if(pf && r.platform!==pf) return false;
-    if(hideNeg && r.amount!=null && r.amount<0) return false;
     if(!q) return true;
     return (r.order+' '+r.sku+' '+r.type+' '+r.note+' '+r.status).toLowerCase().includes(q);
   });
@@ -595,7 +595,6 @@ fileInput.onchange = e=>{
 $('clearBtn').onclick = ()=>{ loadedFiles=[]; merged=[]; filtered=[]; renderFiles(); toggleActions(); $('results').classList.add('hidden'); };
 $('searchBox').oninput = ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(applyFilter,220); };
 $('platFilter').onchange = applyFilter;
-$('hideNeg').onchange = applyFilter;
 $('exportAllBtn').onclick = ()=>exportExcel(merged);
 $('exportFilteredBtn').onclick = ()=>exportExcel(filtered);
 $('firstBtn').onclick = ()=>{page=1;renderTable();};
