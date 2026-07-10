@@ -1183,12 +1183,23 @@ $('costOnlyUnmatched').onchange=renderCost;
 let mTimer=null;
 async function loadManage(q){
   if(!sb){ $('mBody').innerHTML=`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">ยังไม่ได้ตั้งค่า Supabase</td></tr>`; return; }
+  $('mInfo').textContent='กำลังโหลด...';
   try{
-    let query=sb.from('sku_cost').select('sku,cost');
-    if(q) query=query.ilike('sku','%'+q+'%');
-    const {data,error}=await query.order('updated_at',{ascending:false}).limit(100);
-    if(error) throw error;
-    renderManage(data||[]);
+    if(q){
+      const {data,error}=await sb.from('sku_cost').select('sku,cost').ilike('sku','%'+q+'%').order('sku').limit(2000);
+      if(error) throw error; renderManage(data||[]); return;
+    }
+    // ไม่มีคำค้น → ดึงทั้งหมด (แบ่งหน้า 1000)
+    let all=[], from=0; const page=1000;
+    while(true){
+      const {data,error}=await sb.from('sku_cost').select('sku,cost').order('sku').range(from,from+page-1);
+      if(error) throw error;
+      all=all.concat(data||[]);
+      if(!data || data.length<page) break;
+      from+=page;
+      if(from>50000) break;   // กันวนไม่สิ้นสุด
+    }
+    renderManage(all);
   }catch(err){ toast('โหลดรายการไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
 function renderManage(rows){
@@ -1199,27 +1210,27 @@ function renderManage(rows){
       <button class="icon-act" data-act="save" title="บันทึกการแก้ไข">💾</button>
       <button class="icon-act" data-act="del" title="ลบ" style="color:var(--red)">🗑️</button>
     </td></tr>`).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
-  $('mInfo').textContent = `แสดง ${fmtInt(rows.length)} รายการ (สูงสุด 100 · พิมพ์ค้นหาเพื่อกรอง)`;
-  $('mBody').querySelectorAll('.icon-act').forEach(b=>{
-    b.onclick=async ()=>{
-      const tr=b.closest('tr'); const sku=tr.dataset.sku;
-      if(b.dataset.act==='del'){
-        b.disabled=true;
-        const {error}=await sb.from('sku_cost').delete().eq('sku',sku);
-        if(error){ toast('ลบไม่สำเร็จ: '+error.message,true); b.disabled=false; return; }
-        tr.remove(); costMap={}; refreshCostDbCount(); toast('ลบ '+sku+' แล้ว');
-      } else {
-        const val=parseFloat(tr.querySelector('.m-cost-inp').value);
-        if(isNaN(val)){ toast('ใส่ต้นทุนเป็นตัวเลข',true); return; }
-        b.disabled=true;
-        const {error}=await sb.from('sku_cost').update({cost:val,updated_at:new Date().toISOString()}).eq('sku',sku);
-        b.disabled=false;
-        if(error){ toast('บันทึกไม่สำเร็จ: '+error.message,true); return; }
-        costMap={}; toast('บันทึก '+sku+' = '+fmtNum(val)+' แล้ว');
-      }
-    };
-  });
+  $('mInfo').textContent = `แสดงทั้งหมด ${fmtInt(rows.length)} รายการ`;
 }
+// จัดการปุ่มด้วย event delegation (ตั้งครั้งเดียว รองรับหลายพันแถว)
+$('mBody').onclick=async (e)=>{
+  const b=e.target.closest('.icon-act'); if(!b) return;
+  const tr=b.closest('tr'); const sku=tr.dataset.sku;
+  if(b.dataset.act==='del'){
+    b.disabled=true;
+    const {error}=await sb.from('sku_cost').delete().eq('sku',sku);
+    if(error){ toast('ลบไม่สำเร็จ: '+error.message,true); b.disabled=false; return; }
+    tr.remove(); costMap={}; refreshCostDbCount(); toast('ลบ '+sku+' แล้ว');
+  } else {
+    const val=parseFloat(tr.querySelector('.m-cost-inp').value);
+    if(isNaN(val)){ toast('ใส่ต้นทุนเป็นตัวเลข',true); return; }
+    b.disabled=true;
+    const {error}=await sb.from('sku_cost').update({cost:val,updated_at:new Date().toISOString()}).eq('sku',sku);
+    b.disabled=false;
+    if(error){ toast('บันทึกไม่สำเร็จ: '+error.message,true); return; }
+    costMap={}; toast('บันทึก '+sku+' = '+fmtNum(val)+' แล้ว');
+  }
+};
 $('mAddBtn').onclick=async ()=>{
   if(!dbReady()) return;
   const sku=norm($('mSku').value); const cost=parseFloat($('mCost').value);
