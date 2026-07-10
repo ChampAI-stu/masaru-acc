@@ -133,6 +133,7 @@
   table{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
   thead th{position:sticky;top:0;background:var(--navy);color:#fff;font-weight:600;text-align:left;
     padding:11px 12px;font-size:12px;z-index:2}
+  thead th.num{text-align:right}
   tbody td{padding:9px 12px;border-bottom:1px solid #eef1f6}
   tbody tr:hover{background:#f7faff}
   td.num{text-align:right;font-family:'IBM Plex Mono',monospace}
@@ -251,8 +252,8 @@
       <table id="dataTbl">
         <thead><tr>
           <th>เลขคำสั่งซื้อ</th><th>แพลตฟอร์ม</th><th>วันที่</th><th>ประเภทรายการ</th>
-          <th>SKU / สินค้า</th><th>ยอดเงิน</th><th>รายได้รวม</th><th>ค่าธรรมเนียม</th>
-          <th>VAT</th><th>หัก ณ ที่จ่าย</th><th>สถานะ</th><th>หมายเหตุ</th>
+          <th>SKU / สินค้า</th><th class="num">ยอดเงิน</th><th class="num">รายได้รวม</th><th class="num">ค่าธรรมเนียม</th>
+          <th class="num">VAT</th><th class="num">หัก ณ ที่จ่าย</th><th>สถานะ</th><th>หมายเหตุ</th>
         </tr></thead>
         <tbody id="tblBody"></tbody>
       </table>
@@ -1140,7 +1141,7 @@ function renderCost(){
   const view=$('costView').value;
 
   if(view==='sku'){
-    $('costHead').innerHTML=`<tr><th>SKU</th><th>จำนวน</th><th>ของแถม</th><th>ต้นทุน/ชิ้น</th><th>ต้นทุนรวม</th></tr>`;
+    $('costHead').innerHTML=`<tr><th>SKU</th><th class="num">จำนวน</th><th class="num">ของแถม</th><th class="num">ต้นทุน/ชิ้น</th><th class="num">ต้นทุนรวม</th></tr>`;
     let rows=agg;
     if(onlyUn) rows=rows.filter(r=>!r.matched);
     if(q) rows=rows.filter(r=>r.sku.toLowerCase().includes(q));
@@ -1153,7 +1154,7 @@ function renderCost(){
       : `<tr><td colspan="5"><div class="empty"><div class="ico">💰</div>ไม่มีข้อมูล</div></td></tr>`;
     $('costInfo').textContent=`${fmtInt(rows.length)} SKU`+(hasCost?` · ต้นทุนรวม ${fmtNum(rows.reduce((a,b)=>a+(b.total||0),0))} บาท`:' · ยังไม่ได้โหลดไฟล์ต้นทุน');
   } else {
-    $('costHead').innerHTML=`<tr><th>เลขออเดอร์</th><th>SKU (จำนวน)</th><th>ชิ้นรวม</th><th>ต้นทุนออเดอร์</th></tr>`;
+    $('costHead').innerHTML=`<tr><th>เลขออเดอร์</th><th>SKU (จำนวน)</th><th class="num">ชิ้นรวม</th><th class="num">ต้นทุนออเดอร์</th></tr>`;
     let rows=costOrders.map(o=>{
       const qty=o.items.reduce((a,b)=>a+b.qty,0);
       const cost=o.items.reduce((a,b)=>a+((costMap[b.sku]||0)*b.qty),0);
