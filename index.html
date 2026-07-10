@@ -44,6 +44,10 @@
   .tab:hover{color:var(--navy)}
   .tab.active{color:var(--navy);border-bottom-color:var(--red)}
   .page.hidden{display:none}
+  .cost-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .cost-actions .db-info{font-size:13px;color:var(--muted);font-weight:500}
+  .cost-actions .db-info b{color:var(--navy)}
 
   /* หน้าขนส่ง */
   .ship-up .up-s{max-width:none}
@@ -293,27 +297,29 @@
 
   <!-- ============ หน้า: คำนวนต้นทุน ============ -->
   <div id="page-cost" class="page hidden">
-    <div class="section-label"><span class="n">1</span> อัปโหลดไฟล์ออเดอร์ + ไฟล์ต้นทุน</div>
+    <div class="section-label"><span class="n">1</span> อัปโหลดไฟล์ออเดอร์จาก JST</div>
     <input type="file" id="costOrderInput" accept=".xlsx,.xls,.csv" class="hidden">
     <input type="file" id="costRefInput" accept=".xlsx,.xls,.csv" class="hidden">
     <div class="uploaders">
       <button class="up-card" id="costOrderCard" style="border-top-color:var(--navy)">
         <span class="up-plus">＋</span>
         <span class="up-ico">🧾</span>
-        <span class="up-t">อัพไฟล์ออเดอร์ (MainOrder)</span>
+        <span class="up-t">อัพไฟล์ออเดอร์ (JST)</span>
         <span class="up-s">แยก SKU + จำนวนจากคอลัมน์ “สินค้า”</span>
-      </button>
-      <button class="up-card" id="costRefCard" style="border-top-color:var(--red)">
-        <span class="up-plus">＋</span>
-        <span class="up-ico">🏷️</span>
-        <span class="up-t">อัพไฟล์ต้นทุน (SKU → ราคาทุน)</span>
-        <span class="up-s">ตารางเทียบต้นทุนต่อชิ้น · อัพเมื่อมีไฟล์</span>
       </button>
     </div>
     <div class="files" id="costFileList"></div>
 
+    <div class="section-label" style="margin-top:24px"><span class="n">2</span> คำนวนต้นทุนจากฐานข้อมูล</div>
+    <div class="cost-actions">
+      <button class="btn btn-primary" id="computeCostBtn">💰 คำนวนต้นทุน (ใช้ฐานข้อมูล)</button>
+      <span class="db-info" id="costDbInfo">ต้นทุนในฐานข้อมูล: —</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="costUpdateDbBtn">🏷️ อัพเดตต้นทุนเข้า DB</button>
+    </div>
+
     <div id="costResults" class="hidden">
-      <div class="section-label" style="margin-top:28px"><span class="n">2</span> ผลคำนวนต้นทุน</div>
+      <div class="section-label" style="margin-top:28px"><span class="n">3</span> ผลคำนวนต้นทุน</div>
       <div class="summary" id="costSummary"></div>
 
       <div class="toolbar">
@@ -754,6 +760,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     ['acc','ship','cost'].forEach(p=>{
       document.getElementById('page-'+p).classList.toggle('hidden', p!==pg);
     });
+    if(pg==='cost') refreshCostDbCount();
   };
 });
 
@@ -911,7 +918,13 @@ let costMap = {};      // {SKU: unitCost}
 let costRefName = '';
 const PRODUCT_NAMES=['สินค้า','product','items','sku','รายการสินค้า'];
 const COST_SKU_NAMES=['sku','รหัสสินค้า','รหัส','sku code','seller sku','บาร์โค้ด','product code','รหัส sku'];
-const COST_VAL_NAMES=['ต้นทุน','ราคาทุน','cost','unit cost','ทุน','ราคาต้นทุน','ต้นทุนต่อชิ้น','ต้นทุน/ชิ้น'];
+const COST_VAL_NAMES=['ต้นทุนรวมส่ง +5%','ต้นทุนรวมส่ง+5%','ต้นทุนรวมส่ง','ราคาทุน','ต้นทุนต่อชิ้น','ต้นทุน/ชิ้น','ต้นทุน','ราคาต้นทุน','cost','unit cost','ทุน'];
+// หาคอลัมน์ต้นทุน: ให้ความสำคัญคอลัมน์ที่มี "+5%" ก่อน แล้วค่อย generic
+function findCostCol(header){
+  let i = header.findIndex(h=>norm(h).replace(/\s/g,'').includes('+5%'));
+  if(i!==-1) return i;
+  return findColBy(header, COST_VAL_NAMES);
+}
 
 // แยก SKU + จำนวนจากสตริงออเดอร์  (คั่นด้วย / หรือ , · *n1*n2 = n1+n2 · [ของแถม]=ของแถม)
 function parseSkuString(s){
@@ -953,42 +966,99 @@ async function handleCostOrder(file){
     }
     if(!best.length){ toast('ไม่พบคอลัมน์ "สินค้า" ในไฟล์',true); return; }
     costOrders=best;
-    toast('แยก SKU จาก '+fmtInt(best.length)+' ออเดอร์แล้ว');
-    renderCostFiles(file.name); renderCost();
-    $('costResults').classList.remove('hidden');
+    toast('แยก SKU จาก '+fmtInt(best.length)+' ออเดอร์แล้ว — กดคำนวนต้นทุนได้เลย');
+    renderCostFiles(file.name);
+    $('costResults').classList.add('hidden');   // รอกดคำนวน
   }catch(err){ toast('อ่านไฟล์ไม่ได้',true); console.error(err); }
 }
 
-async function handleCostRef(file){
+// อ่านไฟล์ต้นทุน → upsert เข้าตาราง sku_cost (ต้นทุนรวมส่ง +5%)
+async function importCostToDB(file){
+  if(!dbReady()) return;
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array'});
-    let map={},found=0;
+    let bestCand=null;
     for(const sn of wb.SheetNames){
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
       let hr=-1,si=-1,ci=-1;
       for(let r=0;r<Math.min(aoa.length,20);r++){
-        const s=findColBy(aoa[r]||[],COST_SKU_NAMES), c=findColBy(aoa[r]||[],COST_VAL_NAMES);
+        const s=findColBy(aoa[r]||[],COST_SKU_NAMES), c=findCostCol(aoa[r]||[]);
         if(s!==-1 && c!==-1){ hr=r; si=s; ci=c; break; }
       }
       if(hr===-1) continue;
+      const plus5=norm(aoa[hr][ci]).replace(/\s/g,'').includes('+5%');
+      const rows=[]; const seen=new Set();
       for(let r=hr+1;r<aoa.length;r++){
-        const row=aoa[r]||[]; const sku=norm(row[si]); if(!sku) continue;
-        const cost=toNum(row[ci]); if(cost!=null){ map[sku]=cost; found++; }
+        const row=aoa[r]||[]; const sku=norm(row[si]); if(!sku||seen.has(sku)) continue;
+        const cost=toNum(row[ci]); if(cost==null) continue;
+        seen.add(sku); rows.push({sku, cost});
       }
-      if(found) break;
+      if(!rows.length) continue;
+      const cand={rows,plus5,name:sn};
+      if(!bestCand || (cand.plus5 && !bestCand.plus5) ||
+         (cand.plus5===bestCand.plus5 && cand.rows.length>bestCand.rows.length)) bestCand=cand;
     }
-    if(!found){ toast('ไม่พบคอลัมน์ SKU + ต้นทุน ในไฟล์ — ส่งไฟล์ตัวอย่างมาให้ปรับ matcher ได้',true); return; }
-    costMap=map; costRefName=file.name;
-    toast('โหลดต้นทุน '+fmtInt(found)+' SKU แล้ว');
-    renderCostFiles(); renderCost();
-  }catch(err){ toast('อ่านไฟล์ต้นทุนไม่ได้',true); console.error(err); }
+    if(!bestCand){ toast('ไม่พบคอลัมน์ SKU + ต้นทุน ในไฟล์',true); return; }
+    const btn=$('costUpdateDbBtn'); btn.disabled=true; const lb=btn.textContent;
+    const CH=1000; let done=0;
+    for(let i=0;i<bestCand.rows.length;i+=CH){
+      const chunk=bestCand.rows.slice(i,i+CH).map(r=>({sku:r.sku, cost:r.cost, updated_at:new Date().toISOString()}));
+      const {error}=await sb.from('sku_cost').upsert(chunk,{onConflict:'sku'});
+      if(error) throw error;
+      done+=chunk.length; btn.textContent=`อัพเดต ${fmtInt(done)}/${fmtInt(bestCand.rows.length)}...`;
+    }
+    btn.disabled=false; btn.textContent=lb;
+    toast(`อัพเดตต้นทุนเข้า DB ${fmtInt(bestCand.rows.length)} SKU`+(bestCand.plus5?' (+5%)':'')+' แล้ว');
+    costMap={};              // เคลียร์ cache → คำนวนครั้งหน้าดึงค่าใหม่
+    refreshCostDbCount();
+  }catch(err){ toast('อัพเดตต้นทุนไม่สำเร็จ: '+(err.message||err),true); console.error(err);
+    const btn=$('costUpdateDbBtn'); btn.disabled=false; }
+}
+
+// โหลดต้นทุนทั้งหมดจาก DB (แบ่งหน้า 1000)
+async function loadCostFromDB(){
+  try{
+    let map={}, from=0; const page=1000;
+    while(true){
+      const {data,error}=await sb.from('sku_cost').select('sku,cost').range(from,from+page-1);
+      if(error) throw error;
+      (data||[]).forEach(r=>{ if(r.sku!=null) map[norm(r.sku)]=r.cost; });
+      if(!data || data.length<page) break;
+      from+=page;
+    }
+    costMap=map; return true;
+  }catch(err){ toast('โหลดต้นทุนจาก DB ไม่สำเร็จ: '+(err.message||err),true); console.error(err); return false; }
+}
+
+// นับจำนวน SKU ที่มีต้นทุนใน DB
+async function refreshCostDbCount(){
+  if(!sb){ $('costDbInfo').innerHTML='ต้นทุนในฐานข้อมูล: <b>ยังไม่ได้ตั้งค่า Supabase</b>'; return; }
+  try{
+    const {count,error}=await sb.from('sku_cost').select('*',{count:'exact',head:true});
+    if(error) throw error;
+    $('costDbInfo').innerHTML=`ต้นทุนในฐานข้อมูล: <b>${fmtInt(count||0)}</b> SKU`;
+  }catch(err){ $('costDbInfo').innerHTML='ต้นทุนในฐานข้อมูล: <b>อ่านไม่ได้</b>'; console.error(err); }
+}
+
+// กดคำนวน: โหลดต้นทุนจาก DB (ถ้ายังไม่โหลด) → คำนวน → แสดงผล
+async function computeCost(){
+  if(!costOrders.length){ toast('อัพไฟล์ออเดอร์จาก JST ก่อน',true); return; }
+  if(!dbReady()) return;
+  const btn=$('computeCostBtn'); btn.disabled=true; const lb=btn.textContent;
+  btn.textContent='กำลังโหลดต้นทุนจาก DB...';
+  try{
+    if(!Object.keys(costMap).length){ const ok=await loadCostFromDB(); if(!ok){ return; } }
+    renderCost();
+    $('costResults').classList.remove('hidden');
+    $('costResults').scrollIntoView({behavior:'smooth',block:'start'});
+    toast('คำนวนต้นทุนเสร็จ');
+  } finally { btn.disabled=false; btn.textContent=lb; }
 }
 
 function renderCostFiles(orderName){
   const parts=[];
-  if(costOrders.length) parts.push(`<div class="fcard"><span class="status-dot" style="background:var(--navy)"></span><div class="fname">ไฟล์ออเดอร์<div class="fmeta">${fmtInt(costOrders.length)} ออเดอร์</div></div><span class="badge" style="background:var(--navy)">ออเดอร์</span></div>`);
-  if(Object.keys(costMap).length) parts.push(`<div class="fcard"><span class="status-dot" style="background:var(--red)"></span><div class="fname">${costRefName||'ไฟล์ต้นทุน'}<div class="fmeta">${fmtInt(Object.keys(costMap).length)} SKU มีต้นทุน</div></div><span class="badge" style="background:var(--red)">ต้นทุน</span></div>`);
+  if(costOrders.length) parts.push(`<div class="fcard"><span class="status-dot" style="background:var(--navy)"></span><div class="fname">${orderName||'ไฟล์ออเดอร์'}<div class="fmeta">${fmtInt(costOrders.length)} ออเดอร์ · แยก SKU แล้ว</div></div><span class="badge" style="background:var(--navy)">ออเดอร์ JST</span></div>`);
   $('costFileList').innerHTML=parts.join('');
 }
 
@@ -1052,9 +1122,10 @@ function renderCost(){
   }
 }
 $('costOrderCard').onclick=()=>$('costOrderInput').click();
-$('costRefCard').onclick=()=>$('costRefInput').click();
+$('costUpdateDbBtn').onclick=()=>$('costRefInput').click();
 $('costOrderInput').onchange=e=>{ if(e.target.files[0]) handleCostOrder(e.target.files[0]); e.target.value=''; };
-$('costRefInput').onchange=e=>{ if(e.target.files[0]) handleCostRef(e.target.files[0]); e.target.value=''; };
+$('costRefInput').onchange=e=>{ if(e.target.files[0]) importCostToDB(e.target.files[0]); e.target.value=''; };
+$('computeCostBtn').onclick=computeCost;
 $('costSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderCost,200); };
 $('costView').onchange=renderCost;
 $('costOnlyUnmatched').onchange=renderCost;
