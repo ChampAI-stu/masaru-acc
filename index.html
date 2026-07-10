@@ -10,31 +10,47 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --navy:#1F3864; --blue:#2E75B6; --gold:#C9A84C; --red:#D81F2C;
-    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f4f6fa; --card:#ffffff;
+    --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
+    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f3f5f9; --card:#ffffff;
     --tiktok:#111827; --shopee:#ee4d2d; --lazada:#0f146d;
-    --shadow:0 1px 3px rgba(31,56,100,.08),0 8px 24px rgba(31,56,100,.06);
+    --shadow:0 1px 3px rgba(22,35,63,.08),0 10px 26px rgba(22,35,63,.07);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'IBM Plex Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.5;font-size:14px}
   .wrap{max-width:1320px;margin:0 auto;padding:0 20px}
 
-  /* Header */
-  header{background:var(--navy);color:#fff;padding:18px 0}
-  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-  .brand{display:flex;align-items:center;gap:12px}
-  .brand .mark{width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--navy));
-    border:1.5px solid var(--gold);display:grid;place-items:center;font-weight:700;color:var(--gold);font-size:18px}
-  .brand h1{font-size:17px;font-weight:600;letter-spacing:.2px}
-  .brand p{font-size:12px;color:#a9bde0;font-weight:400}
-  .head-badge{font-size:11px;color:#a9bde0;border:1px solid #3a5488;padding:5px 11px;border-radius:20px}
+  /* Header — MASARU racing brand */
+  header{background:var(--navy-deep);color:#fff;padding:20px 0;position:relative;overflow:hidden;
+    border-bottom:3px solid var(--red)}
+  header::before{content:"";position:absolute;top:-40%;right:-4%;width:230px;height:200%;
+    background:repeating-linear-gradient(115deg,transparent 0 18px,rgba(216,31,44,.10) 18px 24px);
+    transform:skewX(-16deg);pointer-events:none}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:relative}
+  .brand{display:flex;align-items:center;gap:14px}
+  /* badge สี่เหลี่ยมเฉียง + stripes + ม */
+  .brand .mark{width:48px;height:48px;border-radius:11px;background:var(--navy);
+    border:1.5px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;gap:3px;
+    box-shadow:inset 0 0 0 1px rgba(216,31,44,.25);flex:none}
+  .brand .mark .mk-stripes{display:flex;gap:2px;transform:skewX(-16deg)}
+  .brand .mark .mk-stripes i{width:3px;height:20px;background:var(--red);display:block}
+  .brand .mark .mk-char{font-weight:700;font-style:italic;font-size:22px;color:#fff;line-height:1;margin-left:1px}
+  /* wordmark เอียงสไตล์สปีด */
+  .wordmark{display:flex;align-items:center;gap:10px}
+  .wordmark .stripes{display:flex;gap:3px;transform:skewX(-18deg)}
+  .wordmark .stripes i{width:5px;height:24px;display:block;background:var(--red)}
+  .wordmark .stripes i:nth-child(1){opacity:.55}
+  .wordmark .stripes i:nth-child(2){opacity:.8}
+  .wordmark .wm-name{font-size:26px;font-weight:700;font-style:italic;letter-spacing:1px;line-height:1}
+  .brand .tag{font-size:11px;color:#9db0d4;font-weight:500;letter-spacing:2px;margin-top:5px}
+  .head-badge{font-size:11px;color:#9db0d4;border:1px solid #33507f;padding:6px 12px;border-radius:20px;position:relative}
 
   main{padding:26px 0 60px}
   .section-label{font-size:12px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;
     color:var(--muted);display:flex;align-items:center;gap:9px;margin:0 0 12px}
   .section-label .n{width:20px;height:20px;border-radius:6px;background:var(--navy);color:#fff;
-    display:grid;place-items:center;font-size:11px;font-family:'IBM Plex Mono',monospace}
+    display:grid;place-items:center;font-size:11px;font-family:'IBM Plex Mono',monospace;
+    box-shadow:inset 2.5px 0 0 var(--red);font-style:italic}
 
   /* Uploaders — เลือกประเภทก่อน แล้วค่อยอัพ */
   .uploaders{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
@@ -48,7 +64,7 @@
   .up-card .up-ico{font-size:26px}
   .up-card .up-t{font-size:15px;font-weight:600}
   .up-card .up-s{font-size:12px;color:var(--muted)}
-  .up-card .up-plus{position:absolute;top:14px;right:16px;font-size:20px;color:var(--muted);font-weight:400}
+  .up-card .up-plus{position:absolute;top:14px;right:16px;font-size:20px;color:var(--red);font-weight:400}
 
   /* File cards */
   .files{margin-top:16px;display:grid;gap:10px}
@@ -66,7 +82,7 @@
     cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .btn-primary{background:var(--navy);color:#fff} .btn-primary:hover:not(:disabled){background:#162a4e}
-  .btn-gold{background:var(--gold);color:#3a2f10} .btn-gold:hover:not(:disabled){background:#b8963d}
+  .btn-gold{background:var(--red);color:#fff} .btn-gold:hover:not(:disabled){background:var(--red-dk)}
   .btn-ghost{background:#fff;color:var(--muted);border:1px solid var(--line)} .btn-ghost:hover{background:#f4f6fa}
   .btn-sm{padding:7px 12px;font-size:12px}
   .icon-btn{background:none;border:none;cursor:pointer;color:#c0392b;font-size:18px;padding:2px 6px;line-height:1}
@@ -77,7 +93,7 @@
   .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0 16px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 16px;box-shadow:var(--shadow);
     border-left:4px solid var(--blue)}
-  .stat.g{border-left-color:var(--gold)} .stat.n{border-left-color:var(--navy)} .stat.r{border-left-color:var(--red)}
+  .stat.g{border-left-color:var(--blue)} .stat.n{border-left-color:var(--navy)} .stat.r{border-left-color:var(--red)}
   .stat .k{font-size:12px;color:var(--muted);font-weight:500}
   .stat .v{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:3px}
 
@@ -101,7 +117,7 @@
   tbody tr:hover{background:#f7faff}
   td.num{text-align:right;font-family:'IBM Plex Mono',monospace}
   td.num.neg{color:var(--red)}
-  .grp-a{border-left:3px solid var(--blue)} .grp-b{border-left:3px solid var(--gold)}
+  .grp-a{border-left:3px solid var(--navy)} .grp-b{border-left:3px solid var(--red)}
   .tag{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:6px;color:#fff}
   .tag.tiktok{background:var(--tiktok)} .tag.shopee{background:var(--shopee)} .tag.lazada{background:var(--lazada)}
   .ord{font-family:'IBM Plex Mono',monospace;font-weight:500}
@@ -128,13 +144,19 @@
 <header>
   <div class="wrap">
     <div class="brand">
-      <div class="mark">M</div>
+      <div class="mark">
+        <span class="mk-stripes"><i></i><i></i><i></i></span>
+        <span class="mk-char">ม</span>
+      </div>
       <div>
-        <h1>รวมไฟล์บัญชี · หลายแพลตฟอร์ม</h1>
-        <p>MASARU · TikTok Shop / Shopee / Lazada</p>
+        <div class="wordmark">
+          <span class="stripes"><i></i><i></i><i></i></span>
+          <span class="wm-name">มาซารุ</span>
+        </div>
+        <div class="tag">MASARU POWERTOOLS · รวมไฟล์บัญชีหลายแพลตฟอร์ม</div>
       </div>
     </div>
-    <span class="head-badge">ประมวลผลในเครื่องคุณ · ไม่มีการอัปโหลดข้อมูลออกนอก</span>
+    <span class="head-badge">ประมวลผลในเครื่องคุณ · ข้อมูลไม่ออกนอก</span>
   </div>
 </header>
 
@@ -499,7 +521,7 @@ function renderSummary(){
     <div class="stat"><div class="k">ออเดอร์ไม่ซ้ำ</div><div class="v">${fmtInt(orders.size)}</div></div>
     <div class="stat g"><div class="k">รวมยอดเงิน</div><div class="v">${fmtNum(totAmt)}</div></div>
     <div class="stat r"><div class="k">ตัดยอดติดลบออก</div><div class="v">${fmtInt(totNeg)}</div></div>
-    <div class="stat" style="grid-column:1/-1;border-left-color:var(--gold)">
+    <div class="stat" style="grid-column:1/-1;border-left-color:var(--red)">
       <div class="k">แยกตามแพลตฟอร์ม</div><div class="v" style="font-size:15px">${platStr}</div></div>`;
 }
 
