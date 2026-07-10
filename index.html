@@ -48,6 +48,7 @@
     border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
   .cost-actions .db-info{font-size:13px;color:var(--muted);font-weight:500}
   .cost-actions .db-info b{color:var(--navy)}
+  .dbcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
 
   /* หน้าขนส่ง */
   .ship-up .up-s{max-width:none}
@@ -193,6 +194,7 @@
   <button class="tab active" data-page="acc">📊 รวมไฟล์บัญชี</button>
   <button class="tab" data-page="ship">🚚 ลิสเลขพัสดุ (ขนส่ง)</button>
   <button class="tab" data-page="cost">💰 คำนวนต้นทุน</button>
+  <button class="tab" data-page="db">🗄️ ฐานข้อมูล</button>
 </div></div>
 
 <main class="wrap">
@@ -314,7 +316,6 @@
   <div id="page-cost" class="page hidden">
     <div class="section-label"><span class="n">1</span> อัปโหลดไฟล์ออเดอร์จาก JST</div>
     <input type="file" id="costOrderInput" accept=".xlsx,.xls,.csv" class="hidden">
-    <input type="file" id="costRefInput" accept=".xlsx,.xls,.csv" class="hidden">
     <div class="uploaders">
       <button class="up-card" id="costOrderCard" style="border-top-color:var(--navy)">
         <span class="up-plus">＋</span>
@@ -328,10 +329,7 @@
     <div class="section-label" style="margin-top:24px"><span class="n">2</span> คำนวนต้นทุนจากฐานข้อมูล</div>
     <div class="cost-actions">
       <button class="btn btn-primary" id="computeCostBtn">💰 คำนวนต้นทุน (ใช้ฐานข้อมูล)</button>
-      <span class="db-info" id="costDbInfo">ต้นทุนในฐานข้อมูล: —</span>
-      <span style="flex:1"></span>
-      <button class="btn btn-ghost btn-sm" id="costManageBtn">🗂️ จัดการฐานข้อมูล</button>
-      <button class="btn btn-ghost btn-sm" id="costUpdateDbBtn">🏷️ อัพเดตต้นทุนเข้า DB</button>
+      <span class="db-info">ดึงต้นทุนจากแท็บ <b>🗄️ ฐานข้อมูล</b> · ของแถมคิดต้นทุนด้วย</span>
     </div>
 
     <div id="costResults" class="hidden">
@@ -356,15 +354,20 @@
       <div class="pager"><span class="info" id="costInfo"></span></div>
     </div>
   </div><!-- /page-cost -->
-</main>
 
-<div id="costModal" class="modal-ov hidden">
-  <div class="modal">
-    <div class="modal-head">
-      <span>🗂️ จัดการฐานข้อมูลต้นทุน (sku_cost)</span>
-      <button class="modal-x" id="costModalClose">✕</button>
+  <!-- ============ หน้า: ฐานข้อมูล (ต้นทุนสินค้า) ============ -->
+  <div id="page-db" class="page hidden">
+    <input type="file" id="costRefInput" accept=".xlsx,.xls,.csv" class="hidden">
+    <div class="section-label"><span class="n">DB</span> ฐานข้อมูลต้นทุนสินค้า (sku_cost)</div>
+    <div class="cost-actions">
+      <span class="db-info" id="costDbInfo">ต้นทุนในฐานข้อมูล: —</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="dbRefreshBtn">🔄 รีเฟรช</button>
+      <button class="btn btn-primary btn-sm" id="costUpdateDbBtn">🏷️ อัพเดตต้นทุนเข้า DB (จากไฟล์)</button>
     </div>
-    <div class="modal-body">
+
+    <div class="section-label" style="margin-top:22px"><span class="n">＋</span> เพิ่ม / แก้ไข / ลบ รายการ</div>
+    <div class="dbcard">
       <div class="add-row">
         <input id="mSku" placeholder="SKU เช่น PTB10-2040">
         <input id="mCost" type="number" step="any" placeholder="ต้นทุน (+5%)">
@@ -374,14 +377,14 @@
         <span class="si">🔍</span>
         <input type="text" id="mSearch" placeholder="ค้นหา SKU เพื่อแก้ไข/ลบ ...">
       </div>
-      <div class="tbl-wrap" style="max-height:48vh;border-radius:10px">
-        <table><thead><tr><th>SKU</th><th style="width:130px">ต้นทุน</th><th style="width:110px">จัดการ</th></tr></thead>
+      <div class="tbl-wrap" style="max-height:56vh;border-radius:10px">
+        <table><thead><tr><th>SKU</th><th style="width:150px">ต้นทุน</th><th style="width:120px">จัดการ</th></tr></thead>
           <tbody id="mBody"></tbody></table>
       </div>
       <div id="mInfo" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
     </div>
-  </div>
-</div>
+  </div><!-- /page-db -->
+</main>
 
 <div class="foot">MASARU Internal Tools · ทำงานฝั่งเบราว์เซอร์ทั้งหมด ข้อมูลไม่ถูกส่งออกที่ใด</div>
 <div class="toast" id="toast"></div>
@@ -798,10 +801,11 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     const pg = t.dataset.page;
-    ['acc','ship','cost'].forEach(p=>{
+    ['acc','ship','cost','db'].forEach(p=>{
       document.getElementById('page-'+p).classList.toggle('hidden', p!==pg);
     });
     if(pg==='cost') refreshCostDbCount();
+    if(pg==='db'){ refreshCostDbCount(); $('mSearch').value=''; loadManage(''); }
   };
 });
 
@@ -1163,19 +1167,16 @@ function renderCost(){
   }
 }
 $('costOrderCard').onclick=()=>$('costOrderInput').click();
-$('costUpdateDbBtn').onclick=()=>$('costRefInput').click();
 $('costOrderInput').onchange=e=>{ if(e.target.files[0]) handleCostOrder(e.target.files[0]); e.target.value=''; };
-$('costRefInput').onchange=e=>{ if(e.target.files[0]) importCostToDB(e.target.files[0]); e.target.value=''; };
 $('computeCostBtn').onclick=computeCost;
 $('costSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderCost,200); };
 $('costView').onchange=renderCost;
 $('costOnlyUnmatched').onchange=renderCost;
 
-/* ============ จัดการฐานข้อมูลต้นทุน (เพิ่ม/แก้ไข/ลบ/ค้นหา) ============ */
+/* ============ จัดการฐานข้อมูลต้นทุน (เพิ่ม/แก้ไข/ลบ/ค้นหา) — อยู่ในแท็บ 🗄️ ฐานข้อมูล ============ */
 let mTimer=null;
-function openCostModal(){ if(!dbReady()) return; $('costModal').classList.remove('hidden'); $('mSearch').value=''; loadManage(''); }
-function closeCostModal(){ $('costModal').classList.add('hidden'); }
 async function loadManage(q){
+  if(!sb){ $('mBody').innerHTML=`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">ยังไม่ได้ตั้งค่า Supabase</td></tr>`; return; }
   try{
     let query=sb.from('sku_cost').select('sku,cost');
     if(q) query=query.ilike('sku','%'+q+'%');
@@ -1227,9 +1228,9 @@ $('mAddBtn').onclick=async ()=>{
   loadManage(norm($('mSearch').value));
 };
 $('mSearch').oninput=()=>{ clearTimeout(mTimer); mTimer=setTimeout(()=>loadManage(norm($('mSearch').value)),260); };
-$('costManageBtn').onclick=openCostModal;
-$('costModalClose').onclick=closeCostModal;
-$('costModal').onclick=e=>{ if(e.target.id==='costModal') closeCostModal(); };
+$('dbRefreshBtn').onclick=()=>{ refreshCostDbCount(); loadManage(norm($('mSearch').value)); };
+$('costUpdateDbBtn').onclick=()=>$('costRefInput').click();
+$('costRefInput').onchange=e=>{ if(e.target.files[0]) importCostToDB(e.target.files[0]); e.target.value=''; };
 $('costExportBtn').onclick=()=>{
   if(!costOrders.length){ toast('ยังไม่มีข้อมูล',true); return; }
   const agg=costSkuAgg();
