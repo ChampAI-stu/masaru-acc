@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
@@ -222,6 +223,7 @@
       </select>
       <button class="btn btn-gold btn-sm" id="exportAllBtn">⬇️ ส่งออกทั้งหมด</button>
       <button class="btn btn-ghost btn-sm" id="exportFilteredBtn" style="display:none">ส่งออกเฉพาะที่กรอง</button>
+      <button class="btn btn-primary btn-sm" id="saveDbBtn">💾 บันทึกลง DB</button>
     </div>
     <div class="tbl-wrap">
       <table id="dataTbl">
@@ -270,6 +272,7 @@
         <label class="chk"><input type="checkbox" id="shipDedup" checked> ตัดเลขซ้ำ</label>
         <button class="btn btn-primary btn-sm" id="shipCopyBtn">📋 คัดลอกทั้งหมด</button>
         <button class="btn btn-gold btn-sm" id="shipExportBtn">⬇️ ส่งออก Excel</button>
+        <button class="btn btn-primary btn-sm" id="shipSaveDbBtn">💾 บันทึกลง DB</button>
       </div>
 
       <div class="ship-split">
@@ -292,6 +295,22 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ============================================================
+   ⚙️ ตั้งค่า SUPABASE — ใส่ค่า 2 บรรทัดนี้ (Supabase → Settings → API)
+   ============================================================ */
+const SUPABASE_URL      = 'https://lcimzrwawxdagfpayoit.supabase.co';   // Project URL
+const SUPABASE_ANON_KEY = 'sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';   // publishable key (ปลอดภัยฝั่ง client)
+
+let sb = null;
+if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+  try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+  catch (e) { console.error('Supabase init error', e); }
+}
+function dbReady(){
+  if(!sb){ toast('ยังไม่ได้ตั้งค่า Supabase — ใส่ URL + anon key ในไฟล์ (บรรทัดบนสุดของ script)', true); return false; }
+  return true;
+}
+
 /* ============ ตั้งค่าการจับแพลตฟอร์ม + แม็ปคอลัมน์ (อ้างอิงชื่อหัวคอลัมน์ ไม่ยึดตำแหน่ง) ============ */
 const norm = s => String(s == null ? '' : s).replace(/\s+/g,' ').trim();
 
@@ -701,6 +720,7 @@ function findColBy(header, cands){
 }
 const TRACK_NAMES=['tracking number','tracking no','tracking','เลขพัสดุ','เลขติดตาม','เลขแทรค'];
 const ORDER_NAMES=['order no','order number','order','เลขออเดอร์','รหัสคำสั่งซื้อ','หมายเลขคำสั่งซื้อ'];
+const PICKUP_NAMES=['pickup date','วันที่รับ','วันรับพัสดุ','วันที่'];
 
 async function handleShipFiles(fileArr){
   let all=[], names=[];
@@ -711,10 +731,10 @@ async function handleShipFiles(fileArr){
       let best=[];
       for(const sn of wb.SheetNames){
         const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
-        let hr=-1,ti=-1,oi=-1;
+        let hr=-1,ti=-1,oi=-1,pi=-1;
         for(let r=0;r<Math.min(aoa.length,20);r++){
           const t=findColBy(aoa[r]||[],TRACK_NAMES);
-          if(t!==-1){ hr=r; ti=t; oi=findColBy(aoa[r]||[],ORDER_NAMES); break; }
+          if(t!==-1){ hr=r; ti=t; oi=findColBy(aoa[r]||[],ORDER_NAMES); pi=findColBy(aoa[r]||[],PICKUP_NAMES); break; }
         }
         if(hr===-1) continue;
         const rows=[];
@@ -722,7 +742,7 @@ async function handleShipFiles(fileArr){
           const row=aoa[r]||[];
           const tr=norm(row[ti]);
           if(!tr) continue;
-          rows.push({tracking:tr, order: oi>=0?norm(row[oi]):''});
+          rows.push({tracking:tr, order: oi>=0?norm(row[oi]):'', pickup: pi>=0?norm(row[pi]):''});
         }
         if(rows.length>best.length) best=rows;
       }
@@ -786,6 +806,57 @@ $('shipExportBtn').onclick = ()=>{
   const d=new Date(); const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   XLSX.writeFile(wb,`MASARU_เลขพัสดุ_${stamp}.xlsx`);
   toast('ส่งออก '+fmtInt(rows.length)+' เลขแล้ว');
+};
+
+/* ============ บันทึกลงฐานข้อมูล (Supabase) ============ */
+// หน้าบัญชี: สร้าง batch ใน acc_imports แล้ว insert แถวลง acc_transactions แบบ chunk
+$('saveDbBtn').onclick = async ()=>{
+  if(!dbReady()) return;
+  if(!merged.length){ toast('ยังไม่มีข้อมูลให้บันทึก',true); return; }
+  const btn=$('saveDbBtn'); btn.disabled=true; const label=btn.textContent;
+  try{
+    const byPlat={}; merged.forEach(r=>byPlat[r.platform]=(byPlat[r.platform]||0)+1);
+    const totAmt=merged.reduce((a,r)=>a+(r.amount||0),0);
+    const totNeg=loadedFiles.reduce((a,f)=>a+(f.negRemoved||0),0);
+    const {data:imp,error:e1}=await sb.from('acc_imports')
+      .insert({platform_counts:byPlat, total_rows:merged.length, total_amount:totAmt, neg_removed:totNeg})
+      .select().single();
+    if(e1) throw e1;
+    const CH=1000; let done=0;
+    for(let i=0;i<merged.length;i+=CH){
+      const chunk=merged.slice(i,i+CH).map(r=>({
+        import_id:imp.id, platform:r.platform, order_no:r.order, txn_date:r.date, txn_type:r.type,
+        sku:r.sku, amount:r.amount, revenue:r.revenue, fees:r.fees, vat:r.vat, wht:r.wht, status:r.status, note:r.note
+      }));
+      const {error:e2}=await sb.from('acc_transactions').insert(chunk);
+      if(e2) throw e2;
+      done+=chunk.length; btn.textContent=`บันทึก ${fmtInt(done)}/${fmtInt(merged.length)}...`;
+    }
+    toast(`บันทึกลง DB สำเร็จ ${fmtInt(merged.length)} แถว`);
+  }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||err), true); }
+  finally{ btn.disabled=false; btn.textContent=label; }
+};
+
+// หน้าขนส่ง: upsert เลขพัสดุ (unique tracking_number → กันซ้ำข้ามวันอัตโนมัติ)
+$('shipSaveDbBtn').onclick = async ()=>{
+  if(!dbReady()) return;
+  const rows=shipFiltered();
+  if(!rows.length){ toast('ยังไม่มีเลขพัสดุให้บันทึก',true); return; }
+  const btn=$('shipSaveDbBtn'); btn.disabled=true; const label=btn.textContent;
+  try{
+    const CH=1000; let inserted=0;
+    for(let i=0;i<rows.length;i+=CH){
+      const chunk=rows.slice(i,i+CH).map(r=>({tracking_number:r.tracking, order_no:r.order, pickup_date:r.pickup||null, source_file:'upload'}));
+      const {data,error}=await sb.from('shipment_tracking')
+        .upsert(chunk,{onConflict:'tracking_number', ignoreDuplicates:true}).select();
+      if(error) throw error;
+      inserted += (data?data.length:0);
+      btn.textContent=`บันทึก ${fmtInt(Math.min(i+CH,rows.length))}/${fmtInt(rows.length)}...`;
+    }
+    const dup=rows.length-inserted;
+    toast(`บันทึกใหม่ ${fmtInt(inserted)} เลข · ซ้ำเดิมข้าม ${fmtInt(dup)}`);
+  }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||err), true); }
+  finally{ btn.disabled=false; btn.textContent=label; }
 };
 </script>
 </body>
