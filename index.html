@@ -1057,6 +1057,7 @@ async function importCostToDB(file){
     toast(`อัพเดตต้นทุนเข้า DB ${fmtInt(bestCand.rows.length)} SKU`+(bestCand.plus5?' (+5%)':'')+' แล้ว');
     costMap={};              // เคลียร์ cache → คำนวนครั้งหน้าดึงค่าใหม่
     refreshCostDbCount();
+    loadManage(norm($('mSearch').value));   // รีโหลดตารางให้เห็นทันที
   }catch(err){ toast('อัพเดตต้นทุนไม่สำเร็จ: '+(err.message||err),true); console.error(err);
     const btn=$('costUpdateDbBtn'); btn.disabled=false; }
 }
