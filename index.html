@@ -362,7 +362,9 @@
     <div class="cost-actions">
       <span class="db-info" id="costDbInfo">ต้นทุนในฐานข้อมูล: —</span>
       <span style="flex:1"></span>
+      <label class="chk"><input type="checkbox" id="skipBundle"> ตัดคอมโบเซ็ต (SKU มี /)</label>
       <button class="btn btn-ghost btn-sm" id="dbRefreshBtn">🔄 รีเฟรช</button>
+      <button class="btn btn-ghost btn-sm" id="dbClearBtn" style="color:var(--red);border-color:var(--red)">🗑️ ลบทั้งหมด</button>
       <button class="btn btn-primary btn-sm" id="costUpdateDbBtn">🏷️ อัพเดตต้นทุนเข้า DB (จากไฟล์)</button>
     </div>
 
@@ -377,7 +379,7 @@
         <span class="si">🔍</span>
         <input type="text" id="mSearch" placeholder="ค้นหา SKU เพื่อแก้ไข/ลบ ...">
       </div>
-      <div class="tbl-wrap" style="max-height:56vh;border-radius:10px">
+      <div class="tbl-wrap" style="max-height:72vh;min-height:420px;border-radius:10px">
         <table><thead><tr><th>SKU</th><th style="width:150px">ต้นทุน</th><th style="width:120px">จัดการ</th></tr></thead>
           <tbody id="mBody"></tbody></table>
       </div>
@@ -1033,14 +1035,16 @@ async function importCostToDB(file){
       }
       if(hr===-1) continue;
       const plus5=norm(aoa[hr][ci]).replace(/\s/g,'').includes('+5%');
-      const rows=[]; const seen=new Set();
+      const skipB = $('skipBundle') && $('skipBundle').checked;
+      const rows=[]; const seen=new Set(); let skipped=0;
       for(let r=hr+1;r<aoa.length;r++){
         const row=aoa[r]||[]; const sku=norm(row[si]); if(!sku||seen.has(sku)) continue;
         const cost=toNum(row[ci]); if(cost==null) continue;
+        if(skipB && sku.includes('/')){ skipped++; continue; }   // ตัด bundle
         seen.add(sku); rows.push({sku, cost});
       }
       if(!rows.length) continue;
-      const cand={rows,plus5,name:sn};
+      const cand={rows,plus5,name:sn,skipped};
       if(!bestCand || (cand.plus5 && !bestCand.plus5) ||
          (cand.plus5===bestCand.plus5 && cand.rows.length>bestCand.rows.length)) bestCand=cand;
     }
@@ -1054,7 +1058,7 @@ async function importCostToDB(file){
       done+=chunk.length; btn.textContent=`อัพเดต ${fmtInt(done)}/${fmtInt(bestCand.rows.length)}...`;
     }
     btn.disabled=false; btn.textContent=lb;
-    toast(`อัพเดตต้นทุนเข้า DB ${fmtInt(bestCand.rows.length)} SKU`+(bestCand.plus5?' (+5%)':'')+' แล้ว');
+    toast(`อัพเดตต้นทุนเข้า DB ${fmtInt(bestCand.rows.length)} SKU`+(bestCand.plus5?' (+5%)':'')+(bestCand.skipped?` · ตัด bundle ${fmtInt(bestCand.skipped)}`:'')+' แล้ว');
     costMap={};              // เคลียร์ cache → คำนวนครั้งหน้าดึงค่าใหม่
     refreshCostDbCount();
     loadManage(norm($('mSearch').value));   // รีโหลดตารางให้เห็นทันที
@@ -1230,6 +1234,18 @@ $('mAddBtn').onclick=async ()=>{
 };
 $('mSearch').oninput=()=>{ clearTimeout(mTimer); mTimer=setTimeout(()=>loadManage(norm($('mSearch').value)),260); };
 $('dbRefreshBtn').onclick=()=>{ refreshCostDbCount(); loadManage(norm($('mSearch').value)); };
+$('dbClearBtn').onclick=async ()=>{
+  if(!dbReady()) return;
+  if(!confirm('ลบต้นทุนทั้งหมดในฐานข้อมูลใช่ไหม?\nการลบนี้ย้อนกลับไม่ได้')) return;
+  const btn=$('dbClearBtn'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังลบ...';
+  try{
+    const {error}=await sb.from('sku_cost').delete().not('sku','is',null);
+    if(error) throw error;
+    costMap={}; refreshCostDbCount(); loadManage('');
+    toast('ลบต้นทุนทั้งหมดแล้ว');
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  finally{ btn.disabled=false; btn.textContent=lb; }
+};
 $('costUpdateDbBtn').onclick=()=>$('costRefInput').click();
 $('costRefInput').onchange=e=>{ if(e.target.files[0]) importCostToDB(e.target.files[0]); e.target.value=''; };
 $('costExportBtn').onclick=()=>{
