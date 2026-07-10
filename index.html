@@ -172,6 +172,8 @@
   .add-row input:focus{outline:none;border-color:var(--blue)}
   .m-cost-inp{width:108px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;text-align:right}
   .m-cost-inp:focus{outline:none;border-color:var(--blue)}
+  .m-sku-inp{width:100%;max-width:340px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+  .m-sku-inp:focus{outline:none;border-color:var(--blue)}
   .icon-act{border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px}
   .icon-act:hover{background:#f0f3f8}
 </style>
@@ -381,7 +383,7 @@
         <input type="text" id="mSearch" placeholder="ค้นหา SKU เพื่อแก้ไข/ลบ ...">
       </div>
       <div class="tbl-wrap" style="max-height:72vh;min-height:420px;border-radius:10px">
-        <table><thead><tr><th>SKU</th><th style="width:150px">ต้นทุน</th><th style="width:120px">จัดการ</th></tr></thead>
+        <table><thead><tr><th>SKU</th><th class="num" style="width:150px">ต้นทุน</th><th style="width:120px">จัดการ</th></tr></thead>
           <tbody id="mBody"></tbody></table>
       </div>
       <div id="mInfo" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
@@ -1202,33 +1204,62 @@ async function loadManage(q){
     renderManage(all);
   }catch(err){ toast('โหลดรายการไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
-function renderManage(rows){
-  $('mBody').innerHTML = rows.length ? rows.map(r=>`<tr data-sku="${String(r.sku).replace(/"/g,'&quot;')}">
-    <td class="ord">${r.sku}</td>
-    <td><input class="m-cost-inp" type="number" step="any" value="${r.cost==null?'':r.cost}"></td>
+function mRowCells(sku, cost, editing){
+  const e = String(sku).replace(/"/g,'&quot;');
+  if(editing){
+    return `<td><input class="m-sku-inp" type="text" value="${e}"></td>
+      <td><input class="m-cost-inp" type="number" step="any" value="${cost==null?'':cost}"></td>
+      <td>
+        <button class="icon-act" data-act="save" title="บันทึก">💾</button>
+        <button class="icon-act" data-act="cancel" title="ยกเลิก" style="color:var(--muted)">✕</button>
+      </td>`;
+  }
+  return `<td class="ord">${sku}</td>
+    <td class="num">${cost==null?'—':fmtNum(cost)}</td>
     <td>
-      <button class="icon-act" data-act="save" title="บันทึกการแก้ไข">💾</button>
+      <button class="icon-act" data-act="edit" title="แก้ไข">✏️</button>
       <button class="icon-act" data-act="del" title="ลบ" style="color:var(--red)">🗑️</button>
-    </td></tr>`).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
+    </td>`;
+}
+function renderManage(rows){
+  $('mBody').innerHTML = rows.length ? rows.map(r=>
+    `<tr data-sku="${String(r.sku).replace(/"/g,'&quot;')}" data-cost="${r.cost==null?'':r.cost}">${mRowCells(r.sku,r.cost,false)}</tr>`
+  ).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
   $('mInfo').textContent = `แสดงทั้งหมด ${fmtInt(rows.length)} รายการ`;
 }
-// จัดการปุ่มด้วย event delegation (ตั้งครั้งเดียว รองรับหลายพันแถว)
+// จัดการปุ่ม (event delegation) — ดินสอ=แก้ไข, 💾=บันทึก, ✕=ยกเลิก, 🗑️=ลบ
 $('mBody').onclick=async (e)=>{
   const b=e.target.closest('.icon-act'); if(!b) return;
-  const tr=b.closest('tr'); const sku=tr.dataset.sku;
-  if(b.dataset.act==='del'){
+  const tr=b.closest('tr'); const act=b.dataset.act;
+  const sku=tr.dataset.sku;
+  const cost=tr.dataset.cost===''?null:parseFloat(tr.dataset.cost);
+  if(act==='edit'){
+    tr.innerHTML=mRowCells(sku,cost,true);
+    const ci=tr.querySelector('.m-cost-inp'); if(ci){ ci.focus(); ci.select(); }
+    return;
+  }
+  if(act==='cancel'){ tr.innerHTML=mRowCells(sku,cost,false); return; }
+  if(act==='del'){
     b.disabled=true;
     const {error}=await sb.from('sku_cost').delete().eq('sku',sku);
     if(error){ toast('ลบไม่สำเร็จ: '+error.message,true); b.disabled=false; return; }
     tr.remove(); costMap={}; refreshCostDbCount(); toast('ลบ '+sku+' แล้ว');
-  } else {
-    const val=parseFloat(tr.querySelector('.m-cost-inp').value);
-    if(isNaN(val)){ toast('ใส่ต้นทุนเป็นตัวเลข',true); return; }
+    return;
+  }
+  if(act==='save'){
+    const newSku=norm(tr.querySelector('.m-sku-inp').value);
+    const newCost=parseFloat(tr.querySelector('.m-cost-inp').value);
+    if(!newSku){ toast('SKU ห้ามว่าง',true); return; }
+    if(isNaN(newCost)){ toast('ใส่ต้นทุนเป็นตัวเลข',true); return; }
     b.disabled=true;
-    const {error}=await sb.from('sku_cost').update({cost:val,updated_at:new Date().toISOString()}).eq('sku',sku);
+    const payload={sku:newSku, cost:newCost, updated_at:new Date().toISOString()};
+    const {error}=await sb.from('sku_cost').update(payload).eq('sku',sku);
     b.disabled=false;
     if(error){ toast('บันทึกไม่สำเร็จ: '+error.message,true); return; }
-    costMap={}; toast('บันทึก '+sku+' = '+fmtNum(val)+' แล้ว');
+    tr.dataset.sku=newSku; tr.dataset.cost=newCost;
+    tr.innerHTML=mRowCells(newSku,newCost,false);
+    costMap={}; refreshCostDbCount();
+    toast('บันทึก '+newSku+' = '+fmtNum(newCost)+' แล้ว');
   }
 };
 $('mAddBtn').onclick=async ()=>{
