@@ -160,13 +160,23 @@
   .toast.err{background:var(--red)}
   .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:34px}
 
-  /* Modal จัดการฐานข้อมูล */
-  .modal-ov{position:fixed;inset:0;background:rgba(15,25,45,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
-  .modal-ov.hidden{display:none}
-  .modal{background:#fff;border-radius:16px;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-  .modal-head{background:var(--navy-deep);color:#fff;padding:15px 20px;display:flex;align-items:center;justify-content:space-between;font-weight:600;font-style:italic}
-  .modal-x{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1}
-  .modal-body{padding:18px 20px;overflow:auto}
+  /* Modal แก้ไข (สไตล์ board.html) */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;
+    align-items:flex-start;justify-content:center;z-index:200;padding:60px 16px;overflow-y:auto}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:440px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .modal-head h2{font-size:18px;font-weight:700;color:var(--navy);font-style:italic}
+  .modal-close{background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1}
+  .m-field{margin-bottom:15px}
+  .m-field label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--ink)}
+  .m-field input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box}
+  .m-field input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px #2E75B622}
+  .modal-foot{display:flex;gap:10px;margin-top:22px}
+  .btn-save{flex:1;background:var(--navy);color:#fff;border:none;padding:12px;border-radius:9px;font-family:inherit;font-weight:600;cursor:pointer;font-size:14px}
+  .btn-save:hover{background:#162a4d}
+  .btn-cancel{padding:12px 22px;background:#fff;border:1px solid var(--line);border-radius:9px;font-family:inherit;cursor:pointer;font-size:14px}
+  .btn-cancel:hover{background:#F1F5F9}
   .add-row{display:flex;gap:8px;flex-wrap:wrap}
   .add-row input{flex:1;min-width:120px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px}
   .add-row input:focus{outline:none;border-color:var(--blue)}
@@ -390,6 +400,27 @@
     </div>
   </div><!-- /page-db -->
 </main>
+
+<div class="modal-bg" id="editBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>✏️ แก้ไขต้นทุน</h2>
+      <button class="modal-close" id="editClose">&times;</button>
+    </div>
+    <div class="m-field">
+      <label>SKU</label>
+      <input type="text" id="editSku" autocomplete="off">
+    </div>
+    <div class="m-field">
+      <label>ต้นทุน (+5%)</label>
+      <input type="number" step="any" id="editCost" autocomplete="off">
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="editCancel">ยกเลิก</button>
+      <button class="btn-save" id="editSave">บันทึก</button>
+    </div>
+  </div>
+</div>
 
 <div class="foot">MASARU Internal Tools · ทำงานฝั่งเบราว์เซอร์ทั้งหมด ข้อมูลไม่ถูกส่งออกที่ใด</div>
 <div class="toast" id="toast"></div>
@@ -1204,16 +1235,7 @@ async function loadManage(q){
     renderManage(all);
   }catch(err){ toast('โหลดรายการไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
-function mRowCells(sku, cost, editing){
-  const e = String(sku).replace(/"/g,'&quot;');
-  if(editing){
-    return `<td><input class="m-sku-inp" type="text" value="${e}"></td>
-      <td><input class="m-cost-inp" type="number" step="any" value="${cost==null?'':cost}"></td>
-      <td>
-        <button class="icon-act" data-act="save" title="บันทึก">💾</button>
-        <button class="icon-act" data-act="cancel" title="ยกเลิก" style="color:var(--muted)">✕</button>
-      </td>`;
-  }
+function mRowCells(sku, cost){
   return `<td class="ord">${sku}</td>
     <td class="num">${cost==null?'—':fmtNum(cost)}</td>
     <td>
@@ -1223,43 +1245,53 @@ function mRowCells(sku, cost, editing){
 }
 function renderManage(rows){
   $('mBody').innerHTML = rows.length ? rows.map(r=>
-    `<tr data-sku="${String(r.sku).replace(/"/g,'&quot;')}" data-cost="${r.cost==null?'':r.cost}">${mRowCells(r.sku,r.cost,false)}</tr>`
+    `<tr data-sku="${String(r.sku).replace(/"/g,'&quot;')}" data-cost="${r.cost==null?'':r.cost}">${mRowCells(r.sku,r.cost)}</tr>`
   ).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
   $('mInfo').textContent = `แสดงทั้งหมด ${fmtInt(rows.length)} รายการ`;
 }
-// จัดการปุ่ม (event delegation) — ดินสอ=แก้ไข, 💾=บันทึก, ✕=ยกเลิก, 🗑️=ลบ
+
+// ---- Modal แก้ไข (สไตล์ board.html) ----
+let mEditTr=null, mEditOrigSku=null;
+function openEditModal(tr){
+  mEditTr=tr; mEditOrigSku=tr.dataset.sku;
+  $('editSku').value=tr.dataset.sku;
+  $('editCost').value=tr.dataset.cost;
+  $('editBg').classList.add('show');
+  setTimeout(()=>{ $('editCost').focus(); $('editCost').select(); },50);
+}
+function closeEditModal(){ $('editBg').classList.remove('show'); mEditTr=null; mEditOrigSku=null; }
+async function saveEditModal(){
+  if(!mEditTr) return;
+  const newSku=norm($('editSku').value);
+  const newCost=parseFloat($('editCost').value);
+  if(!newSku){ toast('SKU ห้ามว่าง',true); return; }
+  if(isNaN(newCost)){ toast('ใส่ต้นทุนเป็นตัวเลข',true); return; }
+  const btn=$('editSave'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังบันทึก...';
+  const {error}=await sb.from('sku_cost').update({sku:newSku,cost:newCost,updated_at:new Date().toISOString()}).eq('sku',mEditOrigSku);
+  btn.disabled=false; btn.textContent=lb;
+  if(error){ toast('บันทึกไม่สำเร็จ: '+error.message,true); return; }
+  mEditTr.dataset.sku=newSku; mEditTr.dataset.cost=newCost;
+  mEditTr.innerHTML=mRowCells(newSku,newCost);
+  costMap={}; refreshCostDbCount();
+  toast('บันทึก '+newSku+' = '+fmtNum(newCost)+' แล้ว');
+  closeEditModal();
+}
+$('editClose').onclick=closeEditModal;
+$('editCancel').onclick=closeEditModal;
+$('editSave').onclick=saveEditModal;
+$('editBg').onclick=e=>{ if(e.target.id==='editBg') closeEditModal(); };
+$('editCost').onkeydown=e=>{ if(e.key==='Enter') saveEditModal(); };
+
+// จัดการปุ่มในตาราง (event delegation) — ดินสอ=เปิด modal, 🗑️=ลบ
 $('mBody').onclick=async (e)=>{
   const b=e.target.closest('.icon-act'); if(!b) return;
-  const tr=b.closest('tr'); const act=b.dataset.act;
-  const sku=tr.dataset.sku;
-  const cost=tr.dataset.cost===''?null:parseFloat(tr.dataset.cost);
-  if(act==='edit'){
-    tr.innerHTML=mRowCells(sku,cost,true);
-    const ci=tr.querySelector('.m-cost-inp'); if(ci){ ci.focus(); ci.select(); }
-    return;
-  }
-  if(act==='cancel'){ tr.innerHTML=mRowCells(sku,cost,false); return; }
+  const tr=b.closest('tr'); const act=b.dataset.act; const sku=tr.dataset.sku;
+  if(act==='edit'){ openEditModal(tr); return; }
   if(act==='del'){
     b.disabled=true;
     const {error}=await sb.from('sku_cost').delete().eq('sku',sku);
     if(error){ toast('ลบไม่สำเร็จ: '+error.message,true); b.disabled=false; return; }
     tr.remove(); costMap={}; refreshCostDbCount(); toast('ลบ '+sku+' แล้ว');
-    return;
-  }
-  if(act==='save'){
-    const newSku=norm(tr.querySelector('.m-sku-inp').value);
-    const newCost=parseFloat(tr.querySelector('.m-cost-inp').value);
-    if(!newSku){ toast('SKU ห้ามว่าง',true); return; }
-    if(isNaN(newCost)){ toast('ใส่ต้นทุนเป็นตัวเลข',true); return; }
-    b.disabled=true;
-    const payload={sku:newSku, cost:newCost, updated_at:new Date().toISOString()};
-    const {error}=await sb.from('sku_cost').update(payload).eq('sku',sku);
-    b.disabled=false;
-    if(error){ toast('บันทึกไม่สำเร็จ: '+error.message,true); return; }
-    tr.dataset.sku=newSku; tr.dataset.cost=newCost;
-    tr.innerHTML=mRowCells(newSku,newCost,false);
-    costMap={}; refreshCostDbCount();
-    toast('บันทึก '+newSku+' = '+fmtNum(newCost)+' แล้ว');
   }
 };
 $('mAddBtn').onclick=async ()=>{
