@@ -1417,6 +1417,7 @@ $('costExportBtn').onclick=()=>{
 };
 /* ============ แท็บ: ออกใบเสร็จ (เทียบ JST ↔ ฟอร์ม) ============ */
 let docJst={}, docForm={}, docRows=[], docIssued={}, docJstName='', docFormName='', docJstCount=0, docFormCount=0;
+const ISSUER_ADDRESS='475/4-5 ถนนทหารบก ตำบลบ่อพลับ อำเภอเมืองนครปฐม จังหวัดนครปฐม 73000';
 function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function money(n){ const v=Number(n)||0; const s=Math.abs(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); return v<0?`(${s})`:s; }
 function docNoStr(seq){ return 'RE'+String(seq).padStart(5,'0'); }
@@ -1587,7 +1588,7 @@ function genReceipt(key){
   if(!dn){ toast('ออกเลขเอกสารก่อนจึงจะพิมพ์ใบเสร็จได้',true); return; }
   const hasShop=!!f.shop;
   const lines=f.lines.map(l=>`<tr><td class="c">${l.no}</td><td>${htmlesc(l.desc)}</td><td class="c">${fmtNum(l.qty)}</td><td class="r">${money(l.unit)}</td><td class="r">${money(l.amount)}</td></tr>`).join('');
-  const issuer=hasShop?`<div class="rcpt-block"><b>ผู้ออก / Issuer :</b> ${htmlesc(f.shop)}</div>`:'';
+  const issuer=hasShop?`<div class="rcpt-block"><div><b>ผู้ออก / Issuer :</b> ${htmlesc(f.shop)}</div><div><b>ที่อยู่ / Address :</b> ${htmlesc(ISSUER_ADDRESS)}</div></div>`:'';
   $('receiptPrint').innerHTML=`<div class="rcpt">
     <div class="rcpt-title"><h1>ใบเสร็จรับเงิน<small>Receipt</small></h1><div class="rcpt-orig">( ต้นฉบับ / Original )</div></div>
     <div class="rcpt-block">
