@@ -173,6 +173,7 @@
 <div class="tabbar"><div class="wrap tabs">
   <button class="tab active" data-page="acc">📊 รวมไฟล์บัญชี</button>
   <button class="tab" data-page="ship">🚚 ลิสเลขพัสดุ (ขนส่ง)</button>
+  <button class="tab" data-page="cost">💰 คำนวนต้นทุน</button>
 </div></div>
 
 <main class="wrap">
@@ -289,6 +290,50 @@
       </div>
     </div>
   </div><!-- /page-ship -->
+
+  <!-- ============ หน้า: คำนวนต้นทุน ============ -->
+  <div id="page-cost" class="page hidden">
+    <div class="section-label"><span class="n">1</span> อัปโหลดไฟล์ออเดอร์ + ไฟล์ต้นทุน</div>
+    <input type="file" id="costOrderInput" accept=".xlsx,.xls,.csv" class="hidden">
+    <input type="file" id="costRefInput" accept=".xlsx,.xls,.csv" class="hidden">
+    <div class="uploaders">
+      <button class="up-card" id="costOrderCard" style="border-top-color:var(--navy)">
+        <span class="up-plus">＋</span>
+        <span class="up-ico">🧾</span>
+        <span class="up-t">อัพไฟล์ออเดอร์ (MainOrder)</span>
+        <span class="up-s">แยก SKU + จำนวนจากคอลัมน์ “สินค้า”</span>
+      </button>
+      <button class="up-card" id="costRefCard" style="border-top-color:var(--red)">
+        <span class="up-plus">＋</span>
+        <span class="up-ico">🏷️</span>
+        <span class="up-t">อัพไฟล์ต้นทุน (SKU → ราคาทุน)</span>
+        <span class="up-s">ตารางเทียบต้นทุนต่อชิ้น · อัพเมื่อมีไฟล์</span>
+      </button>
+    </div>
+    <div class="files" id="costFileList"></div>
+
+    <div id="costResults" class="hidden">
+      <div class="section-label" style="margin-top:28px"><span class="n">2</span> ผลคำนวนต้นทุน</div>
+      <div class="summary" id="costSummary"></div>
+
+      <div class="toolbar">
+        <div class="search">
+          <span class="si">🔍</span>
+          <input type="text" id="costSearch" placeholder="ค้นหา SKU / เลขออเดอร์ ...">
+        </div>
+        <select id="costView">
+          <option value="sku">สรุปต่อ SKU</option>
+          <option value="order">แยกต่อออเดอร์</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="costOnlyUnmatched"> เฉพาะที่ไม่มีต้นทุน</label>
+        <button class="btn btn-gold btn-sm" id="costExportBtn">⬇️ ส่งออก Excel</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="costTbl"><thead id="costHead"></thead><tbody id="costBody"></tbody></table>
+      </div>
+      <div class="pager"><span class="info" id="costInfo"></span></div>
+    </div>
+  </div><!-- /page-cost -->
 </main>
 
 <div class="foot">MASARU Internal Tools · ทำงานฝั่งเบราว์เซอร์ทั้งหมด ข้อมูลไม่ถูกส่งออกที่ใด</div>
@@ -706,8 +751,9 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     const pg = t.dataset.page;
-    document.getElementById('page-acc').classList.toggle('hidden', pg!=='acc');
-    document.getElementById('page-ship').classList.toggle('hidden', pg!=='ship');
+    ['acc','ship','cost'].forEach(p=>{
+      document.getElementById('page-'+p).classList.toggle('hidden', p!==pg);
+    });
   };
 });
 
@@ -857,6 +903,171 @@ $('shipSaveDbBtn').onclick = async ()=>{
     toast(`บันทึกใหม่ ${fmtInt(inserted)} เลข · ซ้ำเดิมข้าม ${fmtInt(dup)}`);
   }catch(err){ console.error(err); toast('บันทึกไม่สำเร็จ: '+(err.message||err), true); }
   finally{ btn.disabled=false; btn.textContent=label; }
+};
+
+/* ============ หน้าคำนวนต้นทุน ============ */
+let costOrders = [];   // [{order, items:[{sku,qty,free}]}]
+let costMap = {};      // {SKU: unitCost}
+let costRefName = '';
+const PRODUCT_NAMES=['สินค้า','product','items','sku','รายการสินค้า'];
+const COST_SKU_NAMES=['sku','รหัสสินค้า','รหัส','sku code','seller sku','บาร์โค้ด','product code','รหัส sku'];
+const COST_VAL_NAMES=['ต้นทุน','ราคาทุน','cost','unit cost','ทุน','ราคาต้นทุน','ต้นทุนต่อชิ้น','ต้นทุน/ชิ้น'];
+
+// แยก SKU + จำนวนจากสตริงออเดอร์  (คั่นด้วย / หรือ , · *n1*n2 = n1+n2 · [ของแถม]=ของแถม)
+function parseSkuString(s){
+  const items=[];
+  String(s).split(/[/,]/).forEach(seg=>{
+    seg=norm(seg); if(!seg) return;
+    const parts=seg.split('*');
+    let code=norm(parts[0]);
+    const free=/\[[^\]]*แถม[^\]]*\]/.test(code) || code.includes('[ของแถม]');
+    code=code.replace(/\[[^\]]*\]/g,'').trim();
+    if(!code) return;
+    let qty=0;
+    for(let i=1;i<parts.length;i++){ const n=parseInt(norm(parts[i]),10); if(!isNaN(n)) qty+=n; }
+    if(qty===0) qty=1;
+    items.push({sku:code, qty, free});
+  });
+  return items;
+}
+
+async function handleCostOrder(file){
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    let best=[];
+    for(const sn of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+      let hr=-1,pi=-1,oi=-1;
+      for(let r=0;r<Math.min(aoa.length,20);r++){
+        const p=findColBy(aoa[r]||[],PRODUCT_NAMES);
+        if(p!==-1){ hr=r; pi=p; oi=findColBy(aoa[r]||[],['หมายเลขออเดอร์ภายใน','เลขออเดอร์ออนไลน์','order no','order','เลขออเดอร์']); break; }
+      }
+      if(hr===-1) continue;
+      const list=[];
+      for(let r=hr+1;r<aoa.length;r++){
+        const row=aoa[r]||[]; const prod=norm(row[pi]); if(!prod) continue;
+        list.push({order: oi>=0?norm(row[oi]):'', items: parseSkuString(prod)});
+      }
+      if(list.length>best.length) best=list;
+    }
+    if(!best.length){ toast('ไม่พบคอลัมน์ "สินค้า" ในไฟล์',true); return; }
+    costOrders=best;
+    toast('แยก SKU จาก '+fmtInt(best.length)+' ออเดอร์แล้ว');
+    renderCostFiles(file.name); renderCost();
+    $('costResults').classList.remove('hidden');
+  }catch(err){ toast('อ่านไฟล์ไม่ได้',true); console.error(err); }
+}
+
+async function handleCostRef(file){
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    let map={},found=0;
+    for(const sn of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+      let hr=-1,si=-1,ci=-1;
+      for(let r=0;r<Math.min(aoa.length,20);r++){
+        const s=findColBy(aoa[r]||[],COST_SKU_NAMES), c=findColBy(aoa[r]||[],COST_VAL_NAMES);
+        if(s!==-1 && c!==-1){ hr=r; si=s; ci=c; break; }
+      }
+      if(hr===-1) continue;
+      for(let r=hr+1;r<aoa.length;r++){
+        const row=aoa[r]||[]; const sku=norm(row[si]); if(!sku) continue;
+        const cost=toNum(row[ci]); if(cost!=null){ map[sku]=cost; found++; }
+      }
+      if(found) break;
+    }
+    if(!found){ toast('ไม่พบคอลัมน์ SKU + ต้นทุน ในไฟล์ — ส่งไฟล์ตัวอย่างมาให้ปรับ matcher ได้',true); return; }
+    costMap=map; costRefName=file.name;
+    toast('โหลดต้นทุน '+fmtInt(found)+' SKU แล้ว');
+    renderCostFiles(); renderCost();
+  }catch(err){ toast('อ่านไฟล์ต้นทุนไม่ได้',true); console.error(err); }
+}
+
+function renderCostFiles(orderName){
+  const parts=[];
+  if(costOrders.length) parts.push(`<div class="fcard"><span class="status-dot" style="background:var(--navy)"></span><div class="fname">ไฟล์ออเดอร์<div class="fmeta">${fmtInt(costOrders.length)} ออเดอร์</div></div><span class="badge" style="background:var(--navy)">ออเดอร์</span></div>`);
+  if(Object.keys(costMap).length) parts.push(`<div class="fcard"><span class="status-dot" style="background:var(--red)"></span><div class="fname">${costRefName||'ไฟล์ต้นทุน'}<div class="fmeta">${fmtInt(Object.keys(costMap).length)} SKU มีต้นทุน</div></div><span class="badge" style="background:var(--red)">ต้นทุน</span></div>`);
+  $('costFileList').innerHTML=parts.join('');
+}
+
+function costSkuAgg(){
+  const agg={};
+  costOrders.forEach(o=>o.items.forEach(it=>{
+    if(!agg[it.sku]) agg[it.sku]={sku:it.sku,qty:0,free:0};
+    agg[it.sku].qty+=it.qty; if(it.free) agg[it.sku].free+=it.qty;
+  }));
+  return Object.values(agg).map(a=>{
+    const cost=costMap[a.sku];
+    return {...a, unit:(cost==null?null:cost), total:(cost==null?null:cost*a.qty), matched:cost!=null};
+  }).sort((x,y)=>y.qty-x.qty);
+}
+function renderCost(){
+  const hasCost=Object.keys(costMap).length>0;
+  const agg=costSkuAgg();
+  const totQty=agg.reduce((a,b)=>a+b.qty,0);
+  const totCost=agg.reduce((a,b)=>a+(b.total||0),0);
+  const unmatched=agg.filter(a=>!a.matched).length;
+  $('costSummary').innerHTML=`
+    <div class="stat n"><div class="k">ออเดอร์</div><div class="v">${fmtInt(costOrders.length)}</div></div>
+    <div class="stat"><div class="k">SKU ไม่ซ้ำ</div><div class="v">${fmtInt(agg.length)}</div></div>
+    <div class="stat g"><div class="k">จำนวนชิ้นรวม</div><div class="v">${fmtInt(totQty)}</div></div>
+    <div class="stat n"><div class="k">ต้นทุนรวม</div><div class="v">${hasCost?fmtNum(totCost):'—'}</div></div>
+    <div class="stat r"><div class="k">SKU ไม่มีต้นทุน</div><div class="v">${hasCost?fmtInt(unmatched):'—'}</div></div>`;
+  const q=norm($('costSearch').value).toLowerCase();
+  const onlyUn=$('costOnlyUnmatched').checked;
+  const view=$('costView').value;
+
+  if(view==='sku'){
+    $('costHead').innerHTML=`<tr><th>SKU</th><th>จำนวน</th><th>ของแถม</th><th>ต้นทุน/ชิ้น</th><th>ต้นทุนรวม</th></tr>`;
+    let rows=agg;
+    if(onlyUn) rows=rows.filter(r=>!r.matched);
+    if(q) rows=rows.filter(r=>r.sku.toLowerCase().includes(q));
+    $('costBody').innerHTML = rows.length? rows.slice(0,1500).map(r=>`<tr>
+      <td class="ord">${r.sku}${r.matched?'':' <span style="color:var(--red);font-size:10px">●ไม่มีต้นทุน</span>'}</td>
+      <td class="num">${fmtInt(r.qty)}</td>
+      <td class="num" style="color:var(--muted)">${r.free?fmtInt(r.free):'—'}</td>
+      <td class="num">${r.unit==null?'—':fmtNum(r.unit)}</td>
+      <td class="num">${r.total==null?'—':fmtNum(r.total)}</td></tr>`).join('')
+      : `<tr><td colspan="5"><div class="empty"><div class="ico">💰</div>ไม่มีข้อมูล</div></td></tr>`;
+    $('costInfo').textContent=`${fmtInt(rows.length)} SKU`+(hasCost?` · ต้นทุนรวม ${fmtNum(rows.reduce((a,b)=>a+(b.total||0),0))} บาท`:' · ยังไม่ได้โหลดไฟล์ต้นทุน');
+  } else {
+    $('costHead').innerHTML=`<tr><th>เลขออเดอร์</th><th>SKU (จำนวน)</th><th>ชิ้นรวม</th><th>ต้นทุนออเดอร์</th></tr>`;
+    let rows=costOrders.map(o=>{
+      const qty=o.items.reduce((a,b)=>a+b.qty,0);
+      const cost=o.items.reduce((a,b)=>a+((costMap[b.sku]||0)*b.qty),0);
+      const allMatched=o.items.every(b=>costMap[b.sku]!=null);
+      return {order:o.order, items:o.items, qty, cost, allMatched};
+    });
+    if(q) rows=rows.filter(r=>(r.order+' '+r.items.map(i=>i.sku).join(' ')).toLowerCase().includes(q));
+    if(onlyUn) rows=rows.filter(r=>!r.allMatched);
+    $('costBody').innerHTML = rows.length? rows.slice(0,1000).map(r=>`<tr>
+      <td class="ord">${r.order||'-'}</td>
+      <td>${r.items.map(i=>`${i.sku}${i.free?' <span style="color:var(--red);font-size:10px">แถม</span>':''}×${i.qty}`).join(' · ')}</td>
+      <td class="num">${fmtInt(r.qty)}</td>
+      <td class="num">${hasCost?(r.allMatched?fmtNum(r.cost):'<span style="color:var(--red)">ไม่ครบ</span>'):'—'}</td></tr>`).join('')
+      : `<tr><td colspan="4"><div class="empty"><div class="ico">💰</div>ไม่มีข้อมูล</div></td></tr>`;
+    $('costInfo').textContent=`${fmtInt(rows.length)} ออเดอร์`+(rows.length>1000?' · แสดง 1,000 แถวแรก':'');
+  }
+}
+$('costOrderCard').onclick=()=>$('costOrderInput').click();
+$('costRefCard').onclick=()=>$('costRefInput').click();
+$('costOrderInput').onchange=e=>{ if(e.target.files[0]) handleCostOrder(e.target.files[0]); e.target.value=''; };
+$('costRefInput').onchange=e=>{ if(e.target.files[0]) handleCostRef(e.target.files[0]); e.target.value=''; };
+$('costSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderCost,200); };
+$('costView').onchange=renderCost;
+$('costOnlyUnmatched').onchange=renderCost;
+$('costExportBtn').onclick=()=>{
+  if(!costOrders.length){ toast('ยังไม่มีข้อมูล',true); return; }
+  const agg=costSkuAgg();
+  const aoa=[['SKU','จำนวน','ของแถม','ต้นทุน/ชิ้น','ต้นทุนรวม']];
+  agg.forEach(r=>aoa.push([r.sku,r.qty,r.free||0,r.unit,r.total]));
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:24},{wch:10},{wch:10},{wch:12},{wch:14}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'ต้นทุนต่อSKU');
+  const d=new Date(); const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb,`MASARU_ต้นทุน_${stamp}.xlsx`);
+  toast('ส่งออกแล้ว');
 };
 </script>
 </body>
