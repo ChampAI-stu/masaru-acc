@@ -60,6 +60,9 @@
   .cal-badge{font-size:11.5px;color:var(--navy);background:#eaf0fa;border-radius:6px;padding:1px 6px;align-self:flex-start}
   .cal-fee{font-size:11px;margin-top:auto}
   .cal-fee.ok{color:#0a7d33}.cal-fee.bad{color:var(--red)}.cal-fee.na{color:var(--muted)}
+  .cal-cell.bad{border-color:var(--red);background:#fdecec}
+  .cal-cell.okday{border-color:#bfe6cb}
+  .cal-cell.bad.today{box-shadow:0 0 0 2px rgba(216,31,44,.25)}
   .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--red);font-weight:700}
 
   /* ===== ตาราง ===== */
@@ -101,6 +104,7 @@
         <div class="spacer"></div>
         <span style="font-size:12.5px;color:var(--muted)">แตะวันที่เพื่ออัปโหลด/ดูข้อมูล</span>
       </div>
+      <div id="calWarn"></div>
       <div class="cal-grid" id="calDow"></div>
       <div class="cal-grid" id="calGrid" style="margin-top:8px"></div>
     </div>
@@ -141,6 +145,7 @@
         </div>
       </div>
       <div id="feeCheck" class="feebox"></div>
+      <div id="feeMsg"></div>
       <div id="dupWarn"></div>
       <div class="tbl-wrap"><table id="pvTbl"><thead id="pvHead"></thead><tbody id="pvBody"></tbody></table></div>
       <div class="row" style="margin-top:12px">
@@ -160,6 +165,7 @@
         <button class="btn btn-red btn-sm" id="dayClear">🗑️ ล้างข้อมูลวันนี้</button>
       </div>
       <div id="dayFee" class="feebox"></div>
+      <div id="dayFeeMsg"></div>
       <div id="dayDup"></div>
       <div class="tbl-wrap"><table id="dayTbl"><thead id="dayHead"></thead><tbody id="dayBody"></tbody></table></div>
       <div style="margin-top:8px;font-size:13px;color:var(--muted)" id="dayInfo"></div>
@@ -196,6 +202,17 @@ function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0
 const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const TH_DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
 function thaiDate(str){ const [y,m,d]=str.split('-').map(Number); return `${d} ${TH_MONTHS[m-1]} ${y}`; }
+function feeMsgHTML(calc, declared, count){
+  if(!declared) return `<div class="okbox">ℹ️ ไฟล์ไม่มีค่าบริการรวมรายวัน (แถวสุดท้าย) — ข้ามการตรวจ</div>`;
+  const diff=calc-declared;
+  if(Math.abs(diff)<0.01) return `<div class="okbox">✅ <b>ค่าบริการตรงกัน</b> — คำนวณจากพัสดุ ${fmtInt(count)} ชิ้น ได้ ${fmtNum(calc)} บาท = ยอดที่ไฟล์แจ้ง</div>`;
+  const more = diff>0 ? 'ระบบคำนวณได้ <b>มากกว่า</b> ที่ไฟล์แจ้ง' : 'ระบบคำนวณได้ <b>น้อยกว่า</b> ที่ไฟล์แจ้ง';
+  return `<div class="warnbox">❌ <b>ค่าบริการไม่ตรง!</b><br>
+    • ระบบคำนวณจากพัสดุ <b>${fmtInt(count)}</b> ชิ้น = <b>${fmtNum(calc)}</b> บาท<br>
+    • ไฟล์แจ้ง (แถวสุดท้าย) = <b>${fmtNum(declared)}</b> บาท<br>
+    • ต่างกัน <b>${fmtNum(Math.abs(diff))}</b> บาท (${more})<br>
+    → ตรวจว่ามีพัสดุตกหล่น/เกิน หรือค่าบริการบางชิ้นกรอกผิด</div>`;
+}
 
 /* ===== ปฏิทิน ===== */
 let curMonth=new Date();
@@ -222,24 +239,28 @@ async function renderCalendar(){
     (data||[]).forEach(r=>{ dayMap[r.pdate]=r; });
   }catch(err){ console.error(err); }
   const todayStr=ymd(new Date());
-  let html='';
+  let html=''; const badDays=[];
   for(let i=0;i<lead;i++) html+='<div class="cal-cell empty"></div>';
   for(let d=1; d<=days; d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const info=dayMap[ds]; const isToday=ds===todayStr;
-    let badge='', fee='';
+    let badge='', fee='', cls='';
     if(info && info.parcel_count){
       badge=`<span class="cal-badge">${fmtInt(info.parcel_count)} ชิ้น</span>`;
       const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
       const hasDeclared=(Number(info.declared_fee)||0)!==0;
+      if(hasDeclared){ cls=ok?'okday':'bad'; if(!ok) badDays.push(d); }
       fee = hasDeclared
         ? `<div class="cal-fee ${ok?'ok':'bad'}">${ok?'✅ ค่าบริการตรง':'❌ ไม่ตรง'}</div>`
         : `<div class="cal-fee na">— ยังไม่มีค่าบริการ</div>`;
     }
-    html+=`<div class="cal-cell ${isToday?'today':''}" data-date="${ds}">
+    html+=`<div class="cal-cell ${cls} ${isToday?'today':''}" data-date="${ds}">
       ${isToday?'<span class="today-dot">วันนี้</span>':''}
       <span class="cal-daynum">${d}</span>${badge}${fee}</div>`;
   }
+  $('calWarn').innerHTML = badDays.length
+    ? `<div class="warnbox" style="margin-bottom:12px">⚠️ เดือนนี้มี <b>${badDays.length} วัน</b>ที่ค่าบริการ<b>ไม่ตรง</b>: วันที่ <b>${badDays.join(', ')}</b> — แตะวันนั้นเพื่อดูรายละเอียด</div>`
+    : '';
   $('calGrid').innerHTML=html;
   $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
 }
@@ -292,6 +313,7 @@ async function loadDay(){
     <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
     <div><div class="k">ค่าบริการรายวัน (แจ้ง)</div><div class="v">${fmtNum(declared)}</div></div>
     <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง'):'—'}</div></div>`;
+  $('dayFeeMsg').innerHTML=feeMsgHTML(calc, declared, rows.length);
   const dupInDay=rows.filter(r=>dupSet.has(r.tracking));
   $('dayDup').innerHTML = dupInDay.length
     ? `<div class="warnbox">⚠️ พบเลขพัสดุที่ซ้ำกับในระบบ ${dupInDay.length} รายการ (ไฮไลต์แดงในตาราง): ${[...new Set(dupInDay.map(r=>r.tracking))].slice(0,20).map(htmlesc).join(', ')}${dupInDay.length>20?' ...':''}</div>` : '';
@@ -372,6 +394,7 @@ async function refreshPreview(){
     <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
     <div><div class="k">ค่าบริการรายวัน (แถวสุดท้าย)</div><div class="v">${fmtNum(declared)}</div></div>
     <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง (ต่าง '+fmtNum(calc-declared)+')'):'— ไม่มีค่าบริการรวม'}</div></div>`;
+  $('feeMsg').innerHTML=feeMsgHTML(calc, declared, parcels.length);
   // ตรวจซ้ำ: ในไฟล์เอง + กับระบบ
   const trks=parcels.map(p=>p.tracking).filter(Boolean);
   const inFileCnt={}; trks.forEach(t=>inFileCnt[t]=(inFileCnt[t]||0)+1);
