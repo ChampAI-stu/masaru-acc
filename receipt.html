@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
@@ -180,7 +182,7 @@
 
   /* ใบเสร็จรับเงิน (สำหรับพิมพ์) */
   #receiptPrint{display:none}
-  .rcpt{font-family:'IBM Plex Sans Thai',sans-serif;color:#111;width:190mm;margin:0 auto;padding:6mm 8mm;box-sizing:border-box;font-size:12px}
+  .rcpt{font-family:'IBM Plex Sans Thai',sans-serif;color:#000;width:190mm;margin:0 auto;padding:6mm 8mm;box-sizing:border-box;font-size:12px}
   .rcpt-title{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
   .rcpt-title h1{font-size:26px;font-weight:800;line-height:1.15}
   .rcpt-title h1 small{display:block;font-size:15px;font-weight:600}
@@ -189,7 +191,7 @@
   .rcpt-block b{font-weight:700}
   .rcpt-block .g2{display:flex;flex-wrap:wrap;gap:4px 26px}
   .rcpt-tbl{width:100%;border-collapse:collapse;margin-top:4px}
-  .rcpt-tbl th,.rcpt-tbl td{border:1px solid #444;padding:6px 9px;font-size:11.5px}
+  .rcpt-tbl th,.rcpt-tbl td{border:1px solid #000;padding:6px 9px;font-size:11.5px;color:#000}
   .rcpt-tbl th{background:#f2f2f2;text-align:center;font-weight:700}
   .rcpt-tbl th small{display:block;font-weight:400;font-size:10px}
   .rcpt-tbl td.c{text-align:center}
@@ -474,6 +476,7 @@
       <span class="db-info" id="docYearInfo">ปีเอกสาร: —</span>
       <span style="flex:1"></span>
       <button class="btn btn-ghost btn-sm" id="docIssueAllBtn">🏷️ ออกเลขทั้งหมดที่ตรง</button>
+      <button class="btn btn-gold btn-sm" id="docSaveAllBtn">💾 บันทึกทั้งหมด</button>
     </div>
 
     <div id="docResults" class="hidden">
@@ -555,6 +558,21 @@
     <div class="modal-foot">
       <button class="btn-cancel" id="docEditCancel">ยกเลิก</button>
       <button class="btn-save" id="docEditSave">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="previewBg">
+  <div class="modal" style="max-width:840px;width:96%">
+    <div class="modal-head">
+      <h2>👁️ ดูบิล</h2>
+      <button class="modal-close" id="previewClose">&times;</button>
+    </div>
+    <div id="previewBody" style="max-height:68vh;overflow:auto;background:#eef2f8;padding:14px;border-radius:8px"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="previewCloseBtn">ปิด</button>
+      <button class="btn btn-ghost btn-sm" id="previewPrint">🖨️ พิมพ์</button>
+      <button class="btn-save" id="previewDownload">⬇️ ดาวน์โหลด PDF</button>
     </div>
   </div>
 </div>
@@ -1632,7 +1650,7 @@ function renderDoc(){
     const dn=docIssued[r.key]||'';
     const noCell = dn ? `${dn} <button class="icon-act" data-act="editno" data-key="${htmlesc(r.key)}" title="แก้ไขเลข">✏️</button>` : '—';
     let act = dn
-      ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="print" data-key="${htmlesc(r.key)}" title="พิมพ์ใบเสร็จ">🖨️</button>`
+      ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="view" data-key="${htmlesc(r.key)}" title="ดูบิล / ดาวน์โหลด">👁️</button>`
       : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '');
     act += ` <button class="icon-act" data-act="delbill" data-key="${htmlesc(r.key)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`;
     return `<tr>
@@ -1761,20 +1779,70 @@ function printSaved(r){
   if(!r) return;
   $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no); window.print();
 }
-async function saveReceipt(key){
-  if(!dbReady()) return;
-  const dn=docIssued[key]; if(!dn){ toast('ออกเลขเอกสารก่อนจึงบันทึกได้',true); return; }
-  const f=docForm[key]; if(!f) return;
+async function saveReceiptData(key){
+  const dn=docIssued[key]; if(!dn) throw new Error('ยังไม่ออกเลข');
+  const f=docForm[key]; if(!f) throw new Error('ไม่พบข้อมูลบิล');
   const row=docRows.find(x=>x.key===key)||{};
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
     total:f.total, key, internal:row.internal||'',
     lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
+  const {error}=await sb.from('receipts').update({saved:true, saved_at:new Date().toISOString(), data})
+    .eq('order_key',key).eq('year',new Date().getFullYear());
+  if(error) throw error;
+  docSaved.add(key);
+}
+async function saveReceipt(key){
+  if(!dbReady()) return;
+  const dn=docIssued[key]; if(!dn){ toast('ออกเลขเอกสารก่อนจึงบันทึกได้',true); return; }
+  try{ await saveReceiptData(key); renderDoc(); toast('บันทึกใบเสร็จ '+dn+' แล้ว'); }
+  catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+async function saveAllIssued(){
+  if(!dbReady()) return;
+  const pend=docRows.filter(r=>docIssued[r.key] && !docSaved.has(r.key));
+  if(!pend.length){ toast('ไม่มีบิลที่ออกเลขแล้วและยังไม่บันทึก'); return; }
+  if(!confirm(`บันทึกใบเสร็จ ${pend.length} รายการที่ออกเลขแล้ว?`)) return;
+  const btn=$('docSaveAllBtn'); btn.disabled=true; let ok=0;
+  for(const r of pend){ try{ await saveReceiptData(r.key); ok++; }catch(e){ console.error(e); } btn.textContent=`บันทึก ${ok}/${pend.length}...`; }
+  btn.disabled=false; btn.textContent='💾 บันทึกทั้งหมด'; renderDoc(); toast(`บันทึกแล้ว ${ok}/${pend.length}`);
+}
+
+/* ---- ดูบิล (พรีวิว) + ดาวน์โหลด PDF ---- */
+let previewCurrent=null;
+function openPreview(f, dn, fname){
+  const html=buildReceiptHTML(f,dn);
+  previewCurrent={ html, filename:fname||('ใบเสร็จ_'+dn+'.pdf') };
+  $('previewBody').innerHTML=html;
+  $('previewBg').classList.add('show');
+}
+function closePreview(){ $('previewBg').classList.remove('show'); previewCurrent=null; }
+async function receiptToPdf(htmlList, filename){
+  if(!(window.jspdf&&window.html2canvas)){ toast('ยังโหลดตัวสร้าง PDF ไม่เสร็จ ลองใหม่',true); return; }
+  toast('กำลังสร้าง PDF...');
+  const holder=document.createElement('div');
+  holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff;z-index:-1';
+  document.body.appendChild(holder);
   try{
-    const {error}=await sb.from('receipts').update({saved:true, saved_at:new Date().toISOString(), data})
-      .eq('order_key',key).eq('year',new Date().getFullYear());
-    if(error) throw error;
-    docSaved.add(key); renderDoc(); toast('บันทึกใบเสร็จ '+dn+' แล้ว');
-  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+    const { jsPDF }=window.jspdf; const pdf=new jsPDF('p','mm','a4'); const PW=210, PH=297;
+    for(let i=0;i<htmlList.length;i++){
+      holder.innerHTML=htmlList[i];
+      const el=holder.firstElementChild;
+      const canvas=await html2canvas(el,{scale:2, backgroundColor:'#ffffff', useCORS:true});
+      const img=canvas.toDataURL('image/jpeg',0.95);
+      let w=PW-20, h=canvas.height*w/canvas.width;
+      if(h>PH-20){ h=PH-20; w=canvas.width*h/canvas.height; }
+      if(i>0) pdf.addPage();
+      pdf.addImage(img,'JPEG',(PW-w)/2,10,w,h);
+    }
+    pdf.save(filename);
+    toast('ดาวน์โหลดแล้ว');
+  }catch(err){ toast('สร้าง PDF ไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  finally{ document.body.removeChild(holder); }
+}
+async function downloadMonth(mk){
+  const bills=monthBills[mk]; if(!bills||!bills.length) return;
+  const htmlList=bills.map(r=>buildReceiptHTML(billToF(r), r.doc_no));
+  await receiptToPdf(htmlList, 'ใบเสร็จ_'+monthLabel(mk).replace(/\s+/g,'_')+'.pdf');
 }
 /* ---- ประวัติใบเสร็จ (รายเดือน) ---- */
 let histRows=[], monthBills={};
@@ -1831,7 +1899,7 @@ function renderHist(){
             <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
             <td class="num">${money(r.amount)}</td>
             <td>${htmlesc((r.data&&r.data.date)||'—')}</td>
-            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดาวน์โหลด/พิมพ์ใบนี้">⬇️ รายบิล</button></td>
+            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -1922,9 +1990,9 @@ $('histRefreshBtn').onclick=loadHistory;
 $('histSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderHist,200); };
 $('histBody').onclick=e=>{
   const mb=e.target.closest('[data-mact]');
-  if(mb){ if(mb.dataset.mact==='dl') printMonth(mb.dataset.mk); else if(mb.dataset.mact==='del') deleteMonth(mb.dataset.mk); return; }
+  if(mb){ if(mb.dataset.mact==='dl') downloadMonth(mb.dataset.mk); else if(mb.dataset.mact==='del') deleteMonth(mb.dataset.mk); return; }
   const b=e.target.closest('[data-doc]');
-  if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); printSaved(r); }
+  if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no); }
 };
 $('histExportBtn').onclick=()=>{
   if(!histRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
@@ -1942,6 +2010,12 @@ $('docJstInput').onchange=e=>{ if(e.target.files[0]) handleDocJst(e.target.files
 $('docFormInput').onchange=e=>{ if(e.target.files[0]) handleDocForm(e.target.files[0]); e.target.value=''; };
 $('docCompareBtn').onclick=compareDoc;
 $('docIssueAllBtn').onclick=issueAllMatched;
+$('docSaveAllBtn').onclick=saveAllIssued;
+$('previewClose').onclick=closePreview;
+$('previewCloseBtn').onclick=closePreview;
+$('previewBg').onclick=e=>{ if(e.target.id==='previewBg') closePreview(); };
+$('previewPrint').onclick=()=>{ if(!previewCurrent) return; $('receiptPrint').innerHTML=previewCurrent.html; closePreview(); setTimeout(()=>window.print(),80); };
+$('previewDownload').onclick=()=>{ if(previewCurrent) receiptToPdf([previewCurrent.html], previewCurrent.filename); };
 $('docSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderDoc,200); };
 $('docFilter').onchange=renderDoc;
 $('docBody').onclick=e=>{
@@ -1949,7 +2023,7 @@ $('docBody').onclick=e=>{
   const key=b.dataset.key;
   if(b.dataset.act==='issue' || b.dataset.act==='editno') openDocEdit(key);
   else if(b.dataset.act==='save') saveReceipt(key);
-  else if(b.dataset.act==='print') printReceipt(key);
+  else if(b.dataset.act==='view'){ const f=docForm[key]; if(f) openPreview(f, docIssued[key], 'ใบเสร็จ_'+docIssued[key]+'.pdf'); }
   else if(b.dataset.act==='reason') openReason(key);
   else if(b.dataset.act==='delbill') deleteBill(key);
 };
