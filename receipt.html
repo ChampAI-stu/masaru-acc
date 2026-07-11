@@ -204,6 +204,7 @@
   .rcpt-remark{font-size:11px}
   .rcpt-sign{text-align:center;font-size:11px;min-width:220px}
   .rcpt-sign .ln{border-top:1px dotted #333;margin:40px 12px 5px}
+  .rcpt-sig-img{display:block;max-width:180px;max-height:52px;object-fit:contain;margin:0 auto -6px}
 
   @media print{
     body > *{display:none !important}
@@ -479,6 +480,7 @@
       <span style="flex:1"></span>
       <button class="btn btn-ghost btn-sm" id="docIssueAllBtn">🏷️ ออกเลขทั้งหมดที่ตรง</button>
       <button class="btn btn-gold btn-sm" id="docSaveAllBtn">💾 บันทึกทั้งหมด</button>
+      <button class="btn btn-ghost btn-sm" id="sigBtn">✍️ ลายเซ็นของฉัน</button>
     </div>
 
     <div id="docResults" class="hidden">
@@ -590,6 +592,25 @@
   </div>
 </div>
 
+<div class="modal-bg" id="sigBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>✍️ ลายเซ็นผู้รับเงิน</h2>
+      <button class="modal-close" id="sigClose">&times;</button>
+    </div>
+    <div class="m-field">
+      <label>อัพโหลดรูปลายเซ็น (PNG พื้นหลังโปร่งใสสวยที่สุด · JPG ก็ได้)</label>
+      <input type="file" id="sigFile" accept="image/png,image/jpeg,image/jpg">
+    </div>
+    <div id="sigPreview" style="text-align:center;min-height:80px;display:flex;align-items:center;justify-content:center;background:#f3f5f9;border:1px dashed var(--line);border-radius:8px;padding:10px;margin-top:8px;color:var(--muted)">ยังไม่มีลายเซ็น</div>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="sigRemove" style="color:var(--red)">ลบลายเซ็น</button>
+      <button class="btn-cancel" id="sigCancel">ปิด</button>
+      <button class="btn-save" id="sigSave">บันทึกลายเซ็น</button>
+    </div>
+  </div>
+</div>
+
 <div id="receiptPrint"></div>
 
 <div class="foot">MASARU Internal Tools · ทำงานฝั่งเบราว์เซอร์ทั้งหมด ข้อมูลไม่ถูกส่งออกที่ใด</div>
@@ -609,7 +630,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
 }
 /* ===== ต้องล็อกอินก่อนใช้งาน (เช็ค session จาก Portal) ===== */
 if(sb){
-  sb.auth.getSession().then(({data})=>{ if(!data.session) location.replace('index.html'); });
+  sb.auth.getSession().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; loadSignature(); });
   sb.auth.onAuthStateChange((e,ss)=>{ if(e==='SIGNED_OUT'||!ss) location.replace('index.html'); });
   const _lo=document.getElementById('logoutBtn');
   if(_lo) _lo.onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
@@ -1515,6 +1536,7 @@ $('costExportBtn').onclick=()=>{
 };
 /* ============ แท็บ: ออกใบเสร็จ (เทียบ JST ↔ ฟอร์ม) ============ */
 let docJst={}, docJstAmbig=new Set(), docForm={}, docFormDup={}, docRows=[], docIssued={}, docSaved=new Set(), docJstName='', docFormName='', docJstCount=0, docFormCount=0;
+let currentUserId=null, mySignature=null, sigPending=null;
 const ISSUER_ADDRESS='475/4-5 ถนนทหารบก ตำบลบ่อพลับ อำเภอเมืองนครปฐม จังหวัดนครปฐม 73000';
 function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function money(n){ const v=Number(n)||0; const s=Math.abs(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); return v<0?`(${s})`:s; }
@@ -1716,10 +1738,11 @@ async function issueAllMatched(){
   }
   btn.disabled=false; btn.textContent='🏷️ ออกเลขทั้งหมดที่ตรง'; renderDoc(); toast(`ออกเลขแล้ว ${ok}/${pend.length}`);
 }
-function buildReceiptHTML(f, dn){
+function buildReceiptHTML(f, dn, sig){
   const hasShop=!!f.shop;
   const lines=(f.lines||[]).map(l=>`<tr><td class="c">${l.no}</td><td>${htmlesc(l.desc)}</td><td class="c">${fmtNum(l.qty)}</td><td class="r">${money(l.unit)}</td><td class="r">${money(l.amount)}</td></tr>`).join('');
   const issuer=hasShop?`<div class="rcpt-block"><div><b>ผู้ออก / Issuer :</b> ${htmlesc(f.shop)}</div><div><b>ที่อยู่ / Address :</b> ${htmlesc(ISSUER_ADDRESS)}</div></div>`:'';
+  const sigImg = sig ? `<img class="rcpt-sig-img" src="${sig}" alt="signature">` : '';
   return `<div class="rcpt">
     <div class="rcpt-title"><h1>ใบเสร็จรับเงิน<small>Receipt</small></h1><div class="rcpt-orig">( ต้นฉบับ / Original )</div></div>
     <div class="rcpt-block">
@@ -1734,13 +1757,13 @@ function buildReceiptHTML(f, dn){
     </table>
     <div class="rcpt-total"><span class="tt">จำนวนเงินรวมทั้งสิ้น / Grand Total</span><span>${money(f.total)}</span></div>
     <div class="rcpt-foot"><div class="rcpt-remark">หมายเหตุ / Remarks : —</div>
-      <div class="rcpt-sign"><div class="ln"></div>ผู้รับเงิน / Collector</div></div>
+      <div class="rcpt-sign">${sigImg}<div class="ln"></div>ผู้รับเงิน / Collector</div></div>
   </div>`;
 }
 function printReceipt(key){
   const f=docForm[key]; if(!f) return; const dn=docIssued[key];
   if(!dn){ toast('ออกเลขเอกสารก่อนจึงจะพิมพ์ใบเสร็จได้',true); return; }
-  $('receiptPrint').innerHTML=buildReceiptHTML(f,dn); window.print();
+  $('receiptPrint').innerHTML=buildReceiptHTML(f,dn,mySignature); window.print();
 }
 function statusReason(r){
   const k=r.key;
@@ -1793,14 +1816,14 @@ function billToF(r){
 }
 function printSaved(r){
   if(!r) return;
-  $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no); window.print();
+  $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature); window.print();
 }
 async function saveReceiptData(key){
   const dn=docIssued[key]; if(!dn) throw new Error('ยังไม่ออกเลข');
   const f=docForm[key]; if(!f) throw new Error('ไม่พบข้อมูลบิล');
   const row=docRows.find(x=>x.key===key)||{};
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
-    total:f.total, key, internal:row.internal||'',
+    total:f.total, key, internal:row.internal||'', signature: mySignature||null,
     lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
   const {error}=await sb.from('receipts').update({saved:true, saved_at:new Date().toISOString(), data})
     .eq('order_key',key).eq('year',new Date().getFullYear());
@@ -1825,8 +1848,8 @@ async function saveAllIssued(){
 
 /* ---- ดูบิล (พรีวิว) + ดาวน์โหลด PDF ---- */
 let previewCurrent=null;
-function openPreview(f, dn, fname){
-  const html=buildReceiptHTML(f,dn);
+function openPreview(f, dn, fname, sig){
+  const html=buildReceiptHTML(f,dn,sig);
   previewCurrent={ html, filename:fname||('ใบเสร็จ_'+dn+'.pdf') };
   $('previewBody').innerHTML=html;
   $('previewBg').classList.add('show');
@@ -1857,7 +1880,7 @@ async function receiptToPdf(htmlList, filename){
 }
 async function downloadMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
-  const htmlList=bills.map(r=>buildReceiptHTML(billToF(r), r.doc_no));
+  const htmlList=bills.map(r=>buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature));
   await receiptToPdf(htmlList, 'ใบเสร็จ_'+monthLabel(mk).replace(/\s+/g,'_')+'.pdf');
 }
 /* ---- ประวัติใบเสร็จ (รายเดือน) ---- */
@@ -1926,7 +1949,7 @@ function renderHist(){
 function printMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
   const html=bills.map((r,i)=>{
-    const inner=buildReceiptHTML(billToF(r), r.doc_no);
+    const inner=buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature);
     return i>0 ? inner.replace('<div class="rcpt">','<div class="rcpt" style="page-break-before:always">') : inner;
   }).join('');
   $('receiptPrint').innerHTML=html; window.print();
@@ -2010,7 +2033,7 @@ $('histBody').onclick=e=>{
   const del=e.target.closest('[data-del]');
   if(del){ deleteBillHist(del.dataset.del); return; }
   const b=e.target.closest('[data-doc]');
-  if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no); }
+  if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', r.data&&r.data.signature); }
 };
 async function deleteBillHist(docNo){
   if(!dbReady()) return;
@@ -2034,6 +2057,66 @@ $('histExportBtn').onclick=()=>{
 
 $('docJstCard').onclick=()=>$('docJstInput').click();
 $('docFileList').onclick=e=>{ const b=e.target.closest('[data-clear]'); if(b) clearDocFile(b.dataset.clear); };
+
+/* ---- ลายเซ็นผู้รับเงิน (ต่อผู้ใช้) ---- */
+async function loadSignature(){
+  if(!sb||!currentUserId) return;
+  try{
+    const {data,error}=await sb.from('user_signatures').select('signature').eq('user_id',currentUserId).maybeSingle();
+    if(error) throw error;
+    mySignature=(data&&data.signature)||null;
+  }catch(err){ console.error('load signature',err); }
+}
+function renderSigPreview(sig){
+  $('sigPreview').innerHTML = sig
+    ? `<img src="${sig}" style="max-width:280px;max-height:110px;object-fit:contain">`
+    : 'ยังไม่มีลายเซ็น';
+}
+function openSig(){ sigPending=null; renderSigPreview(mySignature); $('sigFile').value=''; $('sigBg').classList.add('show'); }
+function closeSig(){ $('sigBg').classList.remove('show'); sigPending=null; }
+function fileToSignature(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{ const img=new Image();
+      img.onload=()=>{ const maxW=380; const sc=Math.min(1,maxW/img.width);
+        const w=Math.round(img.width*sc), h=Math.round(img.height*sc);
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        res(c.toDataURL('image/png')); };
+      img.onerror=rej; img.src=fr.result; };
+    fr.onerror=rej; fr.readAsDataURL(file);
+  });
+}
+$('sigBtn').onclick=openSig;
+$('sigClose').onclick=closeSig;
+$('sigCancel').onclick=closeSig;
+$('sigBg').onclick=e=>{ if(e.target.id==='sigBg') closeSig(); };
+$('sigFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ sigPending=await fileToSignature(f); renderSigPreview(sigPending); }
+  catch(err){ toast('อ่านรูปไม่ได้',true); console.error(err); }
+};
+$('sigSave').onclick=async ()=>{
+  if(!dbReady()||!currentUserId) return;
+  const sig=sigPending||mySignature;
+  if(!sig){ toast('ยังไม่ได้เลือกรูปลายเซ็น',true); return; }
+  const btn=$('sigSave'); btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  try{
+    const {error}=await sb.from('user_signatures').upsert({user_id:currentUserId, signature:sig, updated_at:new Date().toISOString()});
+    if(error) throw error;
+    mySignature=sig; sigPending=null; closeSig(); toast('บันทึกลายเซ็นแล้ว');
+  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent='บันทึกลายเซ็น';
+};
+$('sigRemove').onclick=async ()=>{
+  if(!dbReady()||!currentUserId) return;
+  if(!confirm('ลบลายเซ็นของฉัน?')) return;
+  try{
+    const {error}=await sb.from('user_signatures').delete().eq('user_id',currentUserId);
+    if(error) throw error;
+    mySignature=null; sigPending=null; renderSigPreview(null); toast('ลบลายเซ็นแล้ว');
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+};
 $('docFormCard').onclick=()=>$('docFormInput').click();
 $('docJstInput').onchange=e=>{ if(e.target.files[0]) handleDocJst(e.target.files[0]); e.target.value=''; };
 $('docFormInput').onchange=e=>{ if(e.target.files[0]) handleDocForm(e.target.files[0]); e.target.value=''; };
@@ -2052,7 +2135,7 @@ $('docBody').onclick=e=>{
   const key=b.dataset.key;
   if(b.dataset.act==='issue' || b.dataset.act==='editno') openDocEdit(key);
   else if(b.dataset.act==='save') saveReceipt(key);
-  else if(b.dataset.act==='view'){ const f=docForm[key]; if(f) openPreview(f, docIssued[key], 'ใบเสร็จ_'+docIssued[key]+'.pdf'); }
+  else if(b.dataset.act==='view'){ const f=docForm[key]; if(f) openPreview(f, docIssued[key], 'ใบเสร็จ_'+docIssued[key]+'.pdf', mySignature); }
   else if(b.dataset.act==='reason') openReason(key);
   else if(b.dataset.act==='delbill') deleteBill(key);
 };
