@@ -1437,8 +1437,8 @@ function renderDocFiles(){
 }
 async function handleDocJst(file){
   try{
-    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:true});
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'});
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
     const H=aoa[0]||[];
     const ci={ internal:findColBy(H,['หมายเลขออเดอร์ภายใน','ออเดอร์ภายใน']),
       online:findColBy(H,['เลขออเดอร์ออนไลน์','ออเดอร์ออนไลน์']),
@@ -1449,19 +1449,20 @@ async function handleDocJst(file){
     for(let r=1;r<aoa.length;r++){
       const row=aoa[r]||[];
       const internal=norm(row[ci.internal]), online=norm(row[ci.online]), track=norm(row[ci.track]);
-      if(!online && !track) continue;
+      if(!internal && !online && !track) continue;
       const rec={internal,online,track,amount:toNum(row[ci.amt])||0};
-      if(online) docJst[online]=rec; if(track) docJst[track]=rec; n++;
+      [internal,online,track].forEach(k=>{ if(k) docJst[k]=rec; });
+      n++;
     }
     docJstName=file.name; docJstCount=n; toast('โหลด JST '+fmtInt(n)+' ออเดอร์'); renderDocFiles();
   }catch(err){ toast('อ่านไฟล์ JST ไม่ได้',true); console.error(err); }
 }
 async function handleDocForm(file){
   try{
-    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'});
     let H=null,aoa=null;
     for(const sn of wb.SheetNames){
-      const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+      const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
       if(a.length && findColBy(a[0]||[],['เลขออเดอร์//เลขพัสดุ','เลขออเดอร์','เลขพัสดุ'])!==-1 && findColBy(a[0]||[],['ราคาต่อหน่วย'])!==-1){ H=a[0]; aoa=a; break; }
     }
     if(!aoa){ toast('ไม่พบคอลัมน์ เลขออเดอร์//เลขพัสดุ + ราคาต่อหน่วย',true); return; }
@@ -1508,11 +1509,19 @@ async function compareDoc(){
     const f=docForm[k]; const j=docJst[k];
     const diff=j?(f.total-j.amount):null;
     const status=!j?'nojst':(Math.abs(diff)<0.01?'match':'diff');
-    docRows.push({key:k, shop:f.shop, customer:f.customer, ftotal:f.total, jamt:j?j.amount:null, diff, status});
+    docRows.push({key:k, internal:j?j.internal:'', shop:f.shop, customer:f.customer, ftotal:f.total, jamt:j?j.amount:null, diff, status});
   }
   docRows.sort((a,b)=>({match:0,diff:1,nojst:2})[a.status]-({match:0,diff:1,nojst:2})[b.status]);
   btn.disabled=false; btn.textContent=lb;
   renderDoc(); $('docResults').classList.remove('hidden');
+  const found=docRows.filter(r=>r.status!=='nojst').length;
+  if(docRows.length && found===0){
+    const fk=Object.keys(docForm).slice(0,2).join(' , ');
+    const jk=Object.keys(docJst).slice(0,4).join(' , ');
+    toast('เทียบแล้วไม่เจอคู่ที่ตรงเลย — คีย์ 2 ไฟล์ไม่ตรงกัน',true);
+    console.warn('[เทียบยอด] คีย์ฟอร์มตัวอย่าง:', fk, '\nคีย์ JST ตัวอย่าง:', jk);
+    $('docInfo').innerHTML=`<span style="color:var(--red)">⚠️ จับคู่ไม่ได้เลย — เลขในฟอร์มไม่ตรงกับ JST<br>ฟอร์ม: <b>${htmlesc(fk)}</b><br>JST: <b>${htmlesc(jk)}</b></span>`;
+  }
 }
 function renderDoc(){
   const q=norm($('docSearch').value).toLowerCase(); const filt=$('docFilter').value;
@@ -1520,7 +1529,7 @@ function renderDoc(){
   if(filt==='match') rows=rows.filter(r=>r.status==='match');
   else if(filt==='diff') rows=rows.filter(r=>r.status!=='match');
   else if(filt==='issued') rows=rows.filter(r=>docIssued[r.key]);
-  if(q) rows=rows.filter(r=>((r.key||'')+' '+(r.customer||'')+' '+(r.shop||'')).toLowerCase().includes(q));
+  if(q) rows=rows.filter(r=>((r.key||'')+' '+(r.internal||'')+' '+(r.customer||'')+' '+(r.shop||'')).toLowerCase().includes(q));
   const nMatch=docRows.filter(r=>r.status==='match').length, nDiff=docRows.filter(r=>r.status==='diff').length,
     nNo=docRows.filter(r=>r.status==='nojst').length, nIssued=Object.keys(docIssued).length;
   $('docSummary').innerHTML=`
@@ -1529,7 +1538,7 @@ function renderDoc(){
     <div class="stat n"><div class="k">❌ ไม่ตรง</div><div class="v">${fmtInt(nDiff)}</div></div>
     <div class="stat"><div class="k">ไม่พบใน JST</div><div class="v">${fmtInt(nNo)}</div></div>
     <div class="stat"><div class="k">ออกเลขแล้ว</div><div class="v">${fmtInt(nIssued)}</div></div>`;
-  $('docHead').innerHTML=`<tr><th>เลขออเดอร์/พัสดุ</th><th>ลูกค้า</th><th>ร้าน</th><th class="num">ยอดฟอร์ม</th><th class="num">ยอด JST</th><th class="num">ส่วนต่าง</th><th>สถานะ</th><th>เลขเอกสาร</th><th>จัดการ</th></tr>`;
+  $('docHead').innerHTML=`<tr><th>เลขออเดอร์ภายใน</th><th>เลขออเดอร์/พัสดุ</th><th>ลูกค้า</th><th>ร้าน</th><th class="num">ยอดฟอร์ม</th><th class="num">ยอด JST</th><th class="num">ส่วนต่าง</th><th>สถานะ</th><th>เลขเอกสาร</th><th>จัดการ</th></tr>`;
   $('docBody').innerHTML = rows.length? rows.map(r=>{
     const st=r.status==='match'?'<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
       :r.status==='diff'?'<span style="color:var(--red);font-weight:600">❌ ไม่ตรง</span>'
@@ -1538,6 +1547,7 @@ function renderDoc(){
     const act = dn ? `<button class="icon-act" data-act="rcpt" data-key="${htmlesc(r.key)}" title="พิมพ์ใบเสร็จ">🧾 ใบเสร็จ</button>`
       : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '—');
     return `<tr>
+      <td class="ord">${r.internal?htmlesc(r.internal):'<span style="color:var(--muted)">—</span>'}</td>
       <td class="ord">${htmlesc(r.key)}</td>
       <td>${htmlesc(r.customer)}</td>
       <td>${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
@@ -1547,7 +1557,7 @@ function renderDoc(){
       <td>${st}</td>
       <td class="ord">${dn||'—'}</td>
       <td>${act}</td></tr>`;
-  }).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
+  }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
   $('docInfo').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(docRows.length)} ออเดอร์`;
 }
 async function insertReceipt(key){
@@ -1623,10 +1633,10 @@ $('docBody').onclick=e=>{
 };
 $('docExportBtn').onclick=()=>{
   if(!docRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
-  const aoa=[['เลขออเดอร์/พัสดุ','ลูกค้า','ร้าน','ยอดฟอร์ม','ยอดJST','ส่วนต่าง','สถานะ','เลขเอกสาร']];
-  docRows.forEach(r=>aoa.push([r.key,r.customer,r.shop,r.ftotal,r.jamt,r.diff,
+  const aoa=[['เลขออเดอร์ภายใน','เลขออเดอร์/พัสดุ','ลูกค้า','ร้าน','ยอดฟอร์ม','ยอดJST','ส่วนต่าง','สถานะ','เลขเอกสาร']];
+  docRows.forEach(r=>aoa.push([r.internal,r.key,r.customer,r.shop,r.ftotal,r.jamt,r.diff,
     r.status==='match'?'ตรง':r.status==='diff'?'ไม่ตรง':'ไม่พบJST', docIssued[r.key]||'']));
-  const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:22},{wch:30},{wch:22},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12}];
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:16},{wch:22},{wch:30},{wch:22},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'เทียบยอด');
   XLSX.writeFile(wb,'MASARU_เทียบยอดใบเสร็จ.xlsx'); toast('ส่งออกแล้ว');
 };
