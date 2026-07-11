@@ -191,9 +191,8 @@
   .rcpt-sign .ln{border-top:1px dotted #333;margin:40px 12px 5px}
 
   @media print{
-    body *{visibility:hidden}
-    #receiptPrint,#receiptPrint *{visibility:visible}
-    #receiptPrint{display:block !important;position:absolute;left:0;top:0;width:100%}
+    body > *{display:none !important}
+    #receiptPrint{display:block !important}
     @page{size:A4;margin:10mm}
   }
 
