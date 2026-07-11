@@ -63,6 +63,7 @@
   .cal-cell.bad{border-color:var(--red);background:#fdecec}
   .cal-cell.okday{border-color:#bfe6cb}
   .cal-cell.bad.today{box-shadow:0 0 0 2px rgba(216,31,44,.25)}
+  .cal-sum{font-size:11.5px;font-weight:700;color:var(--navy)}
   .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--red);font-weight:700}
 
   /* ===== ตาราง ===== */
@@ -244,9 +245,10 @@ async function renderCalendar(){
   for(let d=1; d<=days; d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const info=dayMap[ds]; const isToday=ds===todayStr;
-    let badge='', fee='', cls='';
+    let badge='', fee='', cls='', sum='';
     if(info && info.parcel_count){
       badge=`<span class="cal-badge">${fmtInt(info.parcel_count)} ชิ้น</span>`;
+      sum=`<div class="cal-sum">฿ ${fmtNum(Number(info.calc_fee)||0)}</div>`;
       const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
       const hasDeclared=(Number(info.declared_fee)||0)!==0;
       if(hasDeclared){ cls=ok?'okday':'bad'; if(!ok) badDays.push(d); }
@@ -256,7 +258,7 @@ async function renderCalendar(){
     }
     html+=`<div class="cal-cell ${cls} ${isToday?'today':''}" data-date="${ds}">
       ${isToday?'<span class="today-dot">วันนี้</span>':''}
-      <span class="cal-daynum">${d}</span>${badge}${fee}</div>`;
+      <span class="cal-daynum">${d}</span>${badge}${sum}${fee}</div>`;
   }
   $('calWarn').innerHTML = badDays.length
     ? `<div class="warnbox" style="margin-bottom:12px">⚠️ เดือนนี้มี <b>${badDays.length} วัน</b>ที่ค่าบริการ<b>ไม่ตรง</b>: วันที่ <b>${badDays.join(', ')}</b> — แตะวันนั้นเพื่อดูรายละเอียด</div>`
@@ -352,14 +354,22 @@ function renderTable(prefix, headers, dataRows, trackings, dupSet){
 async function handleFile(file){
   try{
     const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
-    if(aoa.length<2){ toast('ไฟล์ว่างหรือไม่มีข้อมูล',true); return; }
-    // หา header row (แถวแรกที่มีข้อความหลายช่อง)
-    let hi=0; for(let i=0;i<Math.min(aoa.length,10);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=2){ hi=i; break; } }
-    const headers=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1)));
-    let rows=aoa.slice(hi+1).filter(r=>(r||[]).some(x=>norm(x)!==''));
-    pv={ file:file.name, headers, rows };
+    let headers=null; const sheets=[]; const usedNames=[];
+    for(const name of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+      if(!aoa.length) continue;
+      // หา header row ของชีตนี้ (แถวแรกที่มีข้อความ >=3 ช่อง = หน้าข้อมูลจริง)
+      let hi=-1;
+      for(let i=0;i<Math.min(aoa.length,12);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=3){ hi=i; break; } }
+      if(hi<0) continue;
+      const hdr=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1)));
+      const rows=aoa.slice(hi+1).filter(r=>(r||[]).some(x=>norm(x)!==''));
+      if(!rows.length) continue;
+      if(!headers) headers=hdr;
+      sheets.push({name, rows}); usedNames.push(name);
+    }
+    if(!sheets.length){ toast('ไม่พบข้อมูลในไฟล์ (ทุกชีต)',true); return; }
+    pv={ file:file.name, headers, sheets, usedNames };
     // เดาคอลัมน์
     const trkGuess=headers.findIndex(h=>/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ|item|track/i.test(h));
     const feeGuess=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|จำนวนเงิน|ยอด|ราคา|amount|net|รวม/i.test(h));
@@ -379,12 +389,14 @@ $('colTrk').onchange=refreshPreview; $('colFee').onchange=refreshPreview; $('las
 async function refreshPreview(){
   if(!pv) return;
   const trkIdx=+$('colTrk').value, feeIdx=+$('colFee').value, lastIsFee=$('lastIsFee').checked;
-  let dataRows=pv.rows.slice(); let declared=0;
-  if(lastIsFee && dataRows.length){ const last=dataRows[dataRows.length-1]; declared=toNum(last[feeIdx])||0; dataRows=dataRows.slice(0,-1); }
-  // แปลงเป็น object + tracking + fee
-  const parcels=dataRows.map(r=>{
-    const obj={}; pv.headers.forEach((h,i)=> obj[h]= r[i]==null?'':r[i]);
-    return { tracking:norm(r[trkIdx]), fee:toNum(r[feeIdx]), data:obj };
+  const parcels=[]; let declared=0;
+  (pv.sheets||[]).forEach(sh=>{
+    let dataRows=sh.rows.slice();
+    if(lastIsFee && dataRows.length){ const last=dataRows[dataRows.length-1]; declared+=toNum(last[feeIdx])||0; dataRows=dataRows.slice(0,-1); }
+    dataRows.forEach(r=>{
+      const obj={}; pv.headers.forEach((h,i)=> obj[h]= r[i]==null?'':r[i]);
+      parcels.push({ tracking:norm(r[trkIdx]), fee:toNum(r[feeIdx]), data:obj });
+    });
   });
   pv.parcels=parcels; pv.declared=declared;
   const calc=parcels.reduce((a,p)=>a+(Number(p.fee)||0),0);
@@ -408,7 +420,7 @@ async function refreshPreview(){
                                 : `<div class="okbox">✅ ไม่พบเลขพัสดุซ้ำ</div>`;
   pv.dupSet=dupSet;
   renderTable('pv', pv.headers, parcels.map(p=>p.data), parcels.map(p=>p.tracking), dupSet);
-  $('pvInfo').textContent=`ไฟล์: ${pv.file} · ${fmtInt(parcels.length)} พัสดุ${lastIsFee?' (ตัดแถวค่าบริการออกแล้ว)':''}`;
+  $('pvInfo').textContent=`ไฟล์: ${pv.file} · อ่าน ${fmtInt((pv.usedNames||[]).length)} ชีต (${(pv.usedNames||[]).join(', ')}) · ${fmtInt(parcels.length)} พัสดุ${lastIsFee?' (ตัดแถวค่าบริการรวมออกแล้ว)':''}`;
 }
 /* ตรวจซ้ำเฉพาะที่ "มีอยู่แล้วในระบบ" (นับ >=1) */
 async function findDupExisting(trackings){
@@ -488,8 +500,25 @@ async function exportRange(from,to,fname){
   if(!rows.length){ $('expInfo').textContent=''; toast('ไม่มีข้อมูลในช่วงนี้',true); return; }
   // union headers
   const headers=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!headers.includes(k)) headers.push(k); }));
+  const feeCol=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|fee/i.test(h));
+  const W=1+headers.length;
   const aoa=[['วันที่',...headers]];
-  rows.forEach(r=>{ aoa.push([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]); });
+  let curDate=null, dayCount=0, daySum=0;
+  function flushDay(){
+    if(curDate===null) return;
+    const sumRow=new Array(W).fill('');
+    sumRow[0]=`▶ สรุปวันที่ ${curDate}`;
+    sumRow[1]=`จำนวน ${fmtInt(dayCount)} ชิ้น รวม ${fmtNum(daySum)} บาท`;
+    if(feeCol>=0) sumRow[1+feeCol]=daySum;
+    aoa.push(sumRow);
+    aoa.push(new Array(W).fill(''));   // บรรทัดว่างคั่นวัน
+  }
+  rows.forEach(r=>{
+    if(r.pdate!==curDate){ flushDay(); curDate=r.pdate; dayCount=0; daySum=0; }
+    aoa.push([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]);
+    dayCount++; daySum+=Number(r.fee)||0;
+  });
+  flushDay();
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'ไปรษณีย์');
   XLSX.writeFile(wb,fname);
