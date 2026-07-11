@@ -69,40 +69,132 @@
 </style>
 </head>
 <body>
-<header class="top">
-  <span class="masaru-logo"></span>
-  <span style="font-weight:600">ศูนย์รวมระบบ MASARU</span>
-</header>
-<main>
-  <div class="hub-title">เลือกระบบที่ต้องการใช้งาน</div>
-  <div class="hub-sub">แตะการ์ดเพื่อเข้าใช้งาน</div>
-  <div class="app-grid" id="appGrid"></div>
-</main>
+<div id="bootScreen" class="boot">กำลังโหลด...</div>
 
-<script>
-const $ = id => document.getElementById(id);
-const APPS = [
-  { icon:'\uD83D\uDCCA', title:'ระบบบัญชี',
-    desc:'รวมไฟล์บัญชี 3 แพลตฟอร์ม · ลิสเลขพัสดุ · คำนวนต้นทุน · ฐานข้อมูลต้นทุน', url:'acc.html' },
-  { icon:'\uD83E\uDDFE', title:'ออกใบเสร็จ',
-    desc:'เทียบยอด JST ↔ ฟอร์ม · ออกเลขเอกสาร (รันต่อปี) · พิมพ์ใบเสร็จรับเงิน', url:'receipt.html' }
-];
-$('appGrid').innerHTML = APPS.map(a=>`
-  <div class="app-tile" data-url="${a.url}">
-    <div class="app-icon">${a.icon}</div>
-    <div class="app-name">${a.title}</div>
-    <div class="app-desc">${a.desc}</div>
-    <div class="app-go">เข้าใช้งาน →
-      <span class="app-newtab" data-url="${a.url}" title="เปิดในแท็บใหม่">↗ แท็บใหม่</span>
+<!-- ===== LOGIN / SIGNUP ===== -->
+<div id="authScreen" class="login-wrap hide">
+  <div class="auth-card">
+    <div class="logo-plate"><span class="masaru-logo"></span></div>
+    <div class="sub-brand">MASARU</div>
+    <p class="sub-desc">ศูนย์รวมระบบ</p>
+
+    <div id="loginBox">
+      <div class="fld"><label>อีเมล</label><input id="email" type="email" placeholder="name@masaru.co.th" autocomplete="username"></div>
+      <div class="fld"><label>รหัสผ่าน</label><input id="password" type="password" autocomplete="current-password"></div>
+      <button class="btn-primary" id="loginBtn">เข้าสู่ระบบ</button>
+      <div class="msg err hide" id="loginErr"></div>
+      <div class="switch-line">ยังไม่มีบัญชี? <span class="link" id="toSignup">สมัครสมาชิก</span></div>
     </div>
-  </div>`).join('');
-document.querySelectorAll('.app-tile').forEach(t=>{
-  t.onclick = e=>{
+
+    <div id="signupBox" class="hide">
+      <div class="fld"><label>อีเมล</label><input id="suEmail" type="email" placeholder="name@masaru.co.th"></div>
+      <div class="fld"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="suPassword" type="password"></div>
+      <div class="fld"><label>ฝ่าย</label>
+        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option></select>
+      </div>
+      <div class="fld"><label>รหัสเชิญ</label><input id="suInvite" placeholder="ขอจากแอดมิน"></div>
+      <button class="btn-primary" id="signupBtn">สมัครสมาชิก</button>
+      <div class="msg err hide" id="signupErr"></div>
+      <div class="msg ok hide" id="signupOk"></div>
+      <div class="switch-line">มีบัญชีแล้ว? <span class="link" id="toLogin">เข้าสู่ระบบ</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HUB ===== -->
+<div id="hubScreen" class="hide">
+  <header class="top">
+    <span class="masaru-logo"></span>
+    <span style="font-weight:600">ศูนย์รวมระบบ MASARU</span>
+    <div class="spacer"></div>
+    <span class="role-pill" id="rolePill">—</span>
+    <button class="logout" id="logoutBtn">ออกจากระบบ</button>
+  </header>
+  <main>
+    <div class="hub-title">เลือกระบบที่ต้องการใช้งาน</div>
+    <div class="hub-sub" id="hubSub">แตะการ์ดเพื่อเข้าใช้งาน</div>
+    <div class="app-grid" id="appGrid"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+
+/* ===== รหัสเชิญต่อฝ่าย (แก้ได้ที่นี่) — กันสมัครผิดตำแหน่ง ===== */
+const INVITE_CODES = { 'บัญชี':'MASARU-ACC-2026' };
+const ROLE_LABEL   = { 'บัญชี':'ฝ่ายบัญชี' };
+/* ===== ระบบที่แต่ละฝ่ายเข้าได้ (บัญชี = ทุกระบบ) ===== */
+const APPS = [
+  { icon:'\uD83D\uDCCA', title:'ระบบบัญชี',  desc:'รวมไฟล์บัญชี · ลิสพัสดุ · คำนวนต้นทุน · ฐานข้อมูล', url:'acc.html',     roles:['บัญชี'] },
+  { icon:'\uD83E\uDDFE', title:'ออกใบเสร็จ', desc:'เทียบยอด · ออกเลขเอกสาร · พิมพ์/ดาวน์โหลด · ประวัติ', url:'receipt.html', roles:['บัญชี'] }
+];
+function getRole(session){ return (session && session.user && session.user.user_metadata && session.user.user_metadata.role) || ''; }
+
+sb.auth.onAuthStateChange((e,session)=>{ if(e==='SIGNED_OUT'||!session) showAuth(); });
+(async function(){ const {data:{session}} = await sb.auth.getSession(); session ? showHub(session) : showAuth(); })();
+
+function showAuth(){ $('bootScreen').classList.add('hide'); $('hubScreen').classList.add('hide'); $('authScreen').classList.remove('hide'); }
+function showHub(session){
+  const role = getRole(session);
+  $('bootScreen').classList.add('hide'); $('authScreen').classList.add('hide'); $('hubScreen').classList.remove('hide');
+  $('rolePill').textContent = 'ฝ่าย: ' + (ROLE_LABEL[role] || role || '—');
+  const apps = APPS.filter(a => a.roles.includes(role));
+  $('hubSub').textContent = apps.length ? `เข้าใช้ได้ ${apps.length} ระบบ — แตะการ์ดเพื่อเข้าใช้งาน` : 'ยังไม่มีสิทธิ์เข้าระบบใด — ติดต่อแอดมิน';
+  $('appGrid').innerHTML = apps.map(a=>`
+    <div class="app-tile" data-url="${a.url}">
+      <div class="app-icon">${a.icon}</div>
+      <div class="app-name">${a.title}</div>
+      <div class="app-desc">${a.desc}</div>
+      <div class="app-go">เข้าใช้งาน →
+        <span class="app-newtab" data-url="${a.url}" title="เปิดในแท็บใหม่">↗ แท็บใหม่</span>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('.app-tile').forEach(t=> t.onclick = e=>{
     const nt = e.target.closest('.app-newtab');
     if(nt){ e.stopPropagation(); window.open(nt.dataset.url,'_blank'); return; }
     window.location.href = t.dataset.url;
-  };
-});
+  });
+}
+function showLoginErr(m){ const e=$('loginErr'); e.textContent=m; e.classList.remove('hide'); }
+
+$('loginBtn').onclick = doLogin;
+$('password').addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
+async function doLogin(){
+  const email=$('email').value.trim(), password=$('password').value;
+  $('loginErr').classList.add('hide');
+  if(!email||!password){ showLoginErr('กรุณากรอกอีเมลและรหัสผ่าน'); return; }
+  $('loginBtn').disabled=true; $('loginBtn').textContent='กำลังเข้าสู่ระบบ...';
+  const {data,error} = await sb.auth.signInWithPassword({email,password});
+  $('loginBtn').disabled=false; $('loginBtn').textContent='เข้าสู่ระบบ';
+  if(error){ showLoginErr(/confirm/i.test(error.message)?'อีเมลยังไม่ยืนยัน — แจ้งแอดมินปิด "ยืนยันอีเมล" ใน Supabase':'อีเมลหรือรหัสผ่านไม่ถูกต้อง'); return; }
+  showHub(data.session);
+}
+$('toSignup').onclick = ()=>{ $('loginErr').classList.add('hide'); $('loginBox').classList.add('hide'); $('signupBox').classList.remove('hide'); };
+$('toLogin').onclick  = ()=>{ $('signupErr').classList.add('hide'); $('signupOk').classList.add('hide'); $('signupBox').classList.add('hide'); $('loginBox').classList.remove('hide'); };
+
+$('signupBtn').onclick = doSignup;
+async function doSignup(){
+  const email=$('suEmail').value.trim(), password=$('suPassword').value;
+  const role=$('suRole').value, invite=$('suInvite').value.trim();
+  const err=$('signupErr'), ok=$('signupOk'); err.classList.add('hide'); ok.classList.add('hide');
+  const fail = m=>{ err.textContent=m; err.classList.remove('hide'); };
+  if(!email||!password) return fail('กรุณากรอกอีเมลและรหัสผ่าน');
+  if(password.length<6) return fail('รหัสผ่านต้องอย่างน้อย 6 ตัว');
+  if(!invite) return fail('กรุณากรอกรหัสเชิญ');
+  if(invite !== INVITE_CODES[role]) return fail('รหัสเชิญไม่ถูกต้องสำหรับฝ่ายนี้');
+  $('signupBtn').disabled=true; $('signupBtn').textContent='กำลังสมัคร...';
+  const {data,error} = await sb.auth.signUp({ email, password, options:{ data:{ role } } });
+  $('signupBtn').disabled=false; $('signupBtn').textContent='สมัครสมาชิก';
+  if(error){ return fail(/registered|already|exist/i.test(error.message)?'อีเมลนี้ถูกใช้แล้ว':('สมัครไม่สำเร็จ: '+error.message)); }
+  if(data.session){ showHub(data.session); return; }
+  $('suEmail').value=''; $('suPassword').value=''; $('suInvite').value='';
+  ok.textContent='🎉 สมัครสำเร็จ! กด "เข้าสู่ระบบ" เพื่อเริ่มใช้งาน'; ok.classList.remove('hide');
+}
+$('logoutBtn').onclick = async ()=>{ await sb.auth.signOut(); location.reload(); };
 </script>
 </body>
 </html>
