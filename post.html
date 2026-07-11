@@ -438,20 +438,38 @@ async function handleFile(file){
   try{
     const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
     let headers=null; const sheets=[]; const usedNames=[];
+    const trackRe=/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ/i;
+    const feeRe=/ค่าบริการ|ค่าขนส่ง|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม/i;
     for(const name of wb.SheetNames){
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
       if(!aoa.length) continue;
-      // หา header row ของชีตนี้ (แถวแรกที่มีข้อความ >=3 ช่อง = หน้าข้อมูลจริง)
+      // 1) หาแถว "หัวตารางจริง" = แถวที่มีทั้งคำ Barcode/เลขพัสดุ และ ค่าบริการ
       let hi=-1;
-      for(let i=0;i<Math.min(aoa.length,12);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=3){ hi=i; break; } }
-      if(hi<0) continue;
-      const hdr=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1)));
-      const rows=aoa.slice(hi+1).filter(r=>(r||[]).some(x=>norm(x)!==''));
+      for(let i=0;i<Math.min(aoa.length,15);i++){
+        const cells=(aoa[i]||[]).map(x=>norm(x));
+        if(cells.some(c=>trackRe.test(c)) && cells.some(c=>feeRe.test(c))){ hi=i; break; }
+      }
+      let hdr=null, dataStart;
+      if(hi>=0){ hdr=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1))); dataStart=hi+1; }
+      else {
+        // ไม่มีแถวหัวตาราง (ข้อมูลติดหัวข้อความเลย) → หาแถวข้อมูลแถวแรก ไม่ตัดพัสดุทิ้ง
+        dataStart=-1;
+        for(let i=0;i<Math.min(aoa.length,15);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=3){ dataStart=i; break; } }
+        if(dataStart<0) continue;
+      }
+      const rows=aoa.slice(dataStart).filter(r=>(r||[]).some(x=>norm(x)!==''));
       if(!rows.length) continue;
-      if(!headers) headers=hdr;
+      if(!headers && hdr) headers=hdr;   // ใช้หัวจากชีตที่มีหัวจริง
       sheets.push({name, rows}); usedNames.push(name);
     }
     if(!sheets.length){ toast('ไม่พบข้อมูลในไฟล์ (ทุกชีต)',true); return; }
+    // ถ้าไม่มีชีตไหนมีหัวจริงเลย → สร้างหัว generic
+    if(!headers){ let w=0; sheets.forEach(sh=>sh.rows.forEach(r=>{ if(r.length>w) w=r.length; })); headers=[]; for(let i=0;i<w;i++) headers.push('คอลัมน์'+(i+1)); }
+    // ตัดคอลัมน์ท้ายที่ว่างเปล่า (ไม่มีชื่อจริง + ไม่มีข้อมูล)
+    let maxCol=0;
+    sheets.forEach(sh=>sh.rows.forEach(r=>{ for(let i=0;i<r.length;i++){ if(norm(r[i])!=='') maxCol=Math.max(maxCol,i); } }));
+    headers.forEach((h,i)=>{ if(h && !/^คอลัมน์\d+$/.test(h)) maxCol=Math.max(maxCol,i); });
+    headers=headers.slice(0,maxCol+1);
     pv={ file:file.name, headers, sheets, usedNames };
     // เดาคอลัมน์
     const trkGuess=headers.findIndex(h=>/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ|item|track/i.test(h));
