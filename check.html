@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · เช็คบิลไปรษณีย์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
+    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f3f5f9; --card:#fff;
+    --shadow:0 2px 10px rgba(20,40,80,.06); --gold:#C8A24B; --green:#0a7d33;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy-deep);color:#fff;padding:16px 0}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px}
+  .brand span{color:var(--red)}
+  .tool-title{font-size:13px;color:#9db0d4;border-left:1px solid #3a4a6b;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;
+    padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:26px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)} .btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-gold{background:var(--gold);color:#fff}
+  .btn-ghost{background:#fff;border:1px solid var(--line)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .spacer{flex:1}
+  select{font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  label.lbl{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)} .toast.err{background:var(--red-dk)}
+  .drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.drop-grid{grid-template-columns:1fr}}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfd}
+  .drop:hover{border-color:var(--blue);background:#f3f8ff}
+  .drop.loaded{border-style:solid;border-color:var(--green);background:#f2fbf5}
+  .drop .ic{font-size:30px} .drop .t{font-weight:700;margin-top:6px} .drop .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .sec-label{font-weight:700;color:var(--navy);margin:16px 0 8px;font-size:15px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:8px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:22px;font-weight:800;margin-top:3px}
+  .stat.good{background:#f2fbf5;border-color:#bfe6cb} .stat.good .v{color:var(--green)}
+  .stat.warn{background:#fff8e6;border-color:#f0d48a} .stat.warn .v{color:#b8860b}
+  .stat.bad{background:#fdecec;border-color:#f3b4b4} .stat.bad .v{color:var(--red)}
+  .stat.info .v{color:var(--navy)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}
+  .tab{padding:8px 14px;border:1px solid var(--line);border-radius:9px 9px 0 0;background:#f2f5fa;cursor:pointer;font-size:13.5px;font-weight:600}
+  .tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .tbl-wrap{overflow:auto;max-height:56vh;border:1px solid var(--line);border-radius:0 10px 10px 10px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 11px;text-align:left;font-weight:600}
+  tbody td{padding:7px 11px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  .diff-fee{color:var(--red);font-weight:700}
+  .pill{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;font-weight:600}
+  .pill.our{background:#eaf0fa;color:var(--navy)} .pill.post{background:#fdeaea;color:var(--red-dk)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">เช็คบิลไปรษณีย์ · เทียบไฟล์รวมของเรา ↔ ไฟล์ไปรษณีย์</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card">
+    <div class="sec-label" style="margin-top:0">1️⃣ อัปโหลด 2 ไฟล์เพื่อเทียบ</div>
+    <div class="drop-grid">
+      <div class="drop" id="dropA">
+        <div class="ic">📦</div>
+        <div class="t">ไฟล์รวมของเรา</div>
+        <div class="s">(ไฟล์ที่ส่งออกจากระบบไปรษณีย์ของเรา)</div>
+      </div>
+      <div class="drop" id="dropB">
+        <div class="ic">🏤</div>
+        <div class="t">ไฟล์ไปรษณีย์</div>
+        <div class="s">(Thailand Post — เลขพัสดุ/ค่าขนส่ง)</div>
+      </div>
+    </div>
+    <input type="file" id="fileA" accept=".xlsx,.xls,.csv" class="hidden">
+    <input type="file" id="fileB" accept=".xlsx,.xls,.csv" class="hidden">
+
+    <div id="mapArea" class="hidden" style="margin-top:16px">
+      <div class="sec-label">2️⃣ ตรวจคอลัมน์ (ระบบเดาให้ ปรับได้)</div>
+      <div class="row" style="align-items:flex-start;gap:24px">
+        <div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">📦 ไฟล์รวมของเรา</div>
+          <div class="row">
+            <div><label class="lbl">เลขพัสดุ</label><select id="aTrk"></select></div>
+            <div><label class="lbl">ค่าบริการ</label><select id="aFee"></select></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">🏤 ไฟล์ไปรษณีย์</div>
+          <div class="row">
+            <div><label class="lbl">เลขพัสดุ</label><select id="bTrk"></select></div>
+            <div><label class="lbl">ค่าขนส่ง</label><select id="bFee"></select></div>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary" id="cmpBtn">🔍 เทียบไฟล์</button>
+        <span id="mapInfo" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultCard" class="card hidden" style="margin-top:18px">
+    <div class="row">
+      <div class="sec-label" style="margin:0">📊 ผลการเทียบ</div>
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-sm" id="expBtn">⬇️ ส่งออกผลเทียบ (Excel)</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="tbl-wrap"><table id="resTbl"><thead id="resHead"></thead><tbody id="resBody"></tbody></table></div>
+    <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function normTrk(s){ return String(s==null?'':s).trim().toUpperCase(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let dataA=null, dataB=null, result=null;
+
+function bindDrop(dropId, inputId){
+  $(dropId).onclick=()=>$(inputId).click();
+}
+bindDrop('dropA','fileA'); bindDrop('dropB','fileB');
+$('fileA').onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0],'A'); e.target.value=''; };
+$('fileB').onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0],'B'); e.target.value=''; };
+
+async function readFile(file, which){
+  try{
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    // อ่านทุกชีต รวมกัน
+    let headers=null; let rows=[];
+    for(const name of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+      if(!aoa.length) continue;
+      let hi=-1;
+      for(let i=0;i<Math.min(aoa.length,12);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=2){ hi=i; break; } }
+      if(hi<0) continue;
+      const hdr=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1)));
+      const rws=aoa.slice(hi+1).filter(r=>(r||[]).some(x=>norm(x)!==''));
+      if(!headers) headers=hdr;
+      rows=rows.concat(rws);
+    }
+    if(!headers||!rows.length){ toast('ไม่พบข้อมูลในไฟล์',true); return; }
+    const parsed={ file:file.name, headers, rows };
+    const trkGuess=headers.findIndex(h=>/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ|track/i.test(h));
+    const feeGuess=headers.findIndex(h=>/ค่าบริการ|ค่าขนส่ง|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|จำนวนเงิน|amount|fee|net/i.test(h));
+    parsed.trkGuess=trkGuess>=0?trkGuess:0;
+    parsed.feeGuess=feeGuess>=0?feeGuess:headers.length-1;
+    if(which==='A'){ dataA=parsed; markDrop('dropA',file.name,rows.length); }
+    else { dataB=parsed; markDrop('dropB',file.name,rows.length); }
+    setupMapping();
+  }catch(err){ toast('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+function markDrop(id,name,n){
+  const el=$(id); el.classList.add('loaded');
+  el.querySelector('.t').textContent=(id==='dropA'?'📦 ไฟล์รวมของเรา':'🏤 ไฟล์ไปรษณีย์');
+  el.querySelector('.s').textContent=`✅ ${name} · ${fmtInt(n)} แถว (กดเพื่อเปลี่ยน)`;
+}
+function fillSel(id,headers,sel){ $(id).innerHTML=headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${htmlesc(h)}</option>`).join(''); }
+function setupMapping(){
+  if(dataA){ fillSel('aTrk',dataA.headers,dataA.trkGuess); fillSel('aFee',dataA.headers,dataA.feeGuess); }
+  if(dataB){ fillSel('bTrk',dataB.headers,dataB.trkGuess); fillSel('bFee',dataB.headers,dataB.feeGuess); }
+  if(dataA && dataB){ $('mapArea').classList.remove('hidden'); $('mapInfo').textContent='พร้อมเทียบ — กด "เทียบไฟล์"'; }
+}
+
+$('cmpBtn').onclick=compare;
+function aggregate(parsed, trkIdx, feeIdx){
+  // รวมตามเลขพัสดุ: {fee(รวม), count}
+  const map=new Map();
+  parsed.rows.forEach(r=>{
+    const t=normTrk(r[trkIdx]); if(!t) return;
+    const f=toNum(r[feeIdx])||0;
+    const cur=map.get(t)||{fee:0,count:0};
+    cur.fee+=f; cur.count++; map.set(t,cur);
+  });
+  return map;
+}
+function compare(){
+  if(!dataA||!dataB) return;
+  const aTrk=+$('aTrk').value, aFee=+$('aFee').value, bTrk=+$('bTrk').value, bFee=+$('bFee').value;
+  const A=aggregate(dataA,aTrk,aFee), B=aggregate(dataB,bTrk,bFee);
+  const all=new Set([...A.keys(),...B.keys()]);
+  const rows={match:[], feeDiff:[], onlyOurs:[], onlyPost:[], dup:[]};
+  let sumA=0, sumB=0;
+  all.forEach(t=>{
+    const a=A.get(t), b=B.get(t);
+    if(a) sumA+=a.fee; if(b) sumB+=b.fee;
+    if((a&&a.count>1)||(b&&b.count>1)) rows.dup.push({t, a, b});
+    if(a && b){
+      if(Math.abs(a.fee-b.fee)<0.01) rows.match.push({t,a,b});
+      else rows.feeDiff.push({t,a,b});
+    } else if(a && !b) rows.onlyOurs.push({t,a,b:null});
+    else if(b && !a) rows.onlyPost.push({t,a:null,b});
+  });
+  result={rows, sumA, sumB, cntA:A.size, cntB:B.size};
+  renderResult();
+}
+
+function renderResult(){
+  const r=result; $('resultCard').classList.remove('hidden');
+  const diffTotal=r.sumA-r.sumB;
+  $('stats').innerHTML=`
+    <div class="stat info"><div class="k">📦 เลขพัสดุ (ระบบเรา)</div><div class="v">${fmtInt(r.cntA)}</div></div>
+    <div class="stat info"><div class="k">🏤 เลขพัสดุ (ไปรษณีย์)</div><div class="v">${fmtInt(r.cntB)}</div></div>
+    <div class="stat good"><div class="k">✅ ตรงกัน</div><div class="v">${fmtInt(r.rows.match.length)}</div></div>
+    <div class="stat bad"><div class="k">💰 ค่าต่างกัน</div><div class="v">${fmtInt(r.rows.feeDiff.length)}</div></div>
+    <div class="stat warn"><div class="k">➖ เฉพาะในระบบเรา</div><div class="v">${fmtInt(r.rows.onlyOurs.length)}</div></div>
+    <div class="stat bad"><div class="k">➕ เฉพาะในไปรษณีย์</div><div class="v">${fmtInt(r.rows.onlyPost.length)}</div></div>
+    <div class="stat info"><div class="k">💵 ยอดของเรา</div><div class="v" style="font-size:17px">${fmtNum(r.sumA)}</div></div>
+    <div class="stat info"><div class="k">💵 ยอดไปรษณีย์</div><div class="v" style="font-size:17px">${fmtNum(r.sumB)}</div></div>
+    <div class="stat ${Math.abs(diffTotal)<0.01?'good':'bad'}"><div class="k">ผลต่างยอดรวม</div><div class="v" style="font-size:17px">${Math.abs(diffTotal)<0.01?'✅ ตรง':fmtNum(diffTotal)}</div></div>`;
+  const tabDefs=[
+    ['feeDiff','💰 ค่าต่างกัน',r.rows.feeDiff.length],
+    ['onlyPost','➕ เฉพาะไปรษณีย์',r.rows.onlyPost.length],
+    ['onlyOurs','➖ เฉพาะระบบเรา',r.rows.onlyOurs.length],
+    ['dup','🔁 เลขซ้ำในไฟล์',r.rows.dup.length],
+    ['match','✅ ตรงกัน',r.rows.match.length],
+  ];
+  $('tabs').innerHTML=tabDefs.map((t,i)=>`<div class="tab ${i===0?'active':''}" data-tab="${t[0]}">${t[1]} (${fmtInt(t[2])})</div>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(el=>el.onclick=()=>{ $('tabs').querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderTab(el.dataset.tab); });
+  renderTab('feeDiff');
+}
+function renderTab(key){
+  const list=result.rows[key]; const cap=1000;
+  $('resHead').innerHTML='<tr><th>เลขพัสดุ</th><th>ค่าของเรา</th><th>ค่าไปรษณีย์</th><th>ผลต่าง</th><th>หมายเหตุ</th></tr>';
+  $('resBody').innerHTML=list.slice(0,cap).map(x=>{
+    const af=x.a?x.a.fee:null, bf=x.b?x.b.fee:null;
+    const diff=(af!=null&&bf!=null)?(af-bf):null;
+    let note='';
+    if(key==='onlyOurs') note='<span class="pill our">ไปรษณีย์ไม่คิด/ไม่มี</span>';
+    else if(key==='onlyPost') note='<span class="pill post">เราไม่ได้บันทึก/ไปรษณีย์คิดเกิน</span>';
+    else if(key==='feeDiff') note='<span class="pill post">ค่าบริการไม่ตรง</span>';
+    else if(key==='dup') note=`ของเรา ${x.a?x.a.count:0} · ไปรษณีย์ ${x.b?x.b.count:0}`;
+    return `<tr>
+      <td>${htmlesc(x.t)}</td>
+      <td>${af!=null?fmtNum(af):'—'}</td>
+      <td>${bf!=null?fmtNum(bf):'—'}</td>
+      <td class="${diff&&Math.abs(diff)>=0.01?'diff-fee':''}">${diff!=null?fmtNum(diff):'—'}</td>
+      <td>${note}</td></tr>`;
+  }).join('');
+  $('resInfo').textContent = list.length>cap ? `แสดง ${fmtInt(cap)} แรกจาก ${fmtInt(list.length)} รายการ · กดส่งออกเพื่อดูทั้งหมด` : `ทั้งหมด ${fmtInt(list.length)} รายการ`;
+}
+
+/* ---- ส่งออกผลเทียบ ---- */
+$('expBtn').onclick=exportResult;
+async function exportResult(){
+  if(!result) return;
+  toast('กำลังสร้างไฟล์...');
+  const wb=new ExcelJS.Workbook();
+  function addSheet(name, list, colorArgb){
+    const ws=wb.addWorksheet(name);
+    ws.addRow(['เลขพัสดุ','ค่าของเรา','ค่าไปรษณีย์','ผลต่าง','จำนวน(เรา)','จำนวน(ไปรษณีย์)']);
+    ws.getRow(1).eachCell({includeEmpty:true},c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}}; });
+    list.forEach(x=>{
+      const af=x.a?x.a.fee:null, bf=x.b?x.b.fee:null; const diff=(af!=null&&bf!=null)?(af-bf):'';
+      const row=ws.addRow([x.t, af!=null?af:'', bf!=null?bf:'', diff, x.a?x.a.count:'', x.b?x.b.count:'']);
+      if(colorArgb) row.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:colorArgb}};
+    });
+    ws.columns.forEach(c=>c.width=18);
+  }
+  // ชีตสรุป
+  const s=wb.addWorksheet('สรุป');
+  const diffTotal=result.sumA-result.sumB;
+  [['รายการ','จำนวน/ยอด'],
+   ['เลขพัสดุ (ระบบเรา)',result.cntA],['เลขพัสดุ (ไปรษณีย์)',result.cntB],
+   ['ตรงกัน',result.rows.match.length],['ค่าต่างกัน',result.rows.feeDiff.length],
+   ['เฉพาะในระบบเรา',result.rows.onlyOurs.length],['เฉพาะในไปรษณีย์',result.rows.onlyPost.length],
+   ['เลขซ้ำในไฟล์',result.rows.dup.length],
+   ['ยอดรวมของเรา',result.sumA],['ยอดรวมไปรษณีย์',result.sumB],['ผลต่างยอดรวม',diffTotal]
+  ].forEach((r,i)=>{ const row=s.addRow(r); if(i===0) row.eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}};}); });
+  s.columns.forEach(c=>c.width=26);
+  addSheet('ค่าต่างกัน', result.rows.feeDiff, 'FFFFE08A');
+  addSheet('เฉพาะไปรษณีย์', result.rows.onlyPost, 'FFF3B4B4');
+  addSheet('เฉพาะระบบเรา', result.rows.onlyOurs, 'FFFFE08A');
+  addSheet('เลขซ้ำ', result.rows.dup, 'FFFFD6D6');
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='ผลเทียบไปรษณีย์.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('ส่งออกแล้ว');
+}
+</script>
+</body>
+</html>
