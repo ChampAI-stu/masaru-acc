@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · รวมไฟล์ไปรษณีย์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
+    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f3f5f9; --card:#fff;
+    --shadow:0 2px 10px rgba(20,40,80,.06); --gold:#C8A24B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy-deep);color:#fff;padding:16px 0;position:relative;overflow:hidden}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px}
+  .brand span{color:var(--red)}
+  .tool-title{font-size:13px;color:#9db0d4;border-left:1px solid #3a4a6b;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;
+    padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:26px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-gold{background:var(--gold);color:#fff}
+  .btn-ghost{background:#fff;border:1px solid var(--line)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:default}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .spacer{flex:1}
+  input[type=date],select,input[type=text]{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  label.lbl{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;
+    padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red-dk)}
+
+  /* ===== ปฏิทิน ===== */
+  .cal-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .cal-title{font-size:20px;font-weight:700;color:var(--navy);min-width:180px;text-align:center}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .cal-dow{text-align:center;font-size:12px;color:var(--muted);font-weight:600;padding:4px 0}
+  .cal-cell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:82px;padding:8px;cursor:pointer;
+    display:flex;flex-direction:column;gap:4px;transition:.12s;position:relative}
+  .cal-cell:hover{border-color:var(--blue);box-shadow:var(--shadow)}
+  .cal-cell.empty{background:transparent;border:none;cursor:default}
+  .cal-cell.today{border-color:var(--red);box-shadow:0 0 0 2px rgba(216,31,44,.15)}
+  .cal-daynum{font-weight:700;font-size:14px}
+  .cal-badge{font-size:11.5px;color:var(--navy);background:#eaf0fa;border-radius:6px;padding:1px 6px;align-self:flex-start}
+  .cal-fee{font-size:11px;margin-top:auto}
+  .cal-fee.ok{color:#0a7d33}.cal-fee.bad{color:var(--red)}.cal-fee.na{color:var(--muted)}
+  .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--red);font-weight:700}
+
+  /* ===== ตาราง ===== */
+  .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 10px;text-align:left;font-weight:600;z-index:1}
+  tbody td{padding:7px 10px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  td.dup{background:#fdeaea;color:var(--red-dk);font-weight:600}
+  .warnbox{background:#fdeaea;border:1px solid var(--red);color:var(--red-dk);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px;line-height:1.7}
+  .okbox{background:#e9f7ee;border:1px solid #0a7d33;color:#0a6b2c;border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px}
+  .feebox{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-size:14px}
+  .feebox .k{color:var(--muted);font-size:12px}
+  .feebox .v{font-weight:700;font-size:17px}
+  .sec-label{font-weight:700;color:var(--navy);margin:18px 0 6px;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">รวมไฟล์ไปรษณีย์ · ตรวจเลขซ้ำ · เช็คค่าบริการรายวัน</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ===== ปฏิทิน ===== -->
+  <div id="viewCal">
+    <div class="card">
+      <div class="cal-top">
+        <button class="btn btn-ghost btn-sm" id="prevM">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="btn btn-ghost btn-sm" id="nextM">›</button>
+        <button class="btn btn-primary btn-sm" id="todayBtn">📅 วันนี้</button>
+        <div class="spacer"></div>
+        <span style="font-size:12.5px;color:var(--muted)">แตะวันที่เพื่ออัปโหลด/ดูข้อมูล</span>
+      </div>
+      <div class="cal-grid" id="calDow"></div>
+      <div class="cal-grid" id="calGrid" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="sec-label">⬇️ ส่งออกข้อมูลตามช่วงวันที่</div>
+      <div class="row">
+        <div><label class="lbl">จากวันที่</label><input type="date" id="expFrom"></div>
+        <div><label class="lbl">ถึงวันที่</label><input type="date" id="expTo"></div>
+        <div style="align-self:flex-end"><button class="btn btn-gold" id="expBtn">⬇️ ส่งออก Excel</button></div>
+        <span class="spacer"></span>
+        <span id="expInfo" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== หน้าของวัน ===== -->
+  <div id="viewDay" class="hidden">
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="backCal">‹ ปฏิทิน</button>
+        <h2 style="margin:0;font-size:19px;color:var(--navy)" id="dayTitle">—</h2>
+        <div class="spacer"></div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden">
+        <button class="btn btn-primary" id="uploadBtn">⬆️ อัปโหลดไฟล์ไปรษณีย์ของวันนี้</button>
+      </div>
+      <div id="daySaved" style="margin-top:6px;font-size:13px;color:var(--muted)"></div>
+    </div>
+
+    <!-- พรีวิวไฟล์ที่เพิ่งอัป -->
+    <div id="previewCard" class="card hidden" style="margin-top:16px">
+      <div class="sec-label">🔎 ตรวจไฟล์ก่อนบันทึก</div>
+      <div class="row">
+        <div><label class="lbl">คอลัมน์ "เลขพัสดุ"</label><select id="colTrk"></select></div>
+        <div><label class="lbl">คอลัมน์ "ค่าบริการ"</label><select id="colFee"></select></div>
+        <div style="align-self:flex-end;font-size:13px">
+          <label style="cursor:pointer"><input type="checkbox" id="lastIsFee" checked> แถวสุดท้าย = ค่าบริการรวมรายวัน</label>
+        </div>
+      </div>
+      <div id="feeCheck" class="feebox"></div>
+      <div id="dupWarn"></div>
+      <div class="tbl-wrap"><table id="pvTbl"><thead id="pvHead"></thead><tbody id="pvBody"></tbody></table></div>
+      <div class="row" style="margin-top:12px">
+        <span id="pvInfo" style="font-size:13px;color:var(--muted)"></span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="pvCancel">ยกเลิก</button>
+        <button class="btn btn-primary" id="pvSave">💾 บันทึกเข้าระบบ</button>
+      </div>
+    </div>
+
+    <!-- ข้อมูลที่บันทึกแล้วของวันนี้ -->
+    <div id="dayDataCard" class="card hidden" style="margin-top:16px">
+      <div class="row">
+        <div class="sec-label" style="margin:0">📋 ข้อมูลที่บันทึกแล้ว</div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="dayExport">⬇️ ส่งออกวันนี้</button>
+        <button class="btn btn-red btn-sm" id="dayClear">🗑️ ล้างข้อมูลวันนี้</button>
+      </div>
+      <div id="dayFee" class="feebox"></div>
+      <div id="dayDup"></div>
+      <div class="tbl-wrap"><table id="dayTbl"><thead id="dayHead"></thead><tbody id="dayBody"></tbody></table></div>
+      <div style="margin-top:8px;font-size:13px;color:var(--muted)" id="dayInfo"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+/* ===== auth: เฉพาะฝ่ายบัญชี ===== */
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบไปรษณีย์'); location.replace('index.html'); return; }
+  initCalendar();
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+/* ===== helpers ===== */
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const TH_DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
+function thaiDate(str){ const [y,m,d]=str.split('-').map(Number); return `${d} ${TH_MONTHS[m-1]} ${y}`; }
+
+/* ===== ปฏิทิน ===== */
+let curMonth=new Date();
+function initCalendar(){
+  curMonth=new Date(); curMonth.setDate(1);
+  $('calDow').innerHTML=TH_DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  const t=new Date(); $('expFrom').value=ymd(new Date(t.getFullYear(),t.getMonth(),1)); $('expTo').value=ymd(t);
+  renderCalendar();
+}
+$('prevM').onclick=()=>{ curMonth.setMonth(curMonth.getMonth()-1); renderCalendar(); };
+$('nextM').onclick=()=>{ curMonth.setMonth(curMonth.getMonth()+1); renderCalendar(); };
+$('todayBtn').onclick=()=>{ openDay(ymd(new Date())); };
+
+async function renderCalendar(){
+  const y=curMonth.getFullYear(), m=curMonth.getMonth();
+  $('calTitle').textContent=`${TH_MONTHS[m]} ${y}`;
+  const first=new Date(y,m,1), lead=first.getDay(), days=new Date(y,m+1,0).getDate();
+  // ดึงสรุปรายวันของเดือนนี้
+  let dayMap={};
+  try{
+    const {data,error}=await sb.from('post_days').select('pdate,declared_fee,calc_fee,parcel_count')
+      .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days)));
+    if(error) throw error;
+    (data||[]).forEach(r=>{ dayMap[r.pdate]=r; });
+  }catch(err){ console.error(err); }
+  const todayStr=ymd(new Date());
+  let html='';
+  for(let i=0;i<lead;i++) html+='<div class="cal-cell empty"></div>';
+  for(let d=1; d<=days; d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const info=dayMap[ds]; const isToday=ds===todayStr;
+    let badge='', fee='';
+    if(info && info.parcel_count){
+      badge=`<span class="cal-badge">${fmtInt(info.parcel_count)} ชิ้น</span>`;
+      const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
+      const hasDeclared=(Number(info.declared_fee)||0)!==0;
+      fee = hasDeclared
+        ? `<div class="cal-fee ${ok?'ok':'bad'}">${ok?'✅ ค่าบริการตรง':'❌ ไม่ตรง'}</div>`
+        : `<div class="cal-fee na">— ยังไม่มีค่าบริการ</div>`;
+    }
+    html+=`<div class="cal-cell ${isToday?'today':''}" data-date="${ds}">
+      ${isToday?'<span class="today-dot">วันนี้</span>':''}
+      <span class="cal-daynum">${d}</span>${badge}${fee}</div>`;
+  }
+  $('calGrid').innerHTML=html;
+  $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
+}
+
+/* ===== หน้าของวัน ===== */
+let selDate=null, pv=null;
+function openDay(ds){
+  selDate=ds;
+  $('viewCal').classList.add('hidden'); $('viewDay').classList.remove('hidden');
+  $('dayTitle').textContent='📅 '+thaiDate(ds);
+  $('uploadBtn').textContent='⬆️ อัปโหลดไฟล์ไปรษณีย์ ('+thaiDate(ds)+')';
+  $('previewCard').classList.add('hidden'); pv=null;
+  loadDay();
+}
+$('backCal').onclick=()=>{ $('viewDay').classList.add('hidden'); $('viewCal').classList.remove('hidden'); renderCalendar(); };
+$('uploadBtn').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; };
+
+/* ---- โหลดข้อมูลของวันที่บันทึกแล้ว ---- */
+async function loadDay(){
+  $('daySaved').textContent='กำลังโหลด...';
+  let rows=[], from=0; const page=1000;
+  try{
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('tracking,fee,data,created_at')
+        .eq('pdate',selDate).order('created_at',{ascending:true}).range(from,from+page-1);
+      if(error) throw error;
+      rows=rows.concat(data||[]); if(!data||data.length<page) break; from+=page;
+    }
+  }catch(err){ $('daySaved').textContent='โหลดไม่สำเร็จ'; toast('โหลดข้อมูลไม่สำเร็จ: '+(err.message||err),true); return; }
+  let day=null;
+  try{ const {data}=await sb.from('post_days').select('*').eq('pdate',selDate).maybeSingle(); day=data; }catch(_){}
+  if(!rows.length){
+    $('daySaved').textContent='ยังไม่มีข้อมูลของวันนี้ — กดอัปโหลดไฟล์เพื่อเริ่ม';
+    $('dayDataCard').classList.add('hidden'); return;
+  }
+  $('daySaved').textContent='';
+  $('dayDataCard').classList.remove('hidden');
+  // หัวคอลัมน์
+  let headers=(day&&day.headers)||[];
+  if(!headers.length){ const set=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!set.includes(k)) set.push(k); })); headers=set; }
+  // ตรวจซ้ำข้ามวัน
+  const dupSet=await findDupTrackings(rows.map(r=>r.tracking));
+  // ค่าบริการ
+  const calc=rows.reduce((a,r)=>a+(Number(r.fee)||0),0);
+  const declared=Number(day&&day.declared_fee)||0;
+  const ok=Math.abs(calc-declared)<0.01;
+  $('dayFee').innerHTML=`
+    <div><div class="k">จำนวนพัสดุ</div><div class="v">${fmtInt(rows.length)}</div></div>
+    <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
+    <div><div class="k">ค่าบริการรายวัน (แจ้ง)</div><div class="v">${fmtNum(declared)}</div></div>
+    <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง'):'—'}</div></div>`;
+  const dupInDay=rows.filter(r=>dupSet.has(r.tracking));
+  $('dayDup').innerHTML = dupInDay.length
+    ? `<div class="warnbox">⚠️ พบเลขพัสดุที่ซ้ำกับในระบบ ${dupInDay.length} รายการ (ไฮไลต์แดงในตาราง): ${[...new Set(dupInDay.map(r=>r.tracking))].slice(0,20).map(htmlesc).join(', ')}${dupInDay.length>20?' ...':''}</div>` : '';
+  renderTable('day', headers, rows.map(r=>r.data||{}), rows.map(r=>r.tracking), dupSet);
+  $('dayInfo').textContent=`ทั้งหมด ${fmtInt(rows.length)} พัสดุ`;
+}
+
+/* ---- ตรวจเลขพัสดุซ้ำในระบบ ---- */
+async function findDupTrackings(trackings){
+  const uniq=[...new Set(trackings.filter(Boolean))]; const dup=new Set();
+  for(let i=0;i<uniq.length;i+=200){
+    const chunk=uniq.slice(i,i+200);
+    try{
+      const {data,error}=await sb.from('post_parcels').select('tracking').in('tracking',chunk);
+      if(error) throw error;
+      const cnt={}; (data||[]).forEach(r=>{ cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
+      Object.keys(cnt).forEach(t=>{ if(cnt[t]>1) dup.add(t); });
+    }catch(err){ console.error(err); }
+  }
+  return dup;
+}
+
+/* ---- ตารางทั่วไป ---- */
+function renderTable(prefix, headers, dataRows, trackings, dupSet){
+  $(prefix+'Head').innerHTML='<tr><th>วันที่</th>'+headers.map(h=>`<th>${htmlesc(h)}</th>`).join('')+'</tr>';
+  $(prefix+'Body').innerHTML=dataRows.map((row,i)=>{
+    const isDup=dupSet&&trackings&&dupSet.has(trackings[i]);
+    return '<tr>'+`<td>${htmlesc(selDate)}</td>`+headers.map(h=>{
+      const v=row[h]; const cellDup=isDup;
+      return `<td class="${cellDup?'dup':''}">${htmlesc(v==null?'':v)}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+}
+
+/* ---- อัปโหลด + พรีวิว ---- */
+async function handleFile(file){
+  try{
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+    if(aoa.length<2){ toast('ไฟล์ว่างหรือไม่มีข้อมูล',true); return; }
+    // หา header row (แถวแรกที่มีข้อความหลายช่อง)
+    let hi=0; for(let i=0;i<Math.min(aoa.length,10);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=2){ hi=i; break; } }
+    const headers=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1)));
+    let rows=aoa.slice(hi+1).filter(r=>(r||[]).some(x=>norm(x)!==''));
+    pv={ file:file.name, headers, rows };
+    // เดาคอลัมน์
+    const trkGuess=headers.findIndex(h=>/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ|item|track/i.test(h));
+    const feeGuess=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|จำนวนเงิน|ยอด|ราคา|amount|net|รวม/i.test(h));
+    fillColSelect('colTrk', headers, trkGuess>=0?trkGuess:0);
+    fillColSelect('colFee', headers, feeGuess>=0?feeGuess:headers.length-1);
+    $('previewCard').classList.remove('hidden');
+    $('lastIsFee').checked=true;
+    await refreshPreview();
+    $('previewCard').scrollIntoView({behavior:'smooth'});
+  }catch(err){ toast('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+function fillColSelect(id, headers, sel){
+  $(id).innerHTML=headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${htmlesc(h)}</option>`).join('');
+}
+$('colTrk').onchange=refreshPreview; $('colFee').onchange=refreshPreview; $('lastIsFee').onchange=refreshPreview;
+
+async function refreshPreview(){
+  if(!pv) return;
+  const trkIdx=+$('colTrk').value, feeIdx=+$('colFee').value, lastIsFee=$('lastIsFee').checked;
+  let dataRows=pv.rows.slice(); let declared=0;
+  if(lastIsFee && dataRows.length){ const last=dataRows[dataRows.length-1]; declared=toNum(last[feeIdx])||0; dataRows=dataRows.slice(0,-1); }
+  // แปลงเป็น object + tracking + fee
+  const parcels=dataRows.map(r=>{
+    const obj={}; pv.headers.forEach((h,i)=> obj[h]= r[i]==null?'':r[i]);
+    return { tracking:norm(r[trkIdx]), fee:toNum(r[feeIdx]), data:obj };
+  });
+  pv.parcels=parcels; pv.declared=declared;
+  const calc=parcels.reduce((a,p)=>a+(Number(p.fee)||0),0);
+  const ok=Math.abs(calc-declared)<0.01;
+  $('feeCheck').innerHTML=`
+    <div><div class="k">จำนวนพัสดุ</div><div class="v">${fmtInt(parcels.length)}</div></div>
+    <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
+    <div><div class="k">ค่าบริการรายวัน (แถวสุดท้าย)</div><div class="v">${fmtNum(declared)}</div></div>
+    <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง (ต่าง '+fmtNum(calc-declared)+')'):'— ไม่มีค่าบริการรวม'}</div></div>`;
+  // ตรวจซ้ำ: ในไฟล์เอง + กับระบบ
+  const trks=parcels.map(p=>p.tracking).filter(Boolean);
+  const inFileCnt={}; trks.forEach(t=>inFileCnt[t]=(inFileCnt[t]||0)+1);
+  const inFileDup=Object.keys(inFileCnt).filter(t=>inFileCnt[t]>1);
+  const dbDupSet=await findDupExisting(trks);
+  const dupSet=new Set([...inFileDup, ...dbDupSet]);
+  let warn='';
+  if(inFileDup.length) warn+=`<div>• ซ้ำภายในไฟล์นี้ ${inFileDup.length} เลข: ${inFileDup.slice(0,15).map(htmlesc).join(', ')}${inFileDup.length>15?' ...':''}</div>`;
+  if(dbDupSet.size) warn+=`<div>• ซ้ำกับที่มีในระบบแล้ว ${dbDupSet.size} เลข: ${[...dbDupSet].slice(0,15).map(htmlesc).join(', ')}${dbDupSet.size>15?' ...':''}</div>`;
+  $('dupWarn').innerHTML = warn ? `<div class="warnbox">⚠️ พบเลขพัสดุซ้ำ (ไฮไลต์แดงในตาราง)<br>${warn}<br>ตรวจสอบก่อนบันทึก — ถ้ายืนยันก็บันทึกได้</div>`
+                                : `<div class="okbox">✅ ไม่พบเลขพัสดุซ้ำ</div>`;
+  pv.dupSet=dupSet;
+  renderTable('pv', pv.headers, parcels.map(p=>p.data), parcels.map(p=>p.tracking), dupSet);
+  $('pvInfo').textContent=`ไฟล์: ${pv.file} · ${fmtInt(parcels.length)} พัสดุ${lastIsFee?' (ตัดแถวค่าบริการออกแล้ว)':''}`;
+}
+/* ตรวจซ้ำเฉพาะที่ "มีอยู่แล้วในระบบ" (นับ >=1) */
+async function findDupExisting(trackings){
+  const uniq=[...new Set(trackings.filter(Boolean))]; const dup=new Set();
+  for(let i=0;i<uniq.length;i+=200){
+    const chunk=uniq.slice(i,i+200);
+    try{ const {data,error}=await sb.from('post_parcels').select('tracking').in('tracking',chunk);
+      if(error) throw error; (data||[]).forEach(r=>dup.add(r.tracking));
+    }catch(err){ console.error(err); }
+  }
+  return dup;
+}
+$('pvCancel').onclick=()=>{ $('previewCard').classList.add('hidden'); pv=null; };
+$('pvSave').onclick=savePreview;
+async function savePreview(){
+  if(!pv||!pv.parcels){ return; }
+  if(!pv.parcels.length){ toast('ไม่มีพัสดุให้บันทึก',true); return; }
+  const btn=$('pvSave'); btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  try{
+    const recs=pv.parcels.map(p=>({ pdate:selDate, tracking:p.tracking, fee:p.fee, data:p.data }));
+    for(let i=0;i<recs.length;i+=500){
+      const {error}=await sb.from('post_parcels').insert(recs.slice(i,i+500));
+      if(error) throw error;
+    }
+    // อัปเดตสรุปรายวัน (declared สะสม + recompute calc/count)
+    let prev=null; try{ const {data}=await sb.from('post_days').select('*').eq('pdate',selDate).maybeSingle(); prev=data; }catch(_){}
+    const declared=(Number(prev&&prev.declared_fee)||0)+(Number(pv.declared)||0);
+    await recomputeDay(selDate, declared, pv.headers);
+    toast('บันทึก '+fmtInt(recs.length)+' พัสดุแล้ว');
+    $('previewCard').classList.add('hidden'); pv=null;
+    loadDay();
+  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent='💾 บันทึกเข้าระบบ';
+}
+async function recomputeDay(ds, declared, headers){
+  // รวม fee + count จาก parcels ของวันนั้น
+  let sum=0, cnt=0, from=0; const page=1000;
+  while(true){
+    const {data,error}=await sb.from('post_parcels').select('fee').eq('pdate',ds).range(from,from+page-1);
+    if(error) throw error;
+    (data||[]).forEach(r=>{ sum+=Number(r.fee)||0; cnt++; });
+    if(!data||data.length<page) break; from+=page;
+  }
+  const payload={ pdate:ds, calc_fee:sum, parcel_count:cnt, updated_at:new Date().toISOString() };
+  if(declared!=null) payload.declared_fee=declared;
+  if(headers) payload.headers=headers;
+  const {error}=await sb.from('post_days').upsert(payload);
+  if(error) throw error;
+}
+
+/* ---- ล้างข้อมูลวันนี้ ---- */
+$('dayClear').onclick=async ()=>{
+  if(!confirm(`ล้างข้อมูลไปรษณีย์ของ ${thaiDate(selDate)} ทั้งหมด?\n(ลบถาวร)`)) return;
+  try{
+    await sb.from('post_parcels').delete().eq('pdate',selDate);
+    await sb.from('post_days').delete().eq('pdate',selDate);
+    toast('ล้างข้อมูลแล้ว'); loadDay();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); }
+};
+
+/* ---- ส่งออกวันนี้ ---- */
+$('dayExport').onclick=()=> exportRange(selDate, selDate, 'ไปรษณีย์_'+selDate+'.xlsx');
+/* ---- ส่งออกช่วงวันที่ ---- */
+$('expBtn').onclick=()=>{ const f=$('expFrom').value, t=$('expTo').value; if(!f||!t){ toast('เลือกช่วงวันที่',true); return; } exportRange(f,t,'ไปรษณีย์_'+f+'_ถึง_'+t+'.xlsx'); };
+
+async function exportRange(from,to,fname){
+  $('expInfo').textContent='กำลังดึงข้อมูล...';
+  let rows=[], off=0; const page=1000;
+  try{
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('pdate,tracking,fee,data')
+        .gte('pdate',from).lte('pdate',to).order('pdate',{ascending:true}).order('created_at',{ascending:true}).range(off,off+page-1);
+      if(error) throw error;
+      rows=rows.concat(data||[]); if(!data||data.length<page) break; off+=page;
+    }
+  }catch(err){ $('expInfo').textContent=''; toast('ดึงข้อมูลไม่สำเร็จ: '+(err.message||err),true); return; }
+  if(!rows.length){ $('expInfo').textContent=''; toast('ไม่มีข้อมูลในช่วงนี้',true); return; }
+  // union headers
+  const headers=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!headers.includes(k)) headers.push(k); }));
+  const aoa=[['วันที่',...headers]];
+  rows.forEach(r=>{ aoa.push([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]); });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'ไปรษณีย์');
+  XLSX.writeFile(wb,fname);
+  $('expInfo').textContent=`ส่งออก ${fmtInt(rows.length)} รายการแล้ว`;
+  toast('ส่งออกแล้ว');
+}
+</script>
+</body>
+</html>
