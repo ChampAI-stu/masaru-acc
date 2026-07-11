@@ -483,7 +483,11 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
 }
 /* ===== ต้องล็อกอินก่อนใช้งาน (เช็ค session จาก Portal) ===== */
 if(sb){
-  sb.auth.getSession().then(({data})=>{ if(!data.session) location.replace('index.html'); });
+  sb.auth.getSession().then(({data})=>{
+    if(!data.session){ location.replace('index.html'); return; }
+    const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+    if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบบัญชี'); location.replace('index.html'); return; }
+  });
   sb.auth.onAuthStateChange((e,ss)=>{ if(e==='SIGNED_OUT'||!ss) location.replace('index.html'); });
   const _lo=document.getElementById('logoutBtn');
   if(_lo) _lo.onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
