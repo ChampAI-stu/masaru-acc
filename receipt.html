@@ -110,6 +110,8 @@
   .fcard .fname{font-weight:600;flex:1;min-width:180px;word-break:break-all}
   .fcard .fmeta{font-size:12px;color:var(--muted);margin-top:2px;font-weight:400}
   .fcard .status-dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .fclear{background:transparent;border:1px solid var(--line);color:var(--muted);width:28px;height:28px;border-radius:8px;font-size:15px;line-height:1;flex:none}
+  .fclear:hover{background:#fdeaea;border-color:var(--red);color:var(--red)}
   .badge{font-size:11px;font-weight:600;padding:5px 12px;border-radius:8px;color:#fff}
   .badge.tiktok{background:var(--tiktok)} .badge.shopee{background:var(--shopee)}
   .badge.lazada{background:var(--lazada)} .badge.unknown{background:#b0b7c3}
@@ -1520,9 +1522,16 @@ function fmtDocDate(v){
 }
 function renderDocFiles(){
   const p=[];
-  if(docJstCount) p.push(`<div class="fcard"><span class="status-dot" style="background:var(--navy)"></span><div class="fname">${htmlesc(docJstName||'JST')}<div class="fmeta">${fmtInt(docJstCount)} ออเดอร์ · เกณฑ์</div></div><span class="badge" style="background:var(--navy)">JST</span></div>`);
-  if(docFormCount) p.push(`<div class="fcard"><span class="status-dot" style="background:var(--red)"></span><div class="fname">${htmlesc(docFormName||'ฟอร์ม')}<div class="fmeta">${fmtInt(docFormCount)} ออเดอร์</div></div><span class="badge" style="background:var(--red)">ฟอร์ม</span></div>`);
+  if(docJstCount) p.push(`<div class="fcard"><span class="status-dot" style="background:var(--navy)"></span><div class="fname">${htmlesc(docJstName||'JST')}<div class="fmeta">${fmtInt(docJstCount)} ออเดอร์ · เกณฑ์</div></div><span class="badge" style="background:var(--navy)">JST</span><button class="fclear" data-clear="jst" title="ลบไฟล์นี้ (อัพใหม่ได้)">✕</button></div>`);
+  if(docFormCount) p.push(`<div class="fcard"><span class="status-dot" style="background:var(--red)"></span><div class="fname">${htmlesc(docFormName||'ฟอร์ม')}<div class="fmeta">${fmtInt(docFormCount)} ออเดอร์</div></div><span class="badge" style="background:var(--red)">ฟอร์ม</span><button class="fclear" data-clear="form" title="ลบไฟล์นี้ (อัพใหม่ได้)">✕</button></div>`);
   $('docFileList').innerHTML=p.join('');
+}
+function clearDocFile(which){
+  if(which==='jst'){ docJst={}; docJstAmbig=new Set(); docJstCount=0; docJstName=''; }
+  else { docForm={}; docFormDup={}; docFormCount=0; docFormName=''; }
+  docRows=[]; $('docResults').classList.add('hidden');
+  renderDocFiles();
+  toast((which==='jst'?'ลบไฟล์ JST':'ลบไฟล์ฟอร์ม')+'แล้ว · อัพไฟล์ใหม่ได้เลย');
 }
 async function handleDocJst(file){
   try{
@@ -1899,7 +1908,7 @@ function renderHist(){
             <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
             <td class="num">${money(r.amount)}</td>
             <td>${htmlesc((r.data&&r.data.date)||'—')}</td>
-            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button></td>
+            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button> <button class="icon-act" data-del="${htmlesc(r.doc_no)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -1991,9 +2000,21 @@ $('histSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(
 $('histBody').onclick=e=>{
   const mb=e.target.closest('[data-mact]');
   if(mb){ if(mb.dataset.mact==='dl') downloadMonth(mb.dataset.mk); else if(mb.dataset.mact==='del') deleteMonth(mb.dataset.mk); return; }
+  const del=e.target.closest('[data-del]');
+  if(del){ deleteBillHist(del.dataset.del); return; }
   const b=e.target.closest('[data-doc]');
   if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no); }
 };
+async function deleteBillHist(docNo){
+  if(!dbReady()) return;
+  const r=histRows.find(x=>x.doc_no===docNo)||{};
+  if(!confirm(`ลบใบเสร็จ ${docNo} ออกจากระบบ?\nลูกค้า: ${r.customer||'—'}\n\n⚠️ ลบถาวร กู้คืนไม่ได้`)) return;
+  try{
+    const {error}=await sb.from('receipts').delete().eq('doc_no',docNo);
+    if(error) throw error;
+    toast('ลบ '+docNo+' แล้ว'); loadHistory();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
 $('histExportBtn').onclick=()=>{
   if(!histRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
   const aoa=[['เลขเอกสาร','ปี','เลขออเดอร์/พัสดุ','ลูกค้า','ร้าน','ยอดรวม','บันทึกเมื่อ']];
@@ -2005,6 +2026,7 @@ $('histExportBtn').onclick=()=>{
 };
 
 $('docJstCard').onclick=()=>$('docJstInput').click();
+$('docFileList').onclick=e=>{ const b=e.target.closest('[data-clear]'); if(b) clearDocFile(b.dataset.clear); };
 $('docFormCard').onclick=()=>$('docFormInput').click();
 $('docJstInput').onchange=e=>{ if(e.target.files[0]) handleDocJst(e.target.files[0]); e.target.value=''; };
 $('docFormInput').onchange=e=>{ if(e.target.files[0]) handleDocForm(e.target.files[0]); e.target.value=''; };
