@@ -61,6 +61,10 @@
   .month-acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
   .btn-danger{background:var(--red);color:#fff;border:none}
   .btn-danger:hover{background:var(--red-dk)}
+  .st-bad{color:var(--red);font-weight:600;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+  .st-bad:hover{color:var(--red-dk)}
+  .reason-line{padding:3px 0;border-bottom:1px dashed var(--line)}
+  .reason-line:last-child{border-bottom:none}
   .doc-tbl th,.doc-tbl td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 8px}
   .doc-tbl td .icon-act{padding:2px 3px;font-size:13px}
 
@@ -552,6 +556,17 @@
       <button class="btn-cancel" id="docEditCancel">ยกเลิก</button>
       <button class="btn-save" id="docEditSave">บันทึก</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="reasonBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="reasonTitle">สาเหตุ</h2>
+      <button class="modal-close" id="reasonClose">&times;</button>
+    </div>
+    <div id="reasonBody" style="font-size:14px;line-height:1.75"></div>
+    <div class="modal-foot"><button class="btn-cancel" id="reasonOk">ปิด</button></div>
   </div>
 </div>
 
@@ -1472,7 +1487,7 @@ $('costExportBtn').onclick=()=>{
   toast('ส่งออกแล้ว');
 };
 /* ============ แท็บ: ออกใบเสร็จ (เทียบ JST ↔ ฟอร์ม) ============ */
-let docJst={}, docJstAmbig=new Set(), docForm={}, docRows=[], docIssued={}, docSaved=new Set(), docJstName='', docFormName='', docJstCount=0, docFormCount=0;
+let docJst={}, docJstAmbig=new Set(), docForm={}, docFormDup={}, docRows=[], docIssued={}, docSaved=new Set(), docJstName='', docFormName='', docJstCount=0, docFormCount=0;
 const ISSUER_ADDRESS='475/4-5 ถนนทหารบก ตำบลบ่อพลับ อำเภอเมืองนครปฐม จังหวัดนครปฐม 73000';
 function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function money(n){ const v=Number(n)||0; const s=Math.abs(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); return v<0?`(${s})`:s; }
@@ -1532,10 +1547,12 @@ async function handleDocForm(file){
       cust:findColBy(H,['ชื่อลูกค้า']), addr:findColBy(H,['ที่อยู่ลูกค้า','ที่อยู่']),
       tax:findColBy(H,['เลขผู้เสียภาษีลูกค้า','ผู้เสียภาษี']), branch:findColBy(H,['สาขา']),
       desc:findColBy(H,['คำอธิบาย','รายการ']), qty:findColBy(H,['จำนวน']), price:findColBy(H,['ราคาต่อหน่วย']) };
-    docForm={}; let cur=null;
+    docForm={}; docFormDup={}; const startRows={}; let cur=null;
     for(let r=1;r<aoa.length;r++){
       const row=aoa[r]||[]; const k=norm(row[ci.key]);
       if(k){ cur=k;
+        if(!startRows[k]) startRows[k]=[];
+        startRows[k].push(r+1);   // แถวใน Excel (นับ header เป็นแถว 1)
         if(!docForm[cur]) docForm[cur]={ key:cur, shop:norm(row[ci.shop]), customer:norm(row[ci.cust]),
           addr:norm(row[ci.addr]), tax:norm(row[ci.tax]), branch:norm(row[ci.branch]),
           date:fmtDocDate(row[ci.date]), lines:[], total:0 };
@@ -1546,8 +1563,11 @@ async function handleDocForm(file){
       const q=toNum(row[ci.qty]); const qty=(q==null?1:q); const amount=(price||0)*qty;
       const o=docForm[cur]; o.lines.push({no:o.lines.length+1, desc, qty, unit:price||0, amount}); o.total+=amount;
     }
+    // ออเดอร์ที่ขึ้นต้นบล็อกมากกว่า 1 ครั้ง = ซ้ำในฟอร์ม
+    for(const k in startRows){ if(startRows[k].length>1) docFormDup[k]=startRows[k]; }
     docFormName=file.name; docFormCount=Object.keys(docForm).length;
-    toast('โหลดฟอร์ม '+fmtInt(docFormCount)+' ออเดอร์'); renderDocFiles();
+    const dupN=Object.keys(docFormDup).length;
+    toast('โหลดฟอร์ม '+fmtInt(docFormCount)+' ออเดอร์'+(dupN?` · ⚠️ ซ้ำ ${dupN}`:'')); renderDocFiles();
   }catch(err){ toast('อ่านไฟล์ฟอร์มไม่ได้',true); console.error(err); }
 }
 async function loadIssued(){
@@ -1569,10 +1589,13 @@ async function compareDoc(){
   for(const k in docForm){
     const f=docForm[k]; const j=docJst[k];
     const diff=j?(f.total-j.amount):null;
-    const status = !j ? 'nojst' : docJstAmbig.has(k) ? 'ambig' : (Math.abs(diff)<0.01?'match':'diff');
+    const status = docFormDup[k] ? 'dup'
+      : !j ? 'nojst'
+      : docJstAmbig.has(k) ? 'ambig'
+      : (Math.abs(diff)<0.01?'match':'diff');
     docRows.push({key:k, internal:j?j.internal:'', shop:f.shop, customer:f.customer, ftotal:f.total, jamt:j?j.amount:null, diff, status});
   }
-  docRows.sort((a,b)=>({match:0,diff:1,ambig:2,nojst:3})[a.status]-({match:0,diff:1,ambig:2,nojst:3})[b.status]);
+  docRows.sort((a,b)=>({match:0,dup:1,diff:2,ambig:3,nojst:4})[a.status]-({match:0,dup:1,diff:2,ambig:3,nojst:4})[b.status]);
   btn.disabled=false; btn.textContent=lb;
   renderDoc(); $('docResults').classList.remove('hidden');
   const found=docRows.filter(r=>r.status!=='nojst').length;
@@ -1592,25 +1615,26 @@ function renderDoc(){
   else if(filt==='issued') rows=rows.filter(r=>docIssued[r.key]);
   if(q) rows=rows.filter(r=>((r.key||'')+' '+(r.internal||'')+' '+(r.customer||'')+' '+(r.shop||'')).toLowerCase().includes(q));
   const nMatch=docRows.filter(r=>r.status==='match').length, nDiff=docRows.filter(r=>r.status==='diff').length,
-    nAmbig=docRows.filter(r=>r.status==='ambig').length,
+    nAmbig=docRows.filter(r=>r.status==='ambig').length, nDup=docRows.filter(r=>r.status==='dup').length,
     nNo=docRows.filter(r=>r.status==='nojst').length, nIssued=Object.keys(docIssued).length;
   $('docSummary').innerHTML=`
     <div class="stat"><div class="k">ออเดอร์ในฟอร์ม</div><div class="v">${fmtInt(docRows.length)}</div></div>
     <div class="stat g"><div class="k">✅ ตรง</div><div class="v">${fmtInt(nMatch)}</div></div>
-    <div class="stat n"><div class="k">❌ ไม่ตรง</div><div class="v">${fmtInt(nDiff)}</div></div>
-    <div class="stat"><div class="k">⚠️ กำกวม</div><div class="v">${fmtInt(nAmbig)}</div></div>
+    <div class="stat n"><div class="k">❌ ไม่ตรง</div><div class="v">${fmtInt(nDiff+nAmbig+nDup+nNo)}</div></div>
+    <div class="stat"><div class="k">🔁 ซ้ำในฟอร์ม</div><div class="v">${fmtInt(nDup)}</div></div>
     <div class="stat"><div class="k">ไม่พบใน JST</div><div class="v">${fmtInt(nNo)}</div></div>
     <div class="stat"><div class="k">ออกเลขแล้ว</div><div class="v">${fmtInt(nIssued)}</div></div>`;
-  $('docHead').innerHTML=`<tr><th style="width:8%">เลขออเดอร์ภายใน</th><th style="width:13%">เลขออเดอร์/พัสดุ</th><th style="width:17%">ลูกค้า</th><th style="width:12%">ร้าน</th><th class="num" style="width:9%">ยอดฟอร์ม</th><th class="num" style="width:9%">ยอด JST</th><th class="num" style="width:7%">ส่วนต่าง</th><th style="width:8%">สถานะ</th><th style="width:9%">เลขเอกสาร</th><th style="width:8%">จัดการ</th></tr>`;
+  $('docHead').innerHTML=`<tr><th style="width:8%">เลขออเดอร์ภายใน</th><th style="width:13%">เลขออเดอร์/พัสดุ</th><th style="width:15%">ลูกค้า</th><th style="width:12%">ร้าน</th><th class="num" style="width:9%">ยอดฟอร์ม</th><th class="num" style="width:9%">ยอด JST</th><th class="num" style="width:7%">ส่วนต่าง</th><th style="width:8%">สถานะ</th><th style="width:9%">เลขเอกสาร</th><th style="width:10%">จัดการ</th></tr>`;
   $('docBody').innerHTML = rows.length? rows.map(r=>{
-    const st=r.status==='match'?'<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
-      :r.status==='diff'?'<span style="color:var(--red);font-weight:600">❌ ไม่ตรง</span>'
-      :r.status==='ambig'?'<span style="color:#b8860b;font-weight:600">⚠️ กำกวม</span>'
-      :'<span style="color:var(--muted)">— ไม่พบ JST</span>';
+    const st = r.status==='match'
+      ? '<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
+      : `<span class="st-bad" data-act="reason" data-key="${htmlesc(r.key)}" title="กดดูสาเหตุ">❌ ไม่ตรง</span>`;
     const dn=docIssued[r.key]||'';
     const noCell = dn ? `${dn} <button class="icon-act" data-act="editno" data-key="${htmlesc(r.key)}" title="แก้ไขเลข">✏️</button>` : '—';
-    const act = dn ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="print" data-key="${htmlesc(r.key)}" title="พิมพ์ใบเสร็จ">🖨️</button>`
-      : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '—');
+    let act = dn
+      ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="print" data-key="${htmlesc(r.key)}" title="พิมพ์ใบเสร็จ">🖨️</button>`
+      : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '');
+    act += ` <button class="icon-act" data-act="delbill" data-key="${htmlesc(r.key)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`;
     return `<tr>
       <td class="ord">${r.internal?htmlesc(r.internal):'<span style="color:var(--muted)">—</span>'}</td>
       <td class="ord">${htmlesc(r.key)}</td>
@@ -1683,6 +1707,49 @@ function printReceipt(key){
   const f=docForm[key]; if(!f) return; const dn=docIssued[key];
   if(!dn){ toast('ออกเลขเอกสารก่อนจึงจะพิมพ์ใบเสร็จได้',true); return; }
   $('receiptPrint').innerHTML=buildReceiptHTML(f,dn); window.print();
+}
+function statusReason(r){
+  const k=r.key;
+  if(r.status==='dup'){
+    const rows=docFormDup[k]||[];
+    return { title:'🔁 ออเดอร์ซ้ำในไฟล์ฟอร์ม', lines:[
+      `เลขออเดอร์/พัสดุ "<b>${htmlesc(k)}</b>" ปรากฏ <b>${rows.length} ครั้ง</b> ในไฟล์ฟอร์ม`,
+      `อยู่ที่ <b>แถว Excel: ${rows.join(', ')}</b>`,
+      `ยอดที่ระบบรวมได้ (อาจซ้ำซ้อน): <b>${fmtNum(r.ftotal)}</b>`,
+      `➡️ กรุณาแก้ไฟล์ต้นฉบับให้เหลือออเดอร์นี้ครั้งเดียว แล้วอัพโหลดใหม่` ] };
+  }
+  if(r.status==='nojst') return { title:'❌ ไม่พบใน JST', lines:[
+    `ไม่พบเลขออเดอร์/พัสดุ "<b>${htmlesc(k)}</b>" ในไฟล์ JST`,
+    `➡️ ตรวจว่าเลขในฟอร์มตรงกับ JST ไหม หรือ JST ยังไม่มีออเดอร์นี้` ] };
+  if(r.status==='ambig') return { title:'⚠️ กำกวม (จับได้หลายออเดอร์)', lines:[
+    `เลข "<b>${htmlesc(k)}</b>" ไปตรงกับหลายออเดอร์ใน JST`,
+    `➡️ ตรวจไฟล์ JST ว่ามีเลขออนไลน์/พัสดุ/ภายในซ้ำกันหรือไม่` ] };
+  if(r.status==='diff') return { title:'❌ ยอดไม่ตรงกับ JST', lines:[
+    `ยอดฟอร์ม: <b>${fmtNum(r.ftotal)}</b>`,
+    `ยอด JST: <b>${fmtNum(r.jamt)}</b>`,
+    `ส่วนต่าง: <b style="color:var(--red)">${fmtNum(r.diff)}</b>`,
+    `➡️ ตรวจรายการ/ส่วนลดในฟอร์ม หรือยอดที่ควรได้รับใน JST` ] };
+  return { title:'ตรง', lines:['ยอดตรงกับ JST'] };
+}
+function openReason(key){
+  const r=docRows.find(x=>x.key===key); if(!r||r.status==='match') return;
+  const info=statusReason(r);
+  $('reasonTitle').textContent=info.title;
+  $('reasonBody').innerHTML=info.lines.map(l=>`<div class="reason-line">${l}</div>`).join('');
+  $('reasonBg').classList.add('show');
+}
+function closeReason(){ $('reasonBg').classList.remove('show'); }
+async function deleteBill(key){
+  const r=docRows.find(x=>x.key===key); if(!r) return;
+  const hasDoc=!!docIssued[key];
+  if(!confirm(`ลบบิลนี้ออกจากรายการ?\n\nออเดอร์: ${key}\nลูกค้า: ${r.customer||'—'}`+(hasDoc?`\nเลขเอกสาร: ${docIssued[key]} (จะถูกลบออกจากฐานข้อมูลด้วย)`:''))) return;
+  if(hasDoc && sb){
+    try{ const {error}=await sb.from('receipts').delete().eq('order_key',key).eq('year',new Date().getFullYear()); if(error) throw error; }
+    catch(err){ toast('ลบใน DB ไม่สำเร็จ: '+(err.message||err),true); console.error(err); return; }
+    delete docIssued[key]; docSaved.delete(key);
+  }
+  docRows=docRows.filter(x=>x.key!==key); delete docForm[key]; delete docFormDup[key];
+  renderDoc(); toast('ลบบิลแล้ว');
 }
 function billToF(r){
   const d=r.data||{};
@@ -1848,6 +1915,9 @@ $('docEditSave').onclick=saveDocEdit;
 $('docEditBg').onclick=e=>{ if(e.target.id==='docEditBg') closeDocEdit(); };
 
 /* ---- wiring ประวัติ ---- */
+$('reasonClose').onclick=closeReason;
+$('reasonOk').onclick=closeReason;
+$('reasonBg').onclick=e=>{ if(e.target.id==='reasonBg') closeReason(); };
 $('histRefreshBtn').onclick=loadHistory;
 $('histSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderHist,200); };
 $('histBody').onclick=e=>{
@@ -1880,6 +1950,8 @@ $('docBody').onclick=e=>{
   if(b.dataset.act==='issue' || b.dataset.act==='editno') openDocEdit(key);
   else if(b.dataset.act==='save') saveReceipt(key);
   else if(b.dataset.act==='print') printReceipt(key);
+  else if(b.dataset.act==='reason') openReason(key);
+  else if(b.dataset.act==='delbill') deleteBill(key);
 };
 $('docExportBtn').onclick=()=>{
   if(!docRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
