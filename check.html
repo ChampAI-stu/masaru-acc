@@ -67,6 +67,15 @@
   .diff-fee{color:var(--red);font-weight:700}
   .pill{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;font-weight:600}
   .pill.our{background:#eaf0fa;color:var(--navy)} .pill.post{background:#fdeaea;color:var(--red-dk)}
+  .guide{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#fafbfd;padding:4px 14px}
+  .guide summary{cursor:pointer;font-weight:700;color:var(--navy);padding:8px 0;font-size:14px}
+  .guide summary:hover{color:var(--blue)}
+  .guide-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px 0 12px}
+  @media(max-width:760px){.guide-grid{grid-template-columns:1fr}}
+  .g-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.55}
+  .g-ic{font-size:18px;flex:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px}
+  .g-ic.ok{background:#e9f7ee} .g-ic.warn{background:#fff8e6} .g-ic.bad{background:#fdeaea}
+  .guide-note{background:#fff8e6;border:1px solid #f0d48a;border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.6;margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -131,6 +140,17 @@
       <button class="btn btn-gold btn-sm" id="expBtn">⬇️ ส่งออกผลเทียบ (Excel)</button>
     </div>
     <div class="stats" id="stats"></div>
+    <details class="guide">
+      <summary>📖 คู่มือ: แต่ละหมวดหมายความว่าอะไร? (กดเพื่อดู)</summary>
+      <div class="guide-grid">
+        <div class="g-item"><span class="g-ic ok">✅</span><div><b>ตรงกัน</b><br>มีทั้ง 2 ไฟล์ และค่าบริการเท่ากัน — ปกติ ไม่ต้องทำอะไร</div></div>
+        <div class="g-item"><span class="g-ic bad">💰</span><div><b>ค่าต่างกัน</b><br>เลขพัสดุมีทั้งคู่ แต่ค่าบริการไม่เท่ากัน (โชว์ค่าของเรา / ไปรษณีย์ / ผลต่าง) — ตรวจว่าใครคิดผิด</div></div>
+        <div class="g-item"><span class="g-ic bad">➕</span><div><b>เฉพาะในไปรษณีย์</b><br>ไปรษณีย์คิดเงิน แต่<b>เราไม่ได้บันทึก</b> → ระวังโดนคิดเกิน หรือเราลืมลงข้อมูล ⚠️</div></div>
+        <div class="g-item"><span class="g-ic warn">➖</span><div><b>เฉพาะในระบบเรา</b><br>เรามีบันทึก แต่<b>ไปรษณีย์ไม่มี</b> → ไปรษณีย์อาจตกหล่น หรือเราบันทึกเกิน</div></div>
+        <div class="g-item"><span class="g-ic bad">🔁</span><div><b>เลขซ้ำในไฟล์</b><br>เลขพัสดุเดียวกันโผล่มากกว่า 1 ครั้งในไฟล์ใดไฟล์หนึ่ง → อาจอัปไฟล์ซ้ำ/ข้อมูลซ้ำ</div></div>
+      </div>
+      <div class="guide-note">💡 ยอดที่ต้อง<b>รีบตรวจ</b>: 💰 ค่าต่างกัน และ ➕ เฉพาะในไปรษณีย์ (2 อันนี้กระทบเงินที่จ่ายเกิน) · ดู "ผลต่างยอดรวม" ด้านบนเป็นภาพรวมว่าต่างกันกี่บาท</div>
+    </details>
     <div class="tabs" id="tabs"></div>
     <div class="tbl-wrap"><table id="resTbl"><thead id="resHead"></thead><tbody id="resBody"></tbody></table></div>
     <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
