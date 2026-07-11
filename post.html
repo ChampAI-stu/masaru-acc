@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -523,26 +524,41 @@ async function exportRange(from,to,fname){
   const headers=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!headers.includes(k)) headers.push(k); }));
   const feeCol=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|fee/i.test(h));
   const W=1+headers.length;
-  const aoa=[['วันที่',...headers]];
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('ไปรษณีย์');
+  // หัวตาราง
+  ws.addRow(['วันที่', ...headers]);
+  ws.columns.forEach((c,i)=>{ const name=(i===0?'วันที่':headers[i-1])||''; c.width=Math.max(12, String(name).length+3); });
+  ws.getRow(1).eachCell({includeEmpty:true}, cell=>{
+    cell.font={bold:true, color:{argb:'FFFFFFFF'}};
+    cell.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FF1F3864'}};
+    cell.alignment={vertical:'middle'};
+  });
   let curDate=null, dayCount=0, daySum=0;
   function flushDay(){
     if(curDate===null) return;
-    const sumRow=new Array(W).fill('');
-    sumRow[0]=`▶ สรุปวันที่ ${curDate}`;
-    sumRow[1]=`จำนวน ${fmtInt(dayCount)} ชิ้น รวม ${fmtNum(daySum)} บาท`;
-    if(feeCol>=0) sumRow[1+feeCol]=daySum;
-    aoa.push(sumRow);
-    aoa.push(new Array(W).fill(''));   // บรรทัดว่างคั่นวัน
+    const arr=new Array(W).fill('');
+    arr[0]=`▶ สรุปวันที่ ${curDate}`;
+    arr[1]=`จำนวน ${fmtInt(dayCount)} ชิ้น รวม ${fmtNum(daySum)} บาท`;
+    if(feeCol>=0) arr[1+feeCol]=daySum;
+    const r=ws.addRow(arr);
+    for(let ci=1; ci<=W; ci++){
+      const c=r.getCell(ci);
+      c.font={bold:true, color:{argb:'FF5C4300'}, size:12};
+      c.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FFFFE08A'}};
+      c.border={top:{style:'medium',color:{argb:'FFD9A404'}}, bottom:{style:'medium',color:{argb:'FFD9A404'}}};
+    }
+    ws.addRow([]); // บรรทัดว่างคั่นวัน
   }
   rows.forEach(r=>{
     if(r.pdate!==curDate){ flushDay(); curDate=r.pdate; dayCount=0; daySum=0; }
-    aoa.push([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]);
+    ws.addRow([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]);
     dayCount++; daySum+=Number(r.fee)||0;
   });
   flushDay();
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'ไปรษณีย์');
-  XLSX.writeFile(wb,fname);
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   $('expInfo').textContent=`ส่งออก ${fmtInt(rows.length)} รายการแล้ว`;
   toast('ส่งออกแล้ว');
 }
