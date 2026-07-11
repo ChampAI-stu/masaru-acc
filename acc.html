@@ -235,7 +235,7 @@
         <div class="tt-sub">TIKTOK · SHOPEE · LAZADA</div>
       </div>
     </div>
-    <div class="head-right"><a href="index.html" class="home-btn">← กลับหน้าหลัก</a><span class="head-badge">ประมวลผลในเครื่องคุณ · ข้อมูลไม่ออกนอก</span></div>
+    <div class="head-right"><a href="index.html" class="home-btn">← กลับหน้าหลัก</a><button class="home-btn" id="logoutBtn">ออกจากระบบ</button><span class="head-badge">ประมวลผลในเครื่องคุณ · ข้อมูลไม่ออกนอก</span></div>
   </div>
 </header>
 
@@ -480,6 +480,13 @@ let sb = null;
 if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
   try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
   catch (e) { console.error('Supabase init error', e); }
+}
+/* ===== ต้องล็อกอินก่อนใช้งาน (เช็ค session จาก Portal) ===== */
+if(sb){
+  sb.auth.getSession().then(({data})=>{ if(!data.session) location.replace('index.html'); });
+  sb.auth.onAuthStateChange((e,ss)=>{ if(e==='SIGNED_OUT'||!ss) location.replace('index.html'); });
+  const _lo=document.getElementById('logoutBtn');
+  if(_lo) _lo.onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
 }
 function dbReady(){
   if(!sb){ toast('ยังไม่ได้ตั้งค่า Supabase — ใส่ URL + anon key ในไฟล์ (บรรทัดบนสุดของ script)', true); return false; }
