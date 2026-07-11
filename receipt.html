@@ -658,7 +658,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
 }
 /* ===== ต้องล็อกอินก่อนใช้งาน (เช็ค session จาก Portal) ===== */
 if(sb){
-  sb.auth.getSession().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; loadSignature(); });
+  sb.auth.getSession().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; myRole=(data.session.user.user_metadata && data.session.user.user_metadata.role)||''; isViewer=(myRole!=='บัญชี'); loadSignature(); applyRoleUI(); });
   sb.auth.onAuthStateChange((e,ss)=>{ if(e==='SIGNED_OUT'||!ss) location.replace('index.html'); });
   const _lo=document.getElementById('logoutBtn');
   if(_lo) _lo.onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
@@ -1565,6 +1565,17 @@ $('costExportBtn').onclick=()=>{
 /* ============ แท็บ: ออกใบเสร็จ (เทียบ JST ↔ ฟอร์ม) ============ */
 let docJst={}, docJstAmbig=new Set(), docForm={}, docFormDup={}, docRows=[], docIssued={}, docSaved=new Set(), docJstName='', docFormName='', docJstCount=0, docFormCount=0;
 let currentUserId=null, mySignature=null, sigPending=null;
+let myRole='', isViewer=false;
+function applyRoleUI(){
+  if(!isViewer) return;   // ฝ่าย Facebook/Shopee = ดูประวัติอย่างเดียว
+  const docTab=document.querySelector('.tab[data-page="doc"]');
+  const histTab=document.querySelector('.tab[data-page="hist"]');
+  if(docTab){ docTab.style.display='none'; docTab.classList.remove('active'); }
+  document.getElementById('page-doc').classList.add('hidden');
+  document.getElementById('page-hist').classList.remove('hidden');
+  if(histTab) histTab.classList.add('active');
+  loadHistory();
+}
 const ISSUER_ADDRESS='475/4-5 ถนนทหารบก ตำบลบ่อพลับ อำเภอเมืองนครปฐม จังหวัดนครปฐม 73000';
 function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function money(n){ const v=Number(n)||0; const s=Math.abs(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); return v<0?`(${s})`:s; }
@@ -1955,7 +1966,7 @@ function renderHist(){
         <span class="month-meta">${fmtInt(bills.length)} ใบ · รวม ฿${fmtNum(total)}</span>
         <span class="month-acts">
           <button class="btn btn-gold btn-sm" data-mact="dl" data-mk="${mk}">⬇️ ดาวน์โหลดทั้งเดือน</button>
-          <button class="btn btn-danger btn-sm" data-mact="del" data-mk="${mk}">🗑️ ลบเดือนนี้</button>
+          ${isViewer?'':`<button class="btn btn-danger btn-sm" data-mact="del" data-mk="${mk}">🗑️ ลบเดือนนี้</button>`}
         </span>
       </div>
       <div class="tbl-wrap" style="max-height:none;overflow-x:hidden">
@@ -1967,7 +1978,7 @@ function renderHist(){
             <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
             <td class="num">${money(r.amount)}</td>
             <td>${htmlesc((r.data&&r.data.date)||'—')}</td>
-            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button> <button class="icon-act" data-del="${htmlesc(r.doc_no)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button></td>
+            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button>${isViewer?'':` <button class="icon-act" data-del="${htmlesc(r.doc_no)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`}</td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -1984,6 +1995,7 @@ function printMonth(mk){
   $('receiptPrint').innerHTML=html; window.print();
 }
 async function deleteMonth(mk){
+  if(isViewer) return;
   if(!dbReady()) return;
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
   if(!confirm(`ลบใบเสร็จของ "${monthLabel(mk)}" ทั้งหมด ${bills.length} ใบออกจากระบบ?\n\n⚠️ ลบถาวร กู้คืนไม่ได้ และเลขเอกสารเดือนนี้จะถูกปล่อยคืน (อาจถูกออกซ้ำภายหลัง)`)) return;
@@ -2116,6 +2128,7 @@ $('histBody').onclick=e=>{
   if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', r.data&&r.data.signature); }
 };
 async function deleteBillHist(docNo){
+  if(isViewer) return;
   if(!dbReady()) return;
   const r=histRows.find(x=>x.doc_no===docNo)||{};
   if(!confirm(`ลบใบเสร็จ ${docNo} ออกจากระบบ?\nลูกค้า: ${r.customer||'—'}\n\n⚠️ ลบถาวร กู้คืนไม่ได้`)) return;
