@@ -49,6 +49,9 @@
   .cost-actions .db-info{font-size:13px;color:var(--muted);font-weight:500}
   .cost-actions .db-info b{color:var(--navy)}
   .dbcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .doc-tbl{table-layout:fixed;width:100%;font-size:12.5px}
+  .doc-tbl th,.doc-tbl td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 8px}
+  .doc-tbl td .icon-act{padding:2px 3px;font-size:13px}
 
   /* หน้าขนส่ง */
   .ship-up .up-s{max-width:none}
@@ -471,8 +474,8 @@
         </select>
         <button class="btn btn-gold btn-sm" id="docExportBtn">⬇️ ส่งออก Excel</button>
       </div>
-      <div class="tbl-wrap" style="max-height:64vh">
-        <table id="docTbl"><thead id="docHead"></thead><tbody id="docBody"></tbody></table>
+      <div class="tbl-wrap" style="max-height:64vh;overflow-x:hidden">
+        <table id="docTbl" class="doc-tbl"><thead id="docHead"></thead><tbody id="docBody"></tbody></table>
       </div>
       <div class="pager"><span class="info" id="docInfo"></span></div>
     </div>
@@ -1570,7 +1573,7 @@ function renderDoc(){
     <div class="stat"><div class="k">⚠️ กำกวม</div><div class="v">${fmtInt(nAmbig)}</div></div>
     <div class="stat"><div class="k">ไม่พบใน JST</div><div class="v">${fmtInt(nNo)}</div></div>
     <div class="stat"><div class="k">ออกเลขแล้ว</div><div class="v">${fmtInt(nIssued)}</div></div>`;
-  $('docHead').innerHTML=`<tr><th>เลขออเดอร์ภายใน</th><th>เลขออเดอร์/พัสดุ</th><th>ลูกค้า</th><th>ร้าน</th><th class="num">ยอดฟอร์ม</th><th class="num">ยอด JST</th><th class="num">ส่วนต่าง</th><th>สถานะ</th><th>เลขเอกสาร</th><th>จัดการ</th></tr>`;
+  $('docHead').innerHTML=`<tr><th style="width:8%">เลขออเดอร์ภายใน</th><th style="width:13%">เลขออเดอร์/พัสดุ</th><th style="width:17%">ลูกค้า</th><th style="width:12%">ร้าน</th><th class="num" style="width:9%">ยอดฟอร์ม</th><th class="num" style="width:9%">ยอด JST</th><th class="num" style="width:7%">ส่วนต่าง</th><th style="width:8%">สถานะ</th><th style="width:9%">เลขเอกสาร</th><th style="width:8%">จัดการ</th></tr>`;
   $('docBody').innerHTML = rows.length? rows.map(r=>{
     const st=r.status==='match'?'<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
       :r.status==='diff'?'<span style="color:var(--red);font-weight:600">❌ ไม่ตรง</span>'
@@ -1583,8 +1586,8 @@ function renderDoc(){
     return `<tr>
       <td class="ord">${r.internal?htmlesc(r.internal):'<span style="color:var(--muted)">—</span>'}</td>
       <td class="ord">${htmlesc(r.key)}</td>
-      <td>${htmlesc(r.customer)}</td>
-      <td>${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
+      <td title="${htmlesc(r.customer)}">${htmlesc(r.customer)}</td>
+      <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
       <td class="num">${money(r.ftotal)}</td>
       <td class="num">${r.jamt==null?'—':money(r.jamt)}</td>
       <td class="num">${r.diff==null?'—':money(r.diff)}</td>
