@@ -90,7 +90,7 @@
       <div class="fld"><label>อีเมล</label><input id="suEmail" type="email" placeholder="name@masaru.co.th"></div>
       <div class="fld"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="suPassword" type="password"></div>
       <div class="fld"><label>ฝ่าย</label>
-        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option></select>
+        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option><option value="facebook">ฝ่าย Facebook</option><option value="shopee">ฝ่าย Shopee</option></select>
       </div>
       <div class="fld"><label>รหัสเชิญ</label><input id="suInvite" placeholder="ขอจากแอดมิน"></div>
       <button class="btn-primary" id="signupBtn">สมัครสมาชิก</button>
@@ -125,12 +125,17 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 
 /* ===== รหัสเชิญต่อฝ่าย (แก้ได้ที่นี่) — กันสมัครผิดตำแหน่ง ===== */
-const INVITE_CODES = { 'บัญชี':'MASARU-ACC-2026' };
-const ROLE_LABEL   = { 'บัญชี':'ฝ่ายบัญชี' };
+const INVITE_CODES = {
+  'บัญชี'    : 'MASARU-ACC-2026',
+  'facebook' : 'MASARU-FB-2026',
+  'shopee'   : 'MASARU-SHOPEE-2026'
+};
+const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
 /* ===== ระบบที่แต่ละฝ่ายเข้าได้ (บัญชี = ทุกระบบ) ===== */
 const APPS = [
   { icon:'\uD83D\uDCCA', title:'ระบบบัญชี',  desc:'รวมไฟล์บัญชี · ลิสพัสดุ · คำนวนต้นทุน · ฐานข้อมูล', url:'acc.html',     roles:['บัญชี'] },
-  { icon:'\uD83E\uDDFE', title:'ออกใบเสร็จ', desc:'เทียบยอด · ออกเลขเอกสาร · พิมพ์/ดาวน์โหลด · ประวัติ', url:'receipt.html', roles:['บัญชี'] }
+  { icon:'\uD83E\uDDFE', title:'ออกใบเสร็จ', desc:'เทียบยอด · ออกเลขเอกสาร · พิมพ์/ดาวน์โหลด · ประวัติ', url:'receipt.html', roles:['บัญชี'] },
+  { icon:'\uD83D\uDCDA', title:'ประวัติใบเสร็จ', desc:'ดู · ค้นหา · ดาวน์โหลดใบเสร็จย้อนหลัง (อ่านอย่างเดียว)', url:'receipt.html', roles:['facebook','shopee'] }
 ];
 function getRole(session){ return (session && session.user && session.user.user_metadata && session.user.user_metadata.role) || ''; }
 
