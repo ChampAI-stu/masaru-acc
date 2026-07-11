@@ -54,6 +54,13 @@
   .cost-actions .db-info b{color:var(--navy)}
   .dbcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
   .doc-tbl{table-layout:fixed;width:100%;font-size:12.5px}
+  .month-card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}
+  .month-head{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f2f6fc;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .month-title{font-weight:700;color:var(--navy);font-size:15px}
+  .month-meta{color:var(--muted);font-size:13px}
+  .month-acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .btn-danger{background:var(--red);color:#fff;border:none}
+  .btn-danger:hover{background:var(--red-dk)}
   .doc-tbl th,.doc-tbl td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 8px}
   .doc-tbl td .icon-act{padding:2px 3px;font-size:13px}
 
@@ -497,9 +504,7 @@
       <div class="search"><span class="si">🔍</span>
         <input type="text" id="histSearch" placeholder="ค้นหา เลขเอกสาร / ลูกค้า / ร้าน ..."></div>
     </div>
-    <div class="tbl-wrap" style="max-height:64vh;overflow-x:hidden">
-      <table id="histTbl" class="doc-tbl"><thead id="histHead"></thead><tbody id="histBody"></tbody></table>
-    </div>
+    <div id="histBody" style="margin-top:6px"></div>
     <div class="pager"><span class="info" id="histCount"></span></div>
   </div><!-- /page-hist -->
 </main>
@@ -1679,12 +1684,15 @@ function printReceipt(key){
   if(!dn){ toast('ออกเลขเอกสารก่อนจึงจะพิมพ์ใบเสร็จได้',true); return; }
   $('receiptPrint').innerHTML=buildReceiptHTML(f,dn); window.print();
 }
-function printSaved(r){
-  if(!r) return; const d=r.data||{};
-  const f={ customer:d.customer!=null?d.customer:r.customer, tax:d.tax||'', branch:d.branch||'',
+function billToF(r){
+  const d=r.data||{};
+  return { customer:d.customer!=null?d.customer:r.customer, tax:d.tax||'', branch:d.branch||'',
     date:d.date||'', addr:d.addr||'', shop:d.shop!==undefined?d.shop:r.shop,
     lines:d.lines||[], total:d.total!=null?d.total:r.amount };
-  $('receiptPrint').innerHTML=buildReceiptHTML(f,r.doc_no); window.print();
+}
+function printSaved(r){
+  if(!r) return;
+  $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no); window.print();
 }
 async function saveReceipt(key){
   if(!dbReady()) return;
@@ -1701,8 +1709,16 @@ async function saveReceipt(key){
     docSaved.add(key); renderDoc(); toast('บันทึกใบเสร็จ '+dn+' แล้ว');
   }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
-/* ---- ประวัติใบเสร็จ ---- */
-let histRows=[];
+/* ---- ประวัติใบเสร็จ (รายเดือน) ---- */
+let histRows=[], monthBills={};
+const TH_MONTHS=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+function monthKey(r){
+  const d=r.data&&r.data.date;
+  if(d){ const p=String(d).split('/'); if(p.length===3){ const mm=parseInt(p[1],10),yy=parseInt(p[2],10); if(mm>=1&&mm<=12&&yy>1900) return yy+'-'+String(mm).padStart(2,'0'); } }
+  if(r.saved_at){ const dt=new Date(r.saved_at); if(!isNaN(dt)) return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); }
+  return (r.year||'0000')+'-00';
+}
+function monthLabel(mk){ const [y,m]=mk.split('-'); const mi=parseInt(m,10); return (TH_MONTHS[mi]||'ไม่ระบุเดือน')+' '+y; }
 async function loadHistory(){
   if(!sb){ $('histInfo').textContent='ยังไม่ได้ตั้งค่า Supabase'; return; }
   $('histInfo').textContent='กำลังโหลด...';
@@ -1725,19 +1741,57 @@ function renderHist(){
   const q=norm($('histSearch').value).toLowerCase();
   let rows=histRows.slice();
   if(q) rows=rows.filter(r=>((r.doc_no||'')+' '+(r.customer||'')+' '+(r.shop||'')+' '+(r.order_key||'')).toLowerCase().includes(q));
-  $('histHead').innerHTML=`<tr><th style="width:11%">เลขเอกสาร</th><th style="width:7%">ปี</th><th style="width:24%">ลูกค้า</th><th style="width:17%">ร้าน</th><th class="num" style="width:11%">ยอดรวม</th><th style="width:20%">บันทึกเมื่อ</th><th style="width:10%">พิมพ์</th></tr>`;
-  $('histBody').innerHTML = rows.length ? rows.map(r=>{
-    const dt=r.saved_at?new Date(r.saved_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—';
-    return `<tr>
-      <td class="ord">${htmlesc(r.doc_no)}</td>
-      <td class="c">${r.year}</td>
-      <td title="${htmlesc(r.customer)}">${htmlesc(r.customer)}</td>
-      <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
-      <td class="num">${money(r.amount)}</td>
-      <td>${dt}</td>
-      <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="พิมพ์ใบเสร็จ">🖨️ พิมพ์</button></td></tr>`;
-  }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">ยังไม่มีใบเสร็จที่บันทึก</td></tr>`;
-  $('histCount').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(histRows.length)} ใบ`;
+  monthBills={}; const order=[];
+  rows.forEach(r=>{ const mk=monthKey(r); if(!monthBills[mk]){ monthBills[mk]=[]; order.push(mk); } monthBills[mk].push(r); });
+  order.sort((a,b)=>b.localeCompare(a));
+  $('histBody').innerHTML = rows.length ? order.map(mk=>{
+    const bills=monthBills[mk]; const total=bills.reduce((a,b)=>a+(Number(b.amount)||0),0);
+    return `<div class="month-card">
+      <div class="month-head">
+        <span class="month-title">📅 ${monthLabel(mk)}</span>
+        <span class="month-meta">${fmtInt(bills.length)} ใบ · รวม ฿${fmtNum(total)}</span>
+        <span class="month-acts">
+          <button class="btn btn-gold btn-sm" data-mact="dl" data-mk="${mk}">⬇️ ดาวน์โหลดทั้งเดือน</button>
+          <button class="btn btn-danger btn-sm" data-mact="del" data-mk="${mk}">🗑️ ลบเดือนนี้</button>
+        </span>
+      </div>
+      <div class="tbl-wrap" style="max-height:none;overflow-x:hidden">
+        <table class="doc-tbl">
+          <thead><tr><th style="width:14%">เลขเอกสาร</th><th style="width:30%">ลูกค้า</th><th style="width:20%">ร้าน</th><th class="num" style="width:12%">ยอดรวม</th><th style="width:11%">วันที่</th><th style="width:13%">ดาวน์โหลด</th></tr></thead>
+          <tbody>${bills.map(r=>`<tr>
+            <td class="ord">${htmlesc(r.doc_no)}</td>
+            <td title="${htmlesc(r.customer)}">${htmlesc(r.customer)}</td>
+            <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
+            <td class="num">${money(r.amount)}</td>
+            <td>${htmlesc((r.data&&r.data.date)||'—')}</td>
+            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดาวน์โหลด/พิมพ์ใบนี้">⬇️ รายบิล</button></td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('') : `<div style="text-align:center;color:var(--muted);padding:34px">ยังไม่มีใบเสร็จที่บันทึก</div>`;
+  $('histCount').textContent = rows.length ? `ทั้งหมด ${fmtInt(rows.length)} ใบ · ${fmtInt(order.length)} เดือน` : '';
+}
+function printMonth(mk){
+  const bills=monthBills[mk]; if(!bills||!bills.length) return;
+  const html=bills.map((r,i)=>{
+    const inner=buildReceiptHTML(billToF(r), r.doc_no);
+    return i>0 ? inner.replace('<div class="rcpt">','<div class="rcpt" style="page-break-before:always">') : inner;
+  }).join('');
+  $('receiptPrint').innerHTML=html; window.print();
+}
+async function deleteMonth(mk){
+  if(!dbReady()) return;
+  const bills=monthBills[mk]; if(!bills||!bills.length) return;
+  if(!confirm(`ลบใบเสร็จของ "${monthLabel(mk)}" ทั้งหมด ${bills.length} ใบออกจากระบบ?\n\n⚠️ ลบถาวร กู้คืนไม่ได้ และเลขเอกสารเดือนนี้จะถูกปล่อยคืน (อาจถูกออกซ้ำภายหลัง)`)) return;
+  const docNos=bills.map(b=>b.doc_no);
+  try{
+    for(let i=0;i<docNos.length;i+=200){
+      const {error}=await sb.from('receipts').delete().in('doc_no',docNos.slice(i,i+200));
+      if(error) throw error;
+    }
+    toast(`ลบ ${bills.length} ใบของ ${monthLabel(mk)} แล้ว`); loadHistory();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
 /* ---- แก้ไข/รันเลขเอกสาร (modal) ---- */
 let docEditKey=null;
@@ -1797,8 +1851,10 @@ $('docEditBg').onclick=e=>{ if(e.target.id==='docEditBg') closeDocEdit(); };
 $('histRefreshBtn').onclick=loadHistory;
 $('histSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderHist,200); };
 $('histBody').onclick=e=>{
-  const b=e.target.closest('[data-doc]'); if(!b) return;
-  const r=histRows.find(x=>x.doc_no===b.dataset.doc); printSaved(r);
+  const mb=e.target.closest('[data-mact]');
+  if(mb){ if(mb.dataset.mact==='dl') printMonth(mb.dataset.mk); else if(mb.dataset.mact==='del') deleteMonth(mb.dataset.mk); return; }
+  const b=e.target.closest('[data-doc]');
+  if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); printSaved(r); }
 };
 $('histExportBtn').onclick=()=>{
   if(!histRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
