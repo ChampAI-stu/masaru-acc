@@ -56,6 +56,12 @@
   .cost-actions .db-info b{color:var(--navy)}
   .dbcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
   .doc-tbl{table-layout:fixed;width:100%;font-size:12.5px}
+  .bill-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .bill-lines{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  .bill-lines th,.bill-lines td{border:1px solid var(--line);padding:4px 5px}
+  .bill-lines th{background:#f2f6fc;font-size:12px;color:var(--navy)}
+  .bill-lines input{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px;font-size:13px;box-sizing:border-box}
+  .bl-del{color:var(--red);cursor:pointer;background:none;border:none;font-size:15px}
   .month-card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}
   .month-head{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f2f6fc;border-bottom:1px solid var(--line);flex-wrap:wrap}
   .month-title{font-weight:700;color:var(--navy);font-size:15px}
@@ -564,6 +570,27 @@
       <button class="btn-cancel" id="docEditCancel">ยกเลิก</button>
       <button class="btn-save" id="docEditSave">บันทึก</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="billBg">
+  <div class="modal" style="max-width:720px;width:96%">
+    <div class="modal-head"><h2>✏️ แก้ไขรายละเอียดบิล</h2><button class="modal-close" id="billClose">&times;</button></div>
+    <div style="max-height:66vh;overflow:auto;padding-right:4px">
+      <div class="bill-grid">
+        <div class="m-field"><label>ลูกค้า</label><input id="bCustomer" autocomplete="off"></div>
+        <div class="m-field"><label>เลขผู้เสียภาษี</label><input id="bTax" autocomplete="off"></div>
+        <div class="m-field"><label>สาขา</label><input id="bBranch" autocomplete="off"></div>
+        <div class="m-field"><label>วันที่</label><input id="bDate" autocomplete="off"></div>
+        <div class="m-field" style="grid-column:1/-1"><label>ที่อยู่</label><input id="bAddr" autocomplete="off"></div>
+        <div class="m-field" style="grid-column:1/-1"><label>ชื่อร้าน (ผู้ออก) — เว้นว่าง = ใบแบบไม่มีชื่อร้าน</label><input id="bShop" autocomplete="off"></div>
+      </div>
+      <div class="section-label" style="margin-top:10px"><span class="n">📋</span> รายการสินค้า</div>
+      <table class="bill-lines"><thead><tr><th>รายการ</th><th style="width:74px">จำนวน</th><th style="width:100px">ราคา/หน่วย</th><th style="width:100px">จำนวนเงิน</th><th style="width:34px"></th></tr></thead><tbody id="bLines"></tbody></table>
+      <button class="btn btn-ghost btn-sm" id="bAddLine" style="margin-top:8px">➕ เพิ่มรายการ</button>
+      <div style="text-align:right;margin-top:12px;font-weight:700;font-size:15px">รวมทั้งสิ้น: <span id="bTotal">0.00</span></div>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" id="billCancel">ยกเลิก</button><button class="btn-save" id="billSave">บันทึกการแก้ไข</button></div>
   </div>
 </div>
 
@@ -1681,7 +1708,7 @@ function renderDoc(){
     <div class="stat"><div class="k">🔁 ซ้ำในฟอร์ม</div><div class="v">${fmtInt(nDup)}</div></div>
     <div class="stat"><div class="k">ไม่พบใน JST</div><div class="v">${fmtInt(nNo)}</div></div>
     <div class="stat"><div class="k">ออกเลขแล้ว</div><div class="v">${fmtInt(nIssued)}</div></div>`;
-  $('docHead').innerHTML=`<tr><th style="width:8%">เลขออเดอร์ภายใน</th><th style="width:13%">เลขออเดอร์/พัสดุ</th><th style="width:15%">ลูกค้า</th><th style="width:12%">ร้าน</th><th class="num" style="width:9%">ยอดฟอร์ม</th><th class="num" style="width:9%">ยอด JST</th><th class="num" style="width:7%">ส่วนต่าง</th><th style="width:8%">สถานะ</th><th style="width:9%">เลขเอกสาร</th><th style="width:10%">จัดการ</th></tr>`;
+  $('docHead').innerHTML=`<tr><th style="width:8%">เลขออเดอร์ภายใน</th><th style="width:13%">เลขออเดอร์/พัสดุ</th><th style="width:13%">ลูกค้า</th><th style="width:12%">ร้าน</th><th class="num" style="width:9%">ยอดฟอร์ม</th><th class="num" style="width:9%">ยอด JST</th><th class="num" style="width:7%">ส่วนต่าง</th><th style="width:8%">สถานะ</th><th style="width:9%">เลขเอกสาร</th><th style="width:12%">จัดการ</th></tr>`;
   $('docBody').innerHTML = rows.length? rows.map(r=>{
     const st = r.status==='match'
       ? '<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
@@ -1691,6 +1718,7 @@ function renderDoc(){
     let act = dn
       ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="view" data-key="${htmlesc(r.key)}" title="ดูบิล / ดาวน์โหลด">👁️</button>`
       : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '');
+    act += ` <button class="icon-act" data-act="editbill" data-key="${htmlesc(r.key)}" title="แก้ไขรายละเอียดบิล">📝</button>`;
     act += ` <button class="icon-act" data-act="delbill" data-key="${htmlesc(r.key)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`;
     return `<tr>
       <td class="ord">${r.internal?htmlesc(r.internal):'<span style="color:var(--muted)">—</span>'}</td>
@@ -1981,6 +2009,57 @@ function checkDocLive(){
   if(docNoUsedByOther(dn,docEditKey)){ docWarn(`⚠️ เลข ${dn} ถูกออกให้ออเดอร์อื่นไปแล้ว`); return false; }
   docWarn(''); return true;
 }
+/* ---- แก้ไขรายละเอียดบิล ---- */
+let billKey=null, billLines=[];
+function openBill(key){
+  const f=docForm[key]; if(!f){ toast('ไม่พบข้อมูลบิล',true); return; }
+  billKey=key;
+  $('bCustomer').value=f.customer||''; $('bTax').value=f.tax||''; $('bBranch').value=f.branch||'';
+  $('bDate').value=f.date||''; $('bAddr').value=f.addr||''; $('bShop').value=f.shop||'';
+  billLines=(f.lines||[]).map(l=>({desc:l.desc,qty:l.qty,unit:l.unit}));
+  renderBillLines(); $('billBg').classList.add('show');
+}
+function closeBill(){ $('billBg').classList.remove('show'); billKey=null; billLines=[]; }
+function billTotal(){ return billLines.reduce((a,l)=>a+(Number(l.qty)||0)*(Number(l.unit)||0),0); }
+function renderBillLines(){
+  $('bLines').innerHTML=billLines.map((l,i)=>`<tr>
+    <td><input data-bi="${i}" data-bf="desc" value="${htmlesc(l.desc||'')}"></td>
+    <td><input data-bi="${i}" data-bf="qty" type="number" step="any" value="${l.qty==null?'':l.qty}"></td>
+    <td><input data-bi="${i}" data-bf="unit" type="number" step="any" value="${l.unit==null?'':l.unit}"></td>
+    <td class="num" style="text-align:right">${money((Number(l.qty)||0)*(Number(l.unit)||0))}</td>
+    <td style="text-align:center"><button class="bl-del" data-bdel="${i}" title="ลบรายการ">✕</button></td></tr>`).join('');
+  $('bTotal').textContent=fmtNum(billTotal());
+}
+$('bLines').addEventListener('input',e=>{
+  const inp=e.target.closest('[data-bi]'); if(!inp) return;
+  const i=+inp.dataset.bi, f=inp.dataset.bf;
+  billLines[i][f] = (f==='desc') ? inp.value : toNum(inp.value);
+  const row=inp.closest('tr');
+  row.children[3].textContent=money((Number(billLines[i].qty)||0)*(Number(billLines[i].unit)||0));
+  $('bTotal').textContent=fmtNum(billTotal());
+});
+$('bLines').addEventListener('click',e=>{ const b=e.target.closest('[data-bdel]'); if(!b) return; billLines.splice(+b.dataset.bdel,1); renderBillLines(); });
+$('bAddLine').onclick=()=>{ billLines.push({desc:'',qty:1,unit:0}); renderBillLines(); };
+async function saveBill(){
+  if(!billKey) return; const f=docForm[billKey]; if(!f) return;
+  f.customer=$('bCustomer').value.trim(); f.tax=$('bTax').value.trim(); f.branch=$('bBranch').value.trim();
+  f.date=$('bDate').value.trim(); f.addr=$('bAddr').value.trim(); f.shop=$('bShop').value.trim();
+  f.lines=billLines.filter(l=>(l.desc&&l.desc.trim()!=='')||l.qty||l.unit)
+    .map((l,idx)=>({no:idx+1,desc:(l.desc||'').trim(),qty:(Number(l.qty)||0),unit:(Number(l.unit)||0),amount:(Number(l.qty)||0)*(Number(l.unit)||0)}));
+  f.total=f.lines.reduce((a,l)=>a+l.amount,0);
+  const r=docRows.find(x=>x.key===billKey);
+  if(r){ r.shop=f.shop; r.customer=f.customer; r.ftotal=f.total;
+    const j=docJst[billKey]; r.jamt=j?j.amount:null; r.diff=j?(f.total-j.amount):null;
+    r.status = docFormDup[billKey]?'dup' : !j?'nojst' : docJstAmbig.has(billKey)?'ambig' : (Math.abs(r.diff)<0.01?'match':'diff');
+  }
+  if(docIssued[billKey] && docSaved.has(billKey)){ try{ await saveReceiptData(billKey); }catch(e){ console.error(e); } }
+  renderDoc(); closeBill(); toast('แก้ไขบิลแล้ว');
+}
+$('billClose').onclick=closeBill;
+$('billCancel').onclick=closeBill;
+$('billSave').onclick=saveBill;
+$('billBg').onclick=e=>{ if(e.target.id==='billBg') closeBill(); };
+
 function openDocEdit(key){
   if(!dbReady()) return;
   const r=docRows.find(x=>x.key===key); if(!r) return;
@@ -2143,6 +2222,7 @@ $('docBody').onclick=e=>{
   else if(b.dataset.act==='save') saveReceipt(key);
   else if(b.dataset.act==='view'){ const f=docForm[key]; if(f) openPreview(f, docIssued[key], 'ใบเสร็จ_'+docIssued[key]+'.pdf', mySignature); }
   else if(b.dataset.act==='reason') openReason(key);
+  else if(b.dataset.act==='editbill') openBill(key);
   else if(b.dataset.act==='delbill') deleteBill(key);
 };
 $('docExportBtn').onclick=()=>{
