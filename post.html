@@ -63,7 +63,12 @@
   .cal-fee.ok{color:#0a7d33}.cal-fee.bad{color:var(--red)}.cal-fee.na{color:var(--muted)}
   .cal-cell.bad{border-color:var(--red);background:#fdecec}
   .cal-cell.okday{border-color:#bfe6cb}
+  .cal-cell.warnday{border-color:#e0a800;background:#fff8e6}
   .cal-cell.bad.today{box-shadow:0 0 0 2px rgba(216,31,44,.25)}
+  .cal-fee.warn{color:#b8860b}
+  .cal-flag{align-self:flex-start;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:5px;order:-1}
+  .cal-flag.bad{background:var(--red);color:#fff}
+  .cal-flag.warn{background:#e0a800;color:#fff}
   .cal-sum{font-size:11.5px;font-weight:700;color:var(--navy)}
   .month-sum{display:flex;gap:26px;flex-wrap:wrap;background:#eef3fb;border:1px solid #d7e2f3;border-radius:10px;padding:11px 18px;margin-bottom:12px;font-size:14px}
   .month-sum b{color:var(--navy);font-size:17px}
@@ -89,6 +94,7 @@
   <div class="wrap">
     <span class="brand">///MA<span>SA</span>RU</span>
     <span class="tool-title">รวมไฟล์ไปรษณีย์ · ตรวจเลขซ้ำ · เช็คค่าบริการรายวัน</span>
+    <span id="liveDot" style="font-size:12px;color:#7fe3a0;font-weight:600;display:none">● อัปเดตสด</span>
     <div class="head-right">
       <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
       <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
@@ -195,6 +201,7 @@ sb.auth.getSession().then(({data})=>{
   const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
   if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบไปรษณีย์'); location.replace('index.html'); return; }
   initCalendar();
+  initRealtime();
 });
 sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
 $('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
@@ -223,6 +230,24 @@ function feeMsgHTML(calc, declared, count){
 }
 
 /* ===== ปฏิทิน ===== */
+/* ===== Realtime: อัปเดตสดเมื่อมีคนอื่นแก้ข้อมูล ===== */
+let rtTimer=null;
+function scheduleRefresh(){
+  clearTimeout(rtTimer);
+  rtTimer=setTimeout(()=>{
+    if(!$('viewCal').classList.contains('hidden')){ renderCalendar(); }
+    else if(!$('viewDay').classList.contains('hidden')){
+      if($('previewCard').classList.contains('hidden')) loadDay();
+    }
+  }, 700);
+}
+function initRealtime(){
+  sb.channel('post-rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'post_days'}, scheduleRefresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'post_parcels'}, scheduleRefresh)
+    .subscribe(status=>{ $('liveDot').style.display = (status==='SUBSCRIBED') ? 'inline' : 'none'; });
+}
+
 let curMonth=new Date();
 function initCalendar(){
   curMonth=new Date(); curMonth.setDate(1);
@@ -270,28 +295,36 @@ async function renderCalendar(){
     ? `<span>📦 เดือนนี้รวม <b>${fmtInt(mCount)}</b> ชิ้น</span><span>💰 ค่าบริการรวม <b>${fmtNum(mFee)}</b> บาท</span>`
     : `<span style="color:var(--muted)">เดือนนี้ยังไม่มีข้อมูล</span>`;
   const todayStr=ymd(new Date());
-  let html=''; const badDays=[];
+  let html=''; const badDays=[], noFeeDays=[];
   for(let i=0;i<lead;i++) html+='<div class="cal-cell empty"></div>';
   for(let d=1; d<=days; d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const info=dayMap[ds]; const isToday=ds===todayStr;
-    let badge='', fee='', cls='', sum='';
+    let badge='', fee='', cls='', sum='', flag='';
     if(info && info.parcel_count){
       badge=`<span class="cal-badge">${fmtInt(info.parcel_count)} ชิ้น</span>`;
       sum=`<div class="cal-sum">฿ ${fmtNum(Number(info.calc_fee)||0)}</div>`;
       const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
       const hasDeclared=(Number(info.declared_fee)||0)!==0;
-      if(hasDeclared){ cls=ok?'okday':'bad'; if(!ok) badDays.push(d); }
-      fee = hasDeclared
-        ? `<div class="cal-fee ${ok?'ok':'bad'}">${ok?'✅ ค่าบริการตรง':'❌ ไม่ตรง'}</div>`
-        : `<div class="cal-fee na">— ยังไม่มีค่าบริการ</div>`;
+      if(hasDeclared){
+        cls=ok?'okday':'bad';
+        if(!ok){ badDays.push(d); flag='<span class="cal-flag bad">⚠️ ผิดปกติ</span>'; }
+        fee=`<div class="cal-fee ${ok?'ok':'bad'}">${ok?'✅ ค่าบริการตรง':'❌ ค่าบริการไม่ตรง'}</div>`;
+      } else {
+        cls='warnday'; noFeeDays.push(d);
+        flag='<span class="cal-flag warn">⚠️ ยังไม่แจ้งยอด</span>';
+        fee=`<div class="cal-fee warn">— ยังไม่มีค่าบริการรวม</div>`;
+      }
     }
     html+=`<div class="cal-cell ${cls} ${isToday?'today':''}" data-date="${ds}">
-      ${isToday?'<span class="today-dot">วันนี้</span>':''}
+      ${isToday?'<span class="today-dot">วันนี้</span>':''}${flag}
       <span class="cal-daynum">${d}</span>${badge}${sum}${fee}</div>`;
   }
-  $('calWarn').innerHTML = badDays.length
-    ? `<div class="warnbox" style="margin-bottom:12px">⚠️ เดือนนี้มี <b>${badDays.length} วัน</b>ที่ค่าบริการ<b>ไม่ตรง</b>: วันที่ <b>${badDays.join(', ')}</b> — แตะวันนั้นเพื่อดูรายละเอียด</div>`
+  let wparts=[];
+  if(badDays.length) wparts.push(`❌ <b>ค่าบริการไม่ตรง ${badDays.length} วัน</b>: วันที่ <b>${badDays.join(', ')}</b>`);
+  if(noFeeDays.length) wparts.push(`⚠️ <b>ยังไม่แจ้งยอดรวม ${noFeeDays.length} วัน</b>: วันที่ ${noFeeDays.join(', ')}`);
+  $('calWarn').innerHTML = wparts.length
+    ? `<div class="warnbox" style="margin-bottom:12px">🔎 วันที่ต้องตรวจสอบ/แก้ไข:<br>${wparts.join('<br>')}<br><span style="font-size:12px">— แตะวันนั้นเพื่อดูรายละเอียด</span></div>`
     : '';
   $('calGrid').innerHTML=html;
   $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
