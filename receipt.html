@@ -22,6 +22,10 @@
   .wrap{max-width:1320px;margin:0 auto;padding:0 20px}
 
   /* Header — MASARU racing brand */
+  .head-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;
+    padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;transition:background .15s}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
   header{background:var(--navy-deep);color:#fff;padding:18px 0;position:relative;overflow:hidden;
     border-bottom:3px solid var(--red)}
   header::before{content:"";position:absolute;top:-40%;right:-4%;width:230px;height:200%;
@@ -232,7 +236,7 @@
         <div class="tt-sub">เทียบยอด JST ↔ ฟอร์ม · ออกเลขเอกสาร</div>
       </div>
     </div>
-    <span class="head-badge">ประมวลผลในเครื่องคุณ · ข้อมูลไม่ออกนอก</span>
+    <div class="head-right"><a href="index.html" class="home-btn">← กลับหน้าหลัก</a><span class="head-badge">ประมวลผลในเครื่องคุณ · ข้อมูลไม่ออกนอก</span></div>
   </div>
 </header>
 
