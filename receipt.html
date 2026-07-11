@@ -245,6 +245,7 @@
   
   
   <button class="tab active" data-page="doc">🧾 ออกใบเสร็จรับเงิน</button>
+  <button class="tab" data-page="hist">📚 ประวัติใบเสร็จ</button>
 </div></div>
 
 <main class="wrap">
@@ -483,6 +484,24 @@
       <div class="pager"><span class="info" id="docInfo"></span></div>
     </div>
   </div><!-- /page-doc -->
+  <!-- ============ หน้า: ประวัติใบเสร็จ ============ -->
+  <div id="page-hist" class="page hidden">
+    <div class="section-label"><span class="n">📚</span> ประวัติใบเสร็จที่บันทึกแล้ว</div>
+    <div class="cost-actions">
+      <span class="db-info" id="histInfo">—</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="histRefreshBtn">🔄 รีเฟรช</button>
+      <button class="btn btn-gold btn-sm" id="histExportBtn">⬇️ ส่งออก Excel</button>
+    </div>
+    <div class="toolbar" style="margin-top:14px">
+      <div class="search"><span class="si">🔍</span>
+        <input type="text" id="histSearch" placeholder="ค้นหา เลขเอกสาร / ลูกค้า / ร้าน ..."></div>
+    </div>
+    <div class="tbl-wrap" style="max-height:64vh;overflow-x:hidden">
+      <table id="histTbl" class="doc-tbl"><thead id="histHead"></thead><tbody id="histBody"></tbody></table>
+    </div>
+    <div class="pager"><span class="info" id="histCount"></span></div>
+  </div><!-- /page-hist -->
 </main>
 
 <div class="modal-bg" id="editBg">
@@ -948,12 +967,13 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     const pg = t.dataset.page;
-    ['acc','ship','cost','db','doc'].forEach(p=>{
+    ['acc','ship','cost','db','doc','hist'].forEach(p=>{
       document.getElementById('page-'+p).classList.toggle('hidden', p!==pg);
     });
     if(pg==='cost') refreshCostDbCount();
     if(pg==='db'){ refreshCostDbCount(); $('mSearch').value=''; loadManage(''); }
     if(pg==='doc') refreshDocYear();
+    if(pg==='hist') loadHistory();
   };
 });
 
@@ -1447,7 +1467,7 @@ $('costExportBtn').onclick=()=>{
   toast('ส่งออกแล้ว');
 };
 /* ============ แท็บ: ออกใบเสร็จ (เทียบ JST ↔ ฟอร์ม) ============ */
-let docJst={}, docJstAmbig=new Set(), docForm={}, docRows=[], docIssued={}, docJstName='', docFormName='', docJstCount=0, docFormCount=0;
+let docJst={}, docJstAmbig=new Set(), docForm={}, docRows=[], docIssued={}, docSaved=new Set(), docJstName='', docFormName='', docJstCount=0, docFormCount=0;
 const ISSUER_ADDRESS='475/4-5 ถนนทหารบก ตำบลบ่อพลับ อำเภอเมืองนครปฐม จังหวัดนครปฐม 73000';
 function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function money(n){ const v=Number(n)||0; const s=Math.abs(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); return v<0?`(${s})`:s; }
@@ -1526,12 +1546,12 @@ async function handleDocForm(file){
   }catch(err){ toast('อ่านไฟล์ฟอร์มไม่ได้',true); console.error(err); }
 }
 async function loadIssued(){
-  docIssued={}; if(!sb) return;
+  docIssued={}; docSaved=new Set(); if(!sb) return;
   const year=new Date().getFullYear(); let from=0; const page=1000;
   while(true){
-    const {data,error}=await sb.from('receipts').select('order_key,doc_no').eq('year',year).range(from,from+page-1);
+    const {data,error}=await sb.from('receipts').select('order_key,doc_no,saved').eq('year',year).range(from,from+page-1);
     if(error){ console.error(error); break; }
-    (data||[]).forEach(r=>{ docIssued[r.order_key]=r.doc_no; });
+    (data||[]).forEach(r=>{ docIssued[r.order_key]=r.doc_no; if(r.saved) docSaved.add(r.order_key); });
     if(!data||data.length<page) break; from+=page;
   }
 }
@@ -1584,7 +1604,7 @@ function renderDoc(){
       :'<span style="color:var(--muted)">— ไม่พบ JST</span>';
     const dn=docIssued[r.key]||'';
     const noCell = dn ? `${dn} <button class="icon-act" data-act="editno" data-key="${htmlesc(r.key)}" title="แก้ไขเลข">✏️</button>` : '—';
-    const act = dn ? `<button class="icon-act" data-act="rcpt" data-key="${htmlesc(r.key)}" title="พิมพ์ใบเสร็จ">🧾 ใบเสร็จ</button>`
+    const act = dn ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="print" data-key="${htmlesc(r.key)}" title="พิมพ์ใบเสร็จ">🖨️</button>`
       : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '—');
     return `<tr>
       <td class="ord">${r.internal?htmlesc(r.internal):'<span style="color:var(--muted)">—</span>'}</td>
@@ -1633,13 +1653,11 @@ async function issueAllMatched(){
   }
   btn.disabled=false; btn.textContent='🏷️ ออกเลขทั้งหมดที่ตรง'; renderDoc(); toast(`ออกเลขแล้ว ${ok}/${pend.length}`);
 }
-function genReceipt(key){
-  const f=docForm[key]; if(!f) return; const dn=docIssued[key];
-  if(!dn){ toast('ออกเลขเอกสารก่อนจึงจะพิมพ์ใบเสร็จได้',true); return; }
+function buildReceiptHTML(f, dn){
   const hasShop=!!f.shop;
-  const lines=f.lines.map(l=>`<tr><td class="c">${l.no}</td><td>${htmlesc(l.desc)}</td><td class="c">${fmtNum(l.qty)}</td><td class="r">${money(l.unit)}</td><td class="r">${money(l.amount)}</td></tr>`).join('');
+  const lines=(f.lines||[]).map(l=>`<tr><td class="c">${l.no}</td><td>${htmlesc(l.desc)}</td><td class="c">${fmtNum(l.qty)}</td><td class="r">${money(l.unit)}</td><td class="r">${money(l.amount)}</td></tr>`).join('');
   const issuer=hasShop?`<div class="rcpt-block"><div><b>ผู้ออก / Issuer :</b> ${htmlesc(f.shop)}</div><div><b>ที่อยู่ / Address :</b> ${htmlesc(ISSUER_ADDRESS)}</div></div>`:'';
-  $('receiptPrint').innerHTML=`<div class="rcpt">
+  return `<div class="rcpt">
     <div class="rcpt-title"><h1>ใบเสร็จรับเงิน<small>Receipt</small></h1><div class="rcpt-orig">( ต้นฉบับ / Original )</div></div>
     <div class="rcpt-block">
       <div class="g2"><span><b>ลูกค้า / Customer :</b> ${htmlesc(f.customer)}</span><span><b>เลขที่ / No :</b> ${dn}</span></div>
@@ -1655,7 +1673,71 @@ function genReceipt(key){
     <div class="rcpt-foot"><div class="rcpt-remark">หมายเหตุ / Remarks : —</div>
       <div class="rcpt-sign"><div class="ln"></div>ผู้รับเงิน / Collector</div></div>
   </div>`;
-  window.print();
+}
+function printReceipt(key){
+  const f=docForm[key]; if(!f) return; const dn=docIssued[key];
+  if(!dn){ toast('ออกเลขเอกสารก่อนจึงจะพิมพ์ใบเสร็จได้',true); return; }
+  $('receiptPrint').innerHTML=buildReceiptHTML(f,dn); window.print();
+}
+function printSaved(r){
+  if(!r) return; const d=r.data||{};
+  const f={ customer:d.customer!=null?d.customer:r.customer, tax:d.tax||'', branch:d.branch||'',
+    date:d.date||'', addr:d.addr||'', shop:d.shop!==undefined?d.shop:r.shop,
+    lines:d.lines||[], total:d.total!=null?d.total:r.amount };
+  $('receiptPrint').innerHTML=buildReceiptHTML(f,r.doc_no); window.print();
+}
+async function saveReceipt(key){
+  if(!dbReady()) return;
+  const dn=docIssued[key]; if(!dn){ toast('ออกเลขเอกสารก่อนจึงบันทึกได้',true); return; }
+  const f=docForm[key]; if(!f) return;
+  const row=docRows.find(x=>x.key===key)||{};
+  const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
+    total:f.total, key, internal:row.internal||'',
+    lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
+  try{
+    const {error}=await sb.from('receipts').update({saved:true, saved_at:new Date().toISOString(), data})
+      .eq('order_key',key).eq('year',new Date().getFullYear());
+    if(error) throw error;
+    docSaved.add(key); renderDoc(); toast('บันทึกใบเสร็จ '+dn+' แล้ว');
+  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+/* ---- ประวัติใบเสร็จ ---- */
+let histRows=[];
+async function loadHistory(){
+  if(!sb){ $('histInfo').textContent='ยังไม่ได้ตั้งค่า Supabase'; return; }
+  $('histInfo').textContent='กำลังโหลด...';
+  try{
+    let all=[], from=0; const page=1000;
+    while(true){
+      const {data,error}=await sb.from('receipts')
+        .select('doc_no,seq,year,order_key,shop,customer,amount,saved_at,data')
+        .eq('saved',true).order('year',{ascending:false}).order('seq',{ascending:false})
+        .range(from,from+page-1);
+      if(error) throw error;
+      all=all.concat(data||[]);
+      if(!data||data.length<page) break; from+=page;
+    }
+    histRows=all; renderHist();
+    $('histInfo').innerHTML=`บันทึกแล้ว <b>${fmtInt(all.length)}</b> ใบ`;
+  }catch(err){ $('histInfo').textContent='โหลดไม่สำเร็จ'; toast('โหลดประวัติไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+function renderHist(){
+  const q=norm($('histSearch').value).toLowerCase();
+  let rows=histRows.slice();
+  if(q) rows=rows.filter(r=>((r.doc_no||'')+' '+(r.customer||'')+' '+(r.shop||'')+' '+(r.order_key||'')).toLowerCase().includes(q));
+  $('histHead').innerHTML=`<tr><th style="width:11%">เลขเอกสาร</th><th style="width:7%">ปี</th><th style="width:24%">ลูกค้า</th><th style="width:17%">ร้าน</th><th class="num" style="width:11%">ยอดรวม</th><th style="width:20%">บันทึกเมื่อ</th><th style="width:10%">พิมพ์</th></tr>`;
+  $('histBody').innerHTML = rows.length ? rows.map(r=>{
+    const dt=r.saved_at?new Date(r.saved_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—';
+    return `<tr>
+      <td class="ord">${htmlesc(r.doc_no)}</td>
+      <td class="c">${r.year}</td>
+      <td title="${htmlesc(r.customer)}">${htmlesc(r.customer)}</td>
+      <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
+      <td class="num">${money(r.amount)}</td>
+      <td>${dt}</td>
+      <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="พิมพ์ใบเสร็จ">🖨️ พิมพ์</button></td></tr>`;
+  }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">ยังไม่มีใบเสร็จที่บันทึก</td></tr>`;
+  $('histCount').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(histRows.length)} ใบ`;
 }
 /* ---- แก้ไข/รันเลขเอกสาร (modal) ---- */
 let docEditKey=null;
@@ -1711,6 +1793,23 @@ $('docEditCancel').onclick=closeDocEdit;
 $('docEditSave').onclick=saveDocEdit;
 $('docEditBg').onclick=e=>{ if(e.target.id==='docEditBg') closeDocEdit(); };
 
+/* ---- wiring ประวัติ ---- */
+$('histRefreshBtn').onclick=loadHistory;
+$('histSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderHist,200); };
+$('histBody').onclick=e=>{
+  const b=e.target.closest('[data-doc]'); if(!b) return;
+  const r=histRows.find(x=>x.doc_no===b.dataset.doc); printSaved(r);
+};
+$('histExportBtn').onclick=()=>{
+  if(!histRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
+  const aoa=[['เลขเอกสาร','ปี','เลขออเดอร์/พัสดุ','ลูกค้า','ร้าน','ยอดรวม','บันทึกเมื่อ']];
+  histRows.forEach(r=>aoa.push([r.doc_no,r.year,r.order_key,r.customer,r.shop,r.amount,
+    r.saved_at?new Date(r.saved_at).toLocaleString('th-TH'):'']));
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:12},{wch:7},{wch:22},{wch:30},{wch:20},{wch:12},{wch:20}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'ประวัติใบเสร็จ');
+  XLSX.writeFile(wb,'MASARU_ประวัติใบเสร็จ.xlsx'); toast('ส่งออกแล้ว');
+};
+
 $('docJstCard').onclick=()=>$('docJstInput').click();
 $('docFormCard').onclick=()=>$('docFormInput').click();
 $('docJstInput').onchange=e=>{ if(e.target.files[0]) handleDocJst(e.target.files[0]); e.target.value=''; };
@@ -1723,7 +1822,8 @@ $('docBody').onclick=e=>{
   const b=e.target.closest('[data-act]'); if(!b) return;
   const key=b.dataset.key;
   if(b.dataset.act==='issue' || b.dataset.act==='editno') openDocEdit(key);
-  else if(b.dataset.act==='rcpt') genReceipt(key);
+  else if(b.dataset.act==='save') saveReceipt(key);
+  else if(b.dataset.act==='print') printReceipt(key);
 };
 $('docExportBtn').onclick=()=>{
   if(!docRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
