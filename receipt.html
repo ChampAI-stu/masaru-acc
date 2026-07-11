@@ -203,8 +203,9 @@
   .rcpt-foot{display:flex;justify-content:space-between;margin-top:34px;align-items:flex-end}
   .rcpt-remark{font-size:11px}
   .rcpt-sign{text-align:center;font-size:11px;min-width:220px}
-  .rcpt-sign .ln{border-top:1px dotted #333;margin:40px 12px 5px}
-  .rcpt-sig-img{display:block;max-width:180px;max-height:52px;object-fit:contain;margin:0 auto -6px}
+  .rcpt-sign .sig-area{height:46px;display:flex;align-items:flex-end;justify-content:center}
+  .rcpt-sign .ln{border-top:1px dotted #333;margin:2px 12px 5px}
+  .rcpt-sig-img{max-width:170px;max-height:46px;object-fit:contain}
 
   @media print{
     body > *{display:none !important}
@@ -1757,7 +1758,7 @@ function buildReceiptHTML(f, dn, sig){
     </table>
     <div class="rcpt-total"><span class="tt">จำนวนเงินรวมทั้งสิ้น / Grand Total</span><span>${money(f.total)}</span></div>
     <div class="rcpt-foot"><div class="rcpt-remark">หมายเหตุ / Remarks : —</div>
-      <div class="rcpt-sign">${sigImg}<div class="ln"></div>ผู้รับเงิน / Collector</div></div>
+      <div class="rcpt-sign"><div class="sig-area">${sigImg}</div><div class="ln"></div>ผู้รับเงิน / Collector</div></div>
   </div>`;
 }
 function printReceipt(key){
@@ -2081,7 +2082,12 @@ function fileToSignature(file){
       img.onload=()=>{ const maxW=380; const sc=Math.min(1,maxW/img.width);
         const w=Math.round(img.width*sc), h=Math.round(img.height*sc);
         const c=document.createElement('canvas'); c.width=w; c.height=h;
-        c.getContext('2d').drawImage(img,0,0,w,h);
+        const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+        try{  // ลบพื้นหลังขาว/สว่างให้โปร่งใส
+          const im=ctx.getImageData(0,0,w,h); const d=im.data;
+          for(let i=0;i<d.length;i+=4){ if(d[i]>228 && d[i+1]>228 && d[i+2]>228) d[i+3]=0; }
+          ctx.putImageData(im,0,0);
+        }catch(e){ console.warn('bg removal skipped',e); }
         res(c.toDataURL('image/png')); };
       img.onerror=rej; img.src=fr.result; };
     fr.onerror=rej; fr.readAsDataURL(file);
