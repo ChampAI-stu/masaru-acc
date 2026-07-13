@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · รวมไฟล์ COD ขนส่ง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--navy-deep:#16233F;--navy:#1F3864;--blue:#2E75B6;--red:#D81F2C;--red-dk:#AE1420;
+    --ink:#1a2233;--muted:#667085;--line:#e4e8ef;--bg:#f3f5f9;--card:#fff;--shadow:0 2px 10px rgba(20,40,80,.06);--gold:#C8A24B;--green:#0a7d33;--flash:#FFD400}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:#161616;color:#fff;padding:16px 0;border-bottom:4px solid var(--flash)}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px;color:#fff}.brand span{color:var(--flash)}
+  .tool-title{font-size:13px;color:#cfcfcf;border-left:1px solid #444;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:26px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}.btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:#161616;color:var(--flash)}
+  .btn-gold{background:var(--flash);color:#161616}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.spacer{flex:1}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:#161616;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:var(--red-dk)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:30px;text-align:center;cursor:pointer;transition:.15s;background:#fffdf3}
+  .drop:hover{border-color:var(--flash);background:#fffbe6}
+  .drop .ic{font-size:34px}.drop .t{font-weight:700;margin-top:6px;font-size:16px}.drop .s{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .sec-label{font-weight:700;color:var(--navy);margin:16px 0 8px;font-size:15px}
+  .filelist{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+  .fileitem{display:flex;align-items:center;gap:10px;background:#faf9f4;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px}
+  .fileitem .fn{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fileitem .meta{color:var(--muted);font-size:12px;white-space:nowrap}
+  .fileitem .rm{color:var(--red);cursor:pointer;font-weight:700;border:none;background:none;font-size:15px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-top:8px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:22px;font-weight:800;margin-top:3px;color:var(--navy)}
+  .stat.good{background:#f2fbf5;border-color:#bfe6cb}.stat.good .v{color:var(--green)}
+  .stat.bad{background:#fdecec;border-color:#f3b4b4}.stat.bad .v{color:var(--red)}
+  .stat.flash{background:#fffbe6;border-color:#f0e08a}.stat.flash .v{color:#161616}
+  .warnbox{background:#fdecec;border:1px solid #f3b4b4;border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.6;margin-top:12px}
+  .tbl-wrap{overflow:auto;max-height:58vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 11px;text-align:left;font-weight:600}
+  tbody td{padding:6px 11px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  td.trk{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
+  td.cod{font-weight:700;text-align:right}
+  tr.dup td{background:#fdecec}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">รวมไฟล์ COD ขนส่ง (Flash) · ต่อหลายวันเป็นไฟล์เดียว</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card">
+    <div class="sec-label" style="margin-top:0">1️⃣ อัปโหลดไฟล์ COD Remittance (เลือกหลายไฟล์พร้อมกันได้)</div>
+    <div class="drop" id="drop">
+      <div class="ic">💵</div>
+      <div class="t">ลากไฟล์มาวาง หรือกดเพื่อเลือก</div>
+      <div class="s">ระบบจะอ่านชีต "COD Detail" ของทุกไฟล์แล้วต่อรวมเป็นไฟล์เดียว · ตรวจเลขพัสดุซ้ำให้</div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls" multiple class="hidden">
+    <div class="filelist" id="filelist"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-primary" id="mergeBtn" disabled>🔗 รวมไฟล์</button>
+      <button class="btn btn-sm" id="clearBtn">ล้างทั้งหมด</button>
+      <span id="mInfo" style="font-size:12.5px;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div id="resultCard" class="card hidden" style="margin-top:18px">
+    <div class="row">
+      <div class="sec-label" style="margin:0">📊 ผลรวมไฟล์</div>
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-sm" id="expBtn">⬇️ ส่งออกไฟล์รวม (Excel)</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div id="dupWarn"></div>
+    <div class="tbl-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+    <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function normTrk(s){ return String(s==null?'':s).trim().toUpperCase(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let files=[]; // {name, headers, rows, count, cod}
+let result=null;
+
+$('drop').onclick=()=>$('file').click();
+$('drop').ondragover=e=>{ e.preventDefault(); $('drop').style.borderColor='var(--flash)'; };
+$('drop').ondragleave=()=>{ $('drop').style.borderColor=''; };
+$('drop').ondrop=e=>{ e.preventDefault(); $('drop').style.borderColor=''; if(e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
+$('file').onchange=e=>{ if(e.target.files.length) addFiles(e.target.files); e.target.value=''; };
+$('clearBtn').onclick=()=>{ files=[]; renderFiles(); $('resultCard').classList.add('hidden'); };
+
+const trkRe=/tracking|พัสดุ|barcode/i;
+const codRe=/cod amount|cod|amount|ยอด/i;
+async function addFiles(fileList){
+  for(const f of fileList){
+    try{
+      const buf=await f.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:false});
+      // หาชีตที่เป็น COD Detail (มีหัว tracking + cod amount)
+      let picked=null;
+      for(const name of wb.SheetNames){
+        const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+        let hi=-1;
+        for(let i=0;i<Math.min(aoa.length,10);i++){
+          const cells=(aoa[i]||[]).map(x=>norm(x));
+          if(cells.some(c=>trkRe.test(c)) && cells.some(c=>codRe.test(c))){ hi=i; break; }
+        }
+        if(hi<0) continue;
+        const headers=(aoa[hi]||[]).map((h,i)=>norm(h)||('คอลัมน์'+(i+1)));
+        const trkIdx=headers.findIndex(h=>trkRe.test(h));
+        const codIdx=headers.findIndex(h=>codRe.test(h));
+        const rows=aoa.slice(hi+1)
+          .filter(r=>(r||[]).some(x=>norm(x)!=='') && normTrk(r[trkIdx])) // เอาเฉพาะแถวที่มีเลขพัสดุจริง (ตัด total)
+          .map(r=>({ vals:r, trk:normTrk(r[trkIdx]), cod:toNum(r[codIdx])||0 }));
+        picked={ headers, trkIdx, codIdx, rows };
+        break;
+      }
+      if(!picked){ toast('ข้าม '+f.name+' (ไม่พบชีต COD Detail)',true); continue; }
+      if(files.some(x=>x.name===f.name)){ toast('มีไฟล์ '+f.name+' อยู่แล้ว',true); continue; }
+      files.push({ name:f.name, ...picked, count:picked.rows.length, codSum:picked.rows.reduce((a,r)=>a+r.cod,0) });
+    }catch(err){ toast('อ่าน '+f.name+' ไม่ได้',true); console.error(err); }
+  }
+  renderFiles();
+}
+function renderFiles(){
+  $('filelist').innerHTML=files.map((f,i)=>`
+    <div class="fileitem">
+      <span style="color:var(--flash);font-size:16px">📄</span>
+      <span class="fn">${htmlesc(f.name)}</span>
+      <span class="meta">${fmtInt(f.count)} รายการ · COD ${fmtNum(f.codSum)}</span>
+      <button class="rm" data-i="${i}" title="ลบ">✕</button>
+    </div>`).join('');
+  $('filelist').querySelectorAll('.rm').forEach(b=>b.onclick=()=>{ files.splice(+b.dataset.i,1); renderFiles(); });
+  $('mergeBtn').disabled=files.length===0;
+  $('mInfo').textContent=files.length?`${files.length} ไฟล์ พร้อมรวม`:'';
+}
+
+$('mergeBtn').onclick=doMerge;
+function doMerge(){
+  if(!files.length) return;
+  // หัวตารางมาตรฐาน = ไฟล์แรก (ตัดคอลัมน์ No. เดิม เพราะจะเลขใหม่)
+  const base=files[0];
+  const outCols=base.headers.map((h,i)=>({h,i})).filter(c=>!/^no\.?$|^ลำดับ$/i.test(c.h));
+  const seen=new Map();   // trk -> row แรก
+  const out=[]; const dups=[];
+  let totalCod=0;
+  files.forEach(f=>{
+    f.rows.forEach(r=>{
+      if(seen.has(r.trk)){ dups.push({trk:r.trk, file:f.name, first:seen.get(r.trk)}); return; }
+      seen.set(r.trk, f.name);
+      const vals=outCols.map(c=>{ const v=r.vals[c.i]; return v==null?'':v; });
+      out.push({ file:f.name, trk:r.trk, cod:r.cod, vals });
+      totalCod+=r.cod;
+    });
+  });
+  result={ outCols, rows:out, dups, totalCod, fileCount:files.length,
+           rawTotal: files.reduce((a,f)=>a+f.count,0) };
+  renderResult();
+}
+
+function renderResult(){
+  const r=result; $('resultCard').classList.remove('hidden');
+  $('stats').innerHTML=`
+    <div class="stat"><div class="k">จำนวนไฟล์</div><div class="v">${fmtInt(r.fileCount)}</div></div>
+    <div class="stat good"><div class="k">รายการรวม (ไม่ซ้ำ)</div><div class="v">${fmtInt(r.rows.length)}</div></div>
+    <div class="stat ${r.dups.length?'bad':''}"><div class="k">🔁 เลขซ้ำ (ตัดออก)</div><div class="v">${fmtInt(r.dups.length)}</div></div>
+    <div class="stat flash"><div class="k">💵 COD รวมทั้งหมด</div><div class="v" style="font-size:18px">${fmtNum(r.totalCod)}</div></div>`;
+  if(r.dups.length){
+    const list=r.dups.slice(0,40).map(d=>`${htmlesc(d.trk)} <span style="color:var(--muted)">(ซ้ำจาก ${htmlesc(d.file)})</span>`).join(' · ');
+    $('dupWarn').innerHTML=`<div class="warnbox">🔁 พบเลขพัสดุซ้ำ <b>${fmtInt(r.dups.length)} รายการ</b> — ระบบตัดออกให้แล้ว (นับ COD ครั้งเดียว):<br>${list}${r.dups.length>40?' …':''}</div>`;
+  } else $('dupWarn').innerHTML='';
+  // ตาราง
+  const cols=['ลำดับ','ไฟล์ต้นทาง',...r.outCols.map(c=>c.h)];
+  const trkColOut=r.outCols.findIndex(c=>trkRe.test(c.h))+2;   // +2 (ลำดับ+ไฟล์)
+  const codColOut=r.outCols.findIndex(c=>codRe.test(c.h))+2;
+  $('thead').innerHTML='<tr>'+cols.map(h=>`<th>${htmlesc(h)}</th>`).join('')+'</tr>';
+  const cap=1500;
+  $('tbody').innerHTML=r.rows.slice(0,cap).map((row,idx)=>{
+    return '<tr>'+`<td>${idx+1}</td><td>${htmlesc(row.file)}</td>`+row.vals.map((v,i)=>{
+      const ci=i+2; let cls='';
+      if(ci===trkColOut) cls='trk';
+      if(ci===codColOut){ cls='cod'; v=fmtNum(toNum(v)); }
+      return `<td class="${cls}">${htmlesc(v==null?'':v)}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+  $('resInfo').textContent = r.rows.length>cap ? `แสดง ${fmtInt(cap)} แรกจาก ${fmtInt(r.rows.length)} รายการ · ส่งออกเพื่อดูทั้งหมด` : `ทั้งหมด ${fmtInt(r.rows.length)} รายการ`;
+}
+
+$('expBtn').onclick=exportResult;
+async function exportResult(){
+  if(!result) return;
+  toast('กำลังสร้างไฟล์...');
+  const r=result;
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('COD Detail รวม');
+  const cols=['ลำดับ','ไฟล์ต้นทาง',...r.outCols.map(c=>c.h)];
+  ws.addRow(cols);
+  ws.getRow(1).eachCell({includeEmpty:true},c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}}; });
+  const codColIdx=r.outCols.findIndex(c=>codRe.test(c.h));
+  r.rows.forEach((row,idx)=> ws.addRow([idx+1, row.file, ...row.vals]));
+  // แถวรวม COD ทั้งหมด (เหลืองเข้ม)
+  ws.addRow([]);
+  const g=new Array(cols.length).fill('');
+  g[0]='รวมทั้งหมด'; g[1]=`${fmtInt(r.rows.length)} รายการ`;
+  if(codColIdx>=0) g[2+codColIdx]=r.totalCod;
+  const gr=ws.addRow(g);
+  for(let ci=1;ci<=cols.length;ci++){ const c=gr.getCell(ci); c.font={bold:true,color:{argb:'FF3A2C00'},size:13}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFD400'}}; c.border={top:{style:'thick',color:{argb:'FFC9A400'}}}; }
+  ws.columns.forEach((c,i)=>{ c.width=Math.max(12,String(cols[i]||'').length+3); });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='COD_รวม_'+r.fileCount+'ไฟล์.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('ส่งออกแล้ว');
+}
+</script>
+</body>
+</html>
