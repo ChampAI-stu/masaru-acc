@@ -137,6 +137,13 @@ $('clearBtn').onclick=()=>{ files=[]; renderFiles(); $('resultCard').classList.a
 
 const trkRe=/tracking|พัสดุ|barcode/i;
 const codRe=/cod amount|cod|amount|ยอด/i;
+// ซ่อม !ref ที่ผิด (ไฟล์ Flash บาง export บอกขนาดตารางแค่แถวเดียว) → คำนวณจาก cell จริง
+function fixRange(ws){
+  let minR=Infinity,minC=Infinity,maxR=-1,maxC=-1;
+  Object.keys(ws).forEach(k=>{ if(k[0]==='!') return; const c=XLSX.utils.decode_cell(k);
+    if(c.r<minR)minR=c.r; if(c.c<minC)minC=c.c; if(c.r>maxR)maxR=c.r; if(c.c>maxC)maxC=c.c; });
+  if(maxR>=0) ws['!ref']=XLSX.utils.encode_range({s:{r:minR,c:minC},e:{r:maxR,c:maxC}});
+}
 async function addFiles(fileList){
   for(const f of fileList){
     try{
@@ -144,6 +151,7 @@ async function addFiles(fileList){
       // หาชีตที่เป็น COD Detail (มีหัว tracking + cod amount)
       let picked=null;
       for(const name of wb.SheetNames){
+        fixRange(wb.Sheets[name]);
         const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
         let hi=-1;
         for(let i=0;i<Math.min(aoa.length,10);i++){
