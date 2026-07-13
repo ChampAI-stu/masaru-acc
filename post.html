@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · รวมไฟล์ไปรษณีย์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
+    /* ธีมเริ่มต้น (ไปรษณีย์ไทย) */
+    --hd:#8A0B24; --hd-txt:#ffffff; --hd-sub:#e7aab3; --logo-accent:#F5C518;
+    --brand:#E4002B; --brand-dk:#B00020; --brand-txt:#ffffff; --accent-line:#E4002B;
+    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f3f5f9; --card:#fff;
+    --shadow:0 2px 10px rgba(20,40,80,.06); --gold:#C8A24B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:var(--hd);color:var(--hd-txt);padding:16px 0;position:relative;overflow:hidden;transition:background .25s}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px;color:var(--hd-txt)}
+  .brand span{color:var(--logo-accent)}
+  .tool-title{font-size:13px;color:var(--hd-sub);border-left:1px solid rgba(255,255,255,.28);padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;
+    padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:26px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}
+  .btn-primary{background:var(--brand);color:var(--brand-txt)}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-gold{background:#fff;border:1.5px solid var(--brand);color:var(--brand-dk);font-weight:700}
+  .btn-gold:hover{background:var(--brand);color:var(--brand-txt);filter:none}
+  .btn-ghost{background:#fff;border:1px solid var(--line);transition:.15s}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand-dk);filter:none}
+  input:focus, select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:default}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .spacer{flex:1}
+  input[type=date],select,input[type=text]{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  label.lbl{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;
+    padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red-dk)}
+
+  /* ===== ปฏิทิน ===== */
+
+  /* ===== ธีมตามเจ้าขนส่ง (สลับด้วย class บน body) ===== */
+  body.theme-thaipost{ --hd:#8A0B24; --hd-txt:#ffffff; --hd-sub:#e7aab3; --logo-accent:#F5C518;
+    --brand:#E4002B; --brand-dk:#B00020; --brand-txt:#ffffff; --accent-line:#E4002B; }
+  body.theme-flash{ --hd:#161616; --hd-txt:#FFD400; --hd-sub:#cccccc; --logo-accent:#FFD400;
+    --brand:#FFD400; --brand-dk:#C9A400; --brand-txt:#161616; --accent-line:#111111; }
+  .carrier-tabs{display:flex;gap:10px;margin-bottom:16px}
+  .carrier-tab{padding:10px 22px;border:1px solid var(--line);border-radius:11px;background:#fff;font-family:inherit;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;transition:.15s}
+  .carrier-tab:hover{border-color:var(--blue)}
+  .carrier-tab.active{background:var(--brand);color:var(--brand-txt);border-color:var(--brand);box-shadow:0 4px 12px rgba(0,0,0,.18)}
+  .cal-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .cal-title{font-size:20px;font-weight:700;color:var(--accent-line);min-width:180px;text-align:center}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .cal-dow{text-align:center;font-size:12px;color:var(--muted);font-weight:600;padding:4px 0}
+  .cal-cell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:82px;padding:8px;cursor:pointer;
+    display:flex;flex-direction:column;gap:4px;transition:.12s;position:relative}
+  .cal-cell:hover{border-color:var(--blue);box-shadow:var(--shadow)}
+  .cal-cell.empty{background:transparent;border:none;cursor:default}
+  .cal-cell.today{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+  .cal-daynum{font-weight:700;font-size:14px}
+  .cal-badge{font-size:11.5px;color:var(--navy);background:#eaf0fa;border-radius:6px;padding:1px 6px;align-self:flex-start}
+  .cal-fee{font-size:11px;margin-top:auto}
+  .cal-fee.ok{color:#0a7d33}.cal-fee.bad{color:var(--red)}.cal-fee.na{color:var(--muted)}
+  .cal-cell.bad{border-color:var(--red);background:#fdecec}
+  .cal-cell.okday{border-color:#bfe6cb}
+  .cal-cell.warnday{border-color:#e0a800;background:#fff8e6}
+  .cal-cell.bad.today{box-shadow:0 0 0 2px rgba(216,31,44,.25)}
+  .cal-fee.warn{color:#b8860b}
+  .cal-flag{align-self:flex-start;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:5px;order:-1}
+  .cal-flag.bad{background:var(--red);color:#fff}
+  .cal-flag.warn{background:#e0a800;color:#fff}
+  .cal-sum{font-size:11.5px;font-weight:700;color:var(--navy)}
+  .month-sum{display:flex;gap:26px;flex-wrap:wrap;background:#eef3fb;border:1px solid #d7e2f3;border-radius:10px;padding:11px 18px;margin-bottom:12px;font-size:14px}
+  .month-sum b{color:var(--accent-line);font-size:17px}
+  .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--brand-dk);font-weight:700}
+
+  /* ===== ตาราง ===== */
+  .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 10px;text-align:left;font-weight:600;z-index:1}
+  tbody td{padding:7px 10px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  td.dup{background:#fdeaea;color:var(--red-dk);font-weight:600}
+  .warnbox{background:#fdeaea;border:1px solid var(--red);color:var(--red-dk);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px;line-height:1.7}
+  .okbox{background:#e9f7ee;border:1px solid #0a7d33;color:#0a6b2c;border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px}
+  .feebox{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-size:14px}
+  .feebox .k{color:var(--muted);font-size:12px}
+  .feebox .v{font-weight:700;font-size:17px}
+  .sec-label{font-weight:700;color:var(--navy);margin:18px 0 6px;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">รวมไฟล์ขนส่ง · ตรวจเลขซ้ำ · เช็คยอดรายวัน <b id="carrierName" style="color:#fff"></b></span>
+    <span id="liveDot" style="font-size:12px;color:#7fe3a0;font-weight:600;display:none">● อัปเดตสด</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ===== แท็บเลือกเจ้าขนส่ง ===== -->
+  <div class="carrier-tabs">
+    <button class="carrier-tab active" data-carrier="thaipost">🇹🇭 ไปรษณีย์ไทย</button>
+    <button class="carrier-tab" data-carrier="flash">⚡ Flash</button>
+  </div>
+  <!-- ===== ปฏิทิน ===== -->
+  <div id="viewCal">
+    <div class="card">
+      <div class="cal-top">
+        <button class="btn btn-ghost btn-sm" id="prevM">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="btn btn-ghost btn-sm" id="nextM">›</button>
+        <button class="btn btn-primary btn-sm" id="todayBtn">📅 วันนี้</button>
+        <input type="date" id="gotoDate" style="padding:6px 10px">
+        <button class="btn btn-ghost btn-sm" id="gotoBtn">🔍 ไปวันที่</button>
+        <div class="spacer"></div>
+        <span style="font-size:12.5px;color:var(--muted)">แตะวันที่เพื่ออัปโหลด/ดูข้อมูล</span>
+        <button class="btn btn-red btn-sm" id="delMonthBtn">🗑️ ลบทั้งเดือน</button>
+      </div>
+      <div id="calMonthSum" class="month-sum"></div>
+      <div id="calWarn"></div>
+      <div class="cal-grid" id="calDow"></div>
+      <div class="cal-grid" id="calGrid" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="sec-label">⬇️ ส่งออกข้อมูลตามช่วงวันที่</div>
+      <div class="row">
+        <div><label class="lbl">จากวันที่</label><input type="date" id="expFrom"></div>
+        <div><label class="lbl">ถึงวันที่</label><input type="date" id="expTo"></div>
+        <div style="align-self:flex-end"><button class="btn btn-gold" id="expBtn">⬇️ ส่งออก Excel</button></div>
+        <span class="spacer"></span>
+        <span id="expInfo" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== หน้าของวัน ===== -->
+  <div id="viewDay" class="hidden">
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="backCal">‹ ปฏิทิน</button>
+        <h2 style="margin:0;font-size:19px;color:var(--navy)" id="dayTitle">—</h2>
+        <div class="spacer"></div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden">
+        <button class="btn btn-primary" id="uploadBtn">⬆️ อัปโหลดไฟล์ไปรษณีย์ของวันนี้</button>
+      </div>
+      <div id="daySaved" style="margin-top:6px;font-size:13px;color:var(--muted)"></div>
+    </div>
+
+    <!-- พรีวิวไฟล์ที่เพิ่งอัป -->
+    <div id="previewCard" class="card hidden" style="margin-top:16px">
+      <div class="sec-label">🔎 ตรวจไฟล์ก่อนบันทึก</div>
+      <div class="row">
+        <div><label class="lbl">คอลัมน์ "เลขพัสดุ"</label><select id="colTrk"></select></div>
+        <div><label class="lbl">คอลัมน์ "ค่าบริการ"</label><select id="colFee"></select></div>
+        <div style="align-self:flex-end;font-size:13px">
+          <label style="cursor:pointer"><input type="checkbox" id="lastIsFee" checked> แถวสุดท้าย = ค่าบริการรวมรายวัน</label>
+        </div>
+      </div>
+      <div id="feeCheck" class="feebox"></div>
+      <div id="feeMsg"></div>
+      <div id="dupWarn"></div>
+      <div class="tbl-wrap"><table id="pvTbl"><thead id="pvHead"></thead><tbody id="pvBody"></tbody></table></div>
+      <div class="row" style="margin-top:12px">
+        <span id="pvInfo" style="font-size:13px;color:var(--muted)"></span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="pvCancel">ยกเลิก</button>
+        <button class="btn btn-primary" id="pvSave">💾 บันทึกเข้าระบบ</button>
+      </div>
+    </div>
+
+    <!-- ข้อมูลที่บันทึกแล้วของวันนี้ -->
+    <div id="dayDataCard" class="card hidden" style="margin-top:16px">
+      <div class="row">
+        <div class="sec-label" style="margin:0">📋 ข้อมูลที่บันทึกแล้ว</div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="dayExport">⬇️ ส่งออกวันนี้</button>
+        <button class="btn btn-red btn-sm" id="dayClear">🗑️ ล้างข้อมูลวันนี้</button>
+      </div>
+      <div id="dayFee" class="feebox"></div>
+      <div id="dayFeeMsg"></div>
+      <div id="dayDup"></div>
+      <div class="tbl-wrap"><table id="dayTbl"><thead id="dayHead"></thead><tbody id="dayBody"></tbody></table></div>
+      <div style="margin-top:8px;font-size:13px;color:var(--muted)" id="dayInfo"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+/* ===== auth: เฉพาะฝ่ายบัญชี ===== */
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบไปรษณีย์'); location.replace('index.html'); return; }
+  initCalendar();
+  initRealtime();
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+/* ===== helpers ===== */
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const TH_DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
+function thaiDate(str){ const [y,m,d]=str.split('-').map(Number); return `${d} ${TH_MONTHS[m-1]} ${y}`; }
+function feeMsgHTML(calc, declared, count){
+  if(!declared) return `<div class="okbox">ℹ️ ไฟล์ไม่มีค่าบริการรวมรายวัน (แถวสุดท้าย) — ข้ามการตรวจ</div>`;
+  const diff=calc-declared;
+  if(Math.abs(diff)<0.01) return `<div class="okbox">✅ <b>ค่าบริการตรงกัน</b> — คำนวณจากพัสดุ ${fmtInt(count)} ชิ้น ได้ ${fmtNum(calc)} บาท = ยอดที่ไฟล์แจ้ง</div>`;
+  const more = diff>0 ? 'ระบบคำนวณได้ <b>มากกว่า</b> ที่ไฟล์แจ้ง' : 'ระบบคำนวณได้ <b>น้อยกว่า</b> ที่ไฟล์แจ้ง';
+  return `<div class="warnbox">❌ <b>ค่าบริการไม่ตรง!</b><br>
+    • ระบบคำนวณจากพัสดุ <b>${fmtInt(count)}</b> ชิ้น = <b>${fmtNum(calc)}</b> บาท<br>
+    • ไฟล์แจ้ง (แถวสุดท้าย) = <b>${fmtNum(declared)}</b> บาท<br>
+    • ต่างกัน <b>${fmtNum(Math.abs(diff))}</b> บาท (${more})<br>
+    → ตรวจว่ามีพัสดุตกหล่น/เกิน หรือค่าบริการบางชิ้นกรอกผิด</div>`;
+}
+
+/* ===== ปฏิทิน ===== */
+/* ===== Realtime: อัปเดตสดเมื่อมีคนอื่นแก้ข้อมูล ===== */
+let rtTimer=null;
+function scheduleRefresh(){
+  clearTimeout(rtTimer);
+  rtTimer=setTimeout(()=>{
+    if(!$('viewCal').classList.contains('hidden')){ renderCalendar(); }
+    else if(!$('viewDay').classList.contains('hidden')){
+      if($('previewCard').classList.contains('hidden')) loadDay();
+    }
+  }, 700);
+}
+function initRealtime(){
+  sb.channel('post-rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'post_days'}, scheduleRefresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'post_parcels'}, scheduleRefresh)
+    .subscribe(status=>{ $('liveDot').style.display = (status==='SUBSCRIBED') ? 'inline' : 'none'; });
+}
+
+let curMonth=new Date();
+let curCarrier='thaipost';
+const CARRIER_LABEL={ thaipost:'ไปรษณีย์ไทย', flash:'Flash' };
+document.querySelectorAll('.carrier-tab').forEach(t=>t.onclick=()=>{
+  if(t.classList.contains('active')) return;
+  document.querySelectorAll('.carrier-tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  curCarrier=t.dataset.carrier;
+  document.body.className='theme-'+curCarrier;
+  const cn=$('carrierName'); if(cn) cn.textContent='· '+CARRIER_LABEL[curCarrier];
+  $('viewDay').classList.add('hidden'); $('viewCal').classList.remove('hidden');
+  renderCalendar();
+});
+function initCalendar(){
+  document.body.className='theme-'+curCarrier;
+  const cn=$('carrierName'); if(cn) cn.textContent='· '+CARRIER_LABEL[curCarrier];
+  curMonth=new Date(); curMonth.setDate(1);
+  $('calDow').innerHTML=TH_DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  const t=new Date(); $('expFrom').value=ymd(new Date(t.getFullYear(),t.getMonth(),1)); $('expTo').value=ymd(t); $('gotoDate').value=ymd(t);
+  renderCalendar();
+}
+$('prevM').onclick=()=>{ curMonth.setMonth(curMonth.getMonth()-1); renderCalendar(); };
+$('nextM').onclick=()=>{ curMonth.setMonth(curMonth.getMonth()+1); renderCalendar(); };
+$('todayBtn').onclick=()=>{ openDay(ymd(new Date())); };
+function gotoDate(){ const v=$('gotoDate').value; if(!v){ toast('เลือกวันที่ก่อน',true); return; } const [y,m]=v.split('-').map(Number); curMonth=new Date(y,m-1,1); openDay(v); }
+$('gotoBtn').onclick=gotoDate;
+$('gotoDate').addEventListener('change',gotoDate);
+$('delMonthBtn').onclick=async ()=>{
+  const y=curMonth.getFullYear(), m=curMonth.getMonth();
+  const from=ymd(new Date(y,m,1)), to=ymd(new Date(y,m+1,0));
+  if(!confirm(`ลบข้อมูลไปรษณีย์ทั้งเดือน ${TH_MONTHS[m]} ${y}?\n(วันที่ ${from} ถึง ${to})\n\n⚠️ ลบถาวร กู้คืนไม่ได้`)) return;
+  const btn=$('delMonthBtn'); btn.disabled=true; btn.textContent='กำลังลบ...';
+  try{
+    let e1=(await sb.from('post_parcels').delete().eq('carrier',curCarrier).gte('pdate',from).lte('pdate',to)).error;
+    if(e1) throw e1;
+    let e2=(await sb.from('post_days').delete().eq('carrier',curCarrier).gte('pdate',from).lte('pdate',to)).error;
+    if(e2) throw e2;
+    toast('ลบข้อมูลเดือน '+TH_MONTHS[m]+' '+y+' แล้ว');
+    renderCalendar();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent='🗑️ ลบทั้งเดือน';
+};
+
+async function renderCalendar(){
+  const y=curMonth.getFullYear(), m=curMonth.getMonth();
+  $('calTitle').textContent=`${TH_MONTHS[m]} ${y}`;
+  const first=new Date(y,m,1), lead=first.getDay(), days=new Date(y,m+1,0).getDate();
+  // ดึงสรุปรายวันของเดือนนี้
+  let dayMap={};
+  try{
+    const {data,error}=await sb.from('post_days').select('pdate,declared_fee,calc_fee,parcel_count').eq('carrier',curCarrier)
+      .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days)));
+    if(error) throw error;
+    (data||[]).forEach(r=>{ dayMap[r.pdate]=r; });
+  }catch(err){ console.error(err); }
+  // ยอดรวมทั้งเดือน
+  let mCount=0, mFee=0; Object.values(dayMap).forEach(r=>{ mCount+=Number(r.parcel_count)||0; mFee+=Number(r.calc_fee)||0; });
+  $('calMonthSum').innerHTML = mCount
+    ? `<span>📦 เดือนนี้รวม <b>${fmtInt(mCount)}</b> ชิ้น</span><span>💰 ค่าบริการรวม <b>${fmtNum(mFee)}</b> บาท</span>`
+    : `<span style="color:var(--muted)">เดือนนี้ยังไม่มีข้อมูล</span>`;
+  // ตรวจเลขพัสดุซ้ำภายในเดือน (นับจำนวนพัสดุซ้ำต่อวัน)
+  const dupDayMap={};
+  try{
+    let allp=[], off=0; const pg=1000;
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('tracking,pdate').eq('carrier',curCarrier)
+        .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days))).order('id',{ascending:true}).range(off,off+pg-1);
+      if(error) throw error;
+      allp=allp.concat(data||[]); if(!data||data.length<pg) break; off+=pg;
+    }
+    const cnt={}; allp.forEach(r=>{ if(r.tracking) cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
+    allp.forEach(r=>{ if(r.tracking && cnt[r.tracking]>1) dupDayMap[r.pdate]=(dupDayMap[r.pdate]||0)+1; });
+  }catch(err){ console.error('dup check',err); }
+  const todayStr=ymd(new Date());
+  let html=''; const badDays=[], noFeeDays=[], dupDays=[];
+  for(let i=0;i<lead;i++) html+='<div class="cal-cell empty"></div>';
+  for(let d=1; d<=days; d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const info=dayMap[ds]; const isToday=ds===todayStr;
+    let badge='', fee='', cls='', sum='', flag='';
+    if(info && info.parcel_count){
+      badge=`<span class="cal-badge">${fmtInt(info.parcel_count)} ชิ้น</span>`;
+      sum=`<div class="cal-sum">฿ ${fmtNum(Number(info.calc_fee)||0)}</div>`;
+      const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
+      const hasDeclared=(Number(info.declared_fee)||0)!==0;
+      const dupN=dupDayMap[ds]||0;
+      const feeBad=hasDeclared && !ok;
+      const isBad=feeBad || dupN>0;
+      if(feeBad) badDays.push(d);
+      if(!hasDeclared) noFeeDays.push(d);
+      if(dupN>0) dupDays.push(d);
+      cls = isBad ? 'bad' : (!hasDeclared ? 'warnday' : 'okday');
+      // สถานะค่าบริการ
+      let lines = hasDeclared
+        ? `<div class="cal-fee ${ok?'ok':'bad'}">${ok?'✅ ค่าบริการตรง':'❌ ค่าบริการไม่ตรง'}</div>`
+        : `<div class="cal-fee warn">— ยังไม่มีค่าบริการรวม</div>`;
+      if(dupN>0) lines += `<div class="cal-fee bad">⚠️ เลขซ้ำ ${fmtInt(dupN)}</div>`;
+      fee=lines;
+      flag = isBad ? '<span class="cal-flag bad">⚠️ ผิดปกติ</span>'
+           : (!hasDeclared ? '<span class="cal-flag warn">⚠️ ยังไม่แจ้งยอด</span>' : '');
+    }
+    html+=`<div class="cal-cell ${cls} ${isToday?'today':''}" data-date="${ds}">
+      ${isToday?'<span class="today-dot">วันนี้</span>':''}${flag}
+      <span class="cal-daynum">${d}</span>${badge}${sum}${fee}</div>`;
+  }
+  let wparts=[];
+  if(badDays.length) wparts.push(`❌ <b>ค่าบริการไม่ตรง ${badDays.length} วัน</b>: วันที่ <b>${badDays.join(', ')}</b>`);
+  if(dupDays.length) wparts.push(`⚠️ <b>มีเลขพัสดุซ้ำ ${dupDays.length} วัน</b>: วันที่ <b>${dupDays.join(', ')}</b>`);
+  if(noFeeDays.length) wparts.push(`⚠️ <b>ยังไม่แจ้งยอดรวม ${noFeeDays.length} วัน</b>: วันที่ ${noFeeDays.join(', ')}`);
+  $('calWarn').innerHTML = wparts.length
+    ? `<div class="warnbox" style="margin-bottom:12px">🔎 วันที่ต้องตรวจสอบ/แก้ไข:<br>${wparts.join('<br>')}<br><span style="font-size:12px">— แตะวันนั้นเพื่อดูรายละเอียด</span></div>`
+    : '';
+  $('calGrid').innerHTML=html;
+  $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
+}
+
+/* ===== หน้าของวัน ===== */
+let selDate=null, pv=null;
+function openDay(ds){
+  selDate=ds;
+  $('viewCal').classList.add('hidden'); $('viewDay').classList.remove('hidden');
+  $('dayTitle').textContent='📅 '+thaiDate(ds);
+  $('uploadBtn').textContent='⬆️ อัปโหลดไฟล์ไปรษณีย์ ('+thaiDate(ds)+')';
+  $('previewCard').classList.add('hidden'); pv=null;
+  loadDay();
+}
+$('backCal').onclick=()=>{ $('viewDay').classList.add('hidden'); $('viewCal').classList.remove('hidden'); renderCalendar(); };
+$('uploadBtn').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; };
+
+/* ---- โหลดข้อมูลของวันที่บันทึกแล้ว ---- */
+async function loadDay(){
+  $('daySaved').textContent='กำลังโหลด...';
+  let rows=[], from=0; const page=1000;
+  try{
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('tracking,fee,data,created_at').eq('carrier',curCarrier)
+        .eq('pdate',selDate).order('created_at',{ascending:true}).order('id',{ascending:true}).range(from,from+page-1);
+      if(error) throw error;
+      rows=rows.concat(data||[]); if(!data||data.length<page) break; from+=page;
+    }
+  }catch(err){ $('daySaved').textContent='โหลดไม่สำเร็จ'; toast('โหลดข้อมูลไม่สำเร็จ: '+(err.message||err),true); return; }
+  let day=null;
+  try{ const {data}=await sb.from('post_days').select('*').eq('carrier',curCarrier).eq('pdate',selDate).maybeSingle(); day=data; }catch(_){}
+  if(!rows.length){
+    $('daySaved').textContent='ยังไม่มีข้อมูลของวันนี้ — กดอัปโหลดไฟล์เพื่อเริ่ม';
+    $('dayDataCard').classList.add('hidden'); return;
+  }
+  $('daySaved').textContent='';
+  $('dayDataCard').classList.remove('hidden');
+  // หัวคอลัมน์
+  let headers=(day&&day.headers)||[];
+  if(!headers.length){ const set=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!set.includes(k)) set.push(k); })); headers=set; }
+  // ตรวจซ้ำข้ามวัน
+  const dupSet=await findDupTrackings(rows.map(r=>r.tracking));
+  // ค่าบริการ
+  const calc=rows.reduce((a,r)=>a+(Number(r.fee)||0),0);
+  const declared=Number(day&&day.declared_fee)||0;
+  const ok=Math.abs(calc-declared)<0.01;
+  $('dayFee').innerHTML=`
+    <div><div class="k">จำนวนพัสดุ</div><div class="v">${fmtInt(rows.length)}</div></div>
+    <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
+    <div><div class="k">ค่าบริการรายวัน (แจ้ง)</div><div class="v">${fmtNum(declared)}</div></div>
+    <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง'):'—'}</div></div>`;
+  $('dayFeeMsg').innerHTML=feeMsgHTML(calc, declared, rows.length);
+  const dupInDay=rows.filter(r=>dupSet.has(r.tracking));
+  $('dayDup').innerHTML = dupInDay.length
+    ? `<div class="warnbox">⚠️ พบเลขพัสดุที่ซ้ำกับในระบบ ${dupInDay.length} รายการ (ไฮไลต์แดงในตาราง): ${[...new Set(dupInDay.map(r=>r.tracking))].slice(0,20).map(htmlesc).join(', ')}${dupInDay.length>20?' ...':''}</div>` : '';
+  renderTable('day', headers, rows.map(r=>r.data||{}), rows.map(r=>r.tracking), dupSet);
+  $('dayInfo').textContent=`ทั้งหมด ${fmtInt(rows.length)} พัสดุ`;
+}
+
+/* ---- ตรวจเลขพัสดุซ้ำในระบบ ---- */
+async function findDupTrackings(trackings){
+  const uniq=[...new Set(trackings.filter(Boolean))]; const dup=new Set();
+  for(let i=0;i<uniq.length;i+=200){
+    const chunk=uniq.slice(i,i+200);
+    try{
+      const {data,error}=await sb.from('post_parcels').select('tracking').eq('carrier',curCarrier).in('tracking',chunk);
+      if(error) throw error;
+      const cnt={}; (data||[]).forEach(r=>{ cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
+      Object.keys(cnt).forEach(t=>{ if(cnt[t]>1) dup.add(t); });
+    }catch(err){ console.error(err); }
+  }
+  return dup;
+}
+
+/* ---- ตารางทั่วไป ---- */
+function renderTable(prefix, headers, dataRows, trackings, dupSet){
+  $(prefix+'Head').innerHTML='<tr><th>วันที่</th>'+headers.map(h=>`<th>${htmlesc(h)}</th>`).join('')+'</tr>';
+  $(prefix+'Body').innerHTML=dataRows.map((row,i)=>{
+    const isDup=dupSet&&trackings&&dupSet.has(trackings[i]);
+    return '<tr>'+`<td>${htmlesc(selDate)}</td>`+headers.map(h=>{
+      const v=row[h]; const cellDup=isDup;
+      return `<td class="${cellDup?'dup':''}">${htmlesc(v==null?'':v)}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+}
+
+/* ---- อัปโหลด + พรีวิว ---- */
+async function handleFile(file){
+  try{
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    let headers=null; const sheets=[]; const usedNames=[];
+    const trackRe=/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ/i;
+    const feeRe=/ค่าบริการ|ค่าขนส่ง|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|cod|amount|fee/i;
+    for(const name of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+      if(!aoa.length) continue;
+      // 1) หาแถว "หัวตารางจริง" = แถวที่มีทั้งคำ Barcode/เลขพัสดุ และ ค่าบริการ
+      let hi=-1;
+      for(let i=0;i<Math.min(aoa.length,15);i++){
+        const cells=(aoa[i]||[]).map(x=>norm(x));
+        if(cells.some(c=>trackRe.test(c)) && cells.some(c=>feeRe.test(c))){ hi=i; break; }
+      }
+      let hdr=null, dataStart;
+      if(hi>=0){ hdr=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1))); dataStart=hi+1; }
+      else {
+        // ไม่มีแถวหัวตาราง (ข้อมูลติดหัวข้อความเลย) → หาแถวข้อมูลแถวแรก ไม่ตัดพัสดุทิ้ง
+        dataStart=-1;
+        for(let i=0;i<Math.min(aoa.length,15);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=3){ dataStart=i; break; } }
+        if(dataStart<0) continue;
+      }
+      const rows=aoa.slice(dataStart).filter(r=>(r||[]).some(x=>norm(x)!==''));
+      if(!rows.length) continue;
+      if(!headers && hdr) headers=hdr;   // ใช้หัวจากชีตที่มีหัวจริง
+      sheets.push({name, rows}); usedNames.push(name);
+    }
+    if(!sheets.length){ toast('ไม่พบข้อมูลในไฟล์ (ทุกชีต)',true); return; }
+    // ถ้าไม่มีชีตไหนมีหัวจริงเลย → สร้างหัว generic
+    if(!headers){ let w=0; sheets.forEach(sh=>sh.rows.forEach(r=>{ if(r.length>w) w=r.length; })); headers=[]; for(let i=0;i<w;i++) headers.push('คอลัมน์'+(i+1)); }
+    // ตัดคอลัมน์ท้ายที่ว่างเปล่า (ไม่มีชื่อจริง + ไม่มีข้อมูล)
+    let maxCol=0;
+    sheets.forEach(sh=>sh.rows.forEach(r=>{ for(let i=0;i<r.length;i++){ if(norm(r[i])!=='') maxCol=Math.max(maxCol,i); } }));
+    headers.forEach((h,i)=>{ if(h && !/^คอลัมน์\d+$/.test(h)) maxCol=Math.max(maxCol,i); });
+    headers=headers.slice(0,maxCol+1);
+    pv={ file:file.name, headers, sheets, usedNames };
+    // เดาคอลัมน์
+    const trkGuess=headers.findIndex(h=>/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ|item|track/i.test(h));
+    const feeGuess=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|จำนวนเงิน|ยอด|ราคา|amount|net|รวม/i.test(h));
+    fillColSelect('colTrk', headers, trkGuess>=0?trkGuess:0);
+    fillColSelect('colFee', headers, feeGuess>=0?feeGuess:headers.length-1);
+    $('previewCard').classList.remove('hidden');
+    $('lastIsFee').checked=true;
+    await refreshPreview();
+    $('previewCard').scrollIntoView({behavior:'smooth'});
+  }catch(err){ toast('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+function fillColSelect(id, headers, sel){
+  $(id).innerHTML=headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${htmlesc(h)}</option>`).join('');
+}
+$('colTrk').onchange=refreshPreview; $('colFee').onchange=refreshPreview; $('lastIsFee').onchange=refreshPreview;
+
+async function refreshPreview(){
+  if(!pv) return;
+  const trkIdx=+$('colTrk').value, feeIdx=+$('colFee').value, lastIsFee=$('lastIsFee').checked;
+  const parcels=[]; let declared=0;
+  (pv.sheets||[]).forEach(sh=>{
+    let dataRows=sh.rows.slice();
+    if(lastIsFee && dataRows.length){ const last=dataRows[dataRows.length-1]; declared+=toNum(last[feeIdx])||0; dataRows=dataRows.slice(0,-1); }
+    dataRows.forEach(r=>{
+      const obj={}; pv.headers.forEach((h,i)=> obj[h]= r[i]==null?'':r[i]);
+      parcels.push({ tracking:norm(r[trkIdx]), fee:toNum(r[feeIdx]), data:obj });
+    });
+  });
+  pv.parcels=parcels; pv.declared=declared;
+  const calc=parcels.reduce((a,p)=>a+(Number(p.fee)||0),0);
+  const ok=Math.abs(calc-declared)<0.01;
+  $('feeCheck').innerHTML=`
+    <div><div class="k">จำนวนพัสดุ</div><div class="v">${fmtInt(parcels.length)}</div></div>
+    <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
+    <div><div class="k">ค่าบริการรายวัน (แถวสุดท้าย)</div><div class="v">${fmtNum(declared)}</div></div>
+    <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง (ต่าง '+fmtNum(calc-declared)+')'):'— ไม่มีค่าบริการรวม'}</div></div>`;
+  $('feeMsg').innerHTML=feeMsgHTML(calc, declared, parcels.length);
+  // ตรวจซ้ำ: ในไฟล์เอง + กับระบบ
+  const trks=parcels.map(p=>p.tracking).filter(Boolean);
+  const inFileCnt={}; trks.forEach(t=>inFileCnt[t]=(inFileCnt[t]||0)+1);
+  const inFileDup=Object.keys(inFileCnt).filter(t=>inFileCnt[t]>1);
+  const dbDupSet=await findDupExisting(trks);
+  const dupSet=new Set([...inFileDup, ...dbDupSet]);
+  let warn='';
+  if(inFileDup.length) warn+=`<div>• ซ้ำภายในไฟล์นี้ ${inFileDup.length} เลข: ${inFileDup.slice(0,15).map(htmlesc).join(', ')}${inFileDup.length>15?' ...':''}</div>`;
+  if(dbDupSet.size) warn+=`<div>• ซ้ำกับที่มีในระบบแล้ว ${dbDupSet.size} เลข: ${[...dbDupSet].slice(0,15).map(htmlesc).join(', ')}${dbDupSet.size>15?' ...':''}</div>`;
+  $('dupWarn').innerHTML = warn ? `<div class="warnbox">⚠️ พบเลขพัสดุซ้ำ (ไฮไลต์แดงในตาราง)<br>${warn}<br>ตรวจสอบก่อนบันทึก — ถ้ายืนยันก็บันทึกได้</div>`
+                                : `<div class="okbox">✅ ไม่พบเลขพัสดุซ้ำ</div>`;
+  pv.dupSet=dupSet;
+  renderTable('pv', pv.headers, parcels.map(p=>p.data), parcels.map(p=>p.tracking), dupSet);
+  $('pvInfo').textContent=`ไฟล์: ${pv.file} · อ่าน ${fmtInt((pv.usedNames||[]).length)} ชีต (${(pv.usedNames||[]).join(', ')}) · ${fmtInt(parcels.length)} พัสดุ${lastIsFee?' (ตัดแถวค่าบริการรวมออกแล้ว)':''}`;
+}
+/* ตรวจซ้ำเฉพาะที่ "มีอยู่แล้วในระบบ" (นับ >=1) */
+async function findDupExisting(trackings){
+  const uniq=[...new Set(trackings.filter(Boolean))]; const dup=new Set();
+  for(let i=0;i<uniq.length;i+=200){
+    const chunk=uniq.slice(i,i+200);
+    try{ const {data,error}=await sb.from('post_parcels').select('tracking').eq('carrier',curCarrier).in('tracking',chunk);
+      if(error) throw error; (data||[]).forEach(r=>dup.add(r.tracking));
+    }catch(err){ console.error(err); }
+  }
+  return dup;
+}
+$('pvCancel').onclick=()=>{ $('previewCard').classList.add('hidden'); pv=null; };
+$('pvSave').onclick=savePreview;
+async function savePreview(){
+  if(!pv||!pv.parcels){ return; }
+  if(!pv.parcels.length){ toast('ไม่มีพัสดุให้บันทึก',true); return; }
+  const btn=$('pvSave'); btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  try{
+    const recs=pv.parcels.map(p=>({ carrier:curCarrier, pdate:selDate, tracking:p.tracking, fee:p.fee, data:p.data }));
+    for(let i=0;i<recs.length;i+=500){
+      const {error}=await sb.from('post_parcels').insert(recs.slice(i,i+500));
+      if(error) throw error;
+    }
+    // อัปเดตสรุปรายวัน (declared สะสม + recompute calc/count)
+    let prev=null; try{ const {data}=await sb.from('post_days').select('*').eq('carrier',curCarrier).eq('pdate',selDate).maybeSingle(); prev=data; }catch(_){}
+    const declared=(Number(prev&&prev.declared_fee)||0)+(Number(pv.declared)||0);
+    await recomputeDay(selDate, declared, pv.headers);
+    toast('บันทึก '+fmtInt(recs.length)+' พัสดุแล้ว');
+    $('previewCard').classList.add('hidden'); pv=null;
+    loadDay();
+  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent='💾 บันทึกเข้าระบบ';
+}
+async function recomputeDay(ds, declared, headers){
+  // รวม fee + count จาก parcels ของวันนั้น
+  let sum=0, cnt=0, from=0; const page=1000;
+  while(true){
+    const {data,error}=await sb.from('post_parcels').select('fee').eq('carrier',curCarrier).eq('pdate',ds).order('id',{ascending:true}).range(from,from+page-1);
+    if(error) throw error;
+    (data||[]).forEach(r=>{ sum+=Number(r.fee)||0; cnt++; });
+    if(!data||data.length<page) break; from+=page;
+  }
+  const payload={ carrier:curCarrier, pdate:ds, calc_fee:sum, parcel_count:cnt, updated_at:new Date().toISOString() };
+  if(declared!=null) payload.declared_fee=declared;
+  if(headers) payload.headers=headers;
+  const {error}=await sb.from('post_days').upsert(payload, {onConflict:'carrier,pdate'});
+  if(error) throw error;
+}
+
+/* ---- ล้างข้อมูลวันนี้ ---- */
+$('dayClear').onclick=async ()=>{
+  if(!confirm(`ล้างข้อมูล ${CARRIER_LABEL[curCarrier]} ของ ${thaiDate(selDate)} ทั้งหมด?\n(ลบถาวร)`)) return;
+  try{
+    await sb.from('post_parcels').delete().eq('carrier',curCarrier).eq('pdate',selDate);
+    await sb.from('post_days').delete().eq('carrier',curCarrier).eq('pdate',selDate);
+    toast('ล้างข้อมูลแล้ว'); loadDay();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); }
+};
+
+/* ---- ส่งออกวันนี้ ---- */
+$('dayExport').onclick=()=> exportRange(selDate, selDate, CARRIER_LABEL[curCarrier]+'_'+selDate+'.xlsx');
+/* ---- ส่งออกช่วงวันที่ ---- */
+$('expBtn').onclick=()=>{ const f=$('expFrom').value, t=$('expTo').value; if(!f||!t){ toast('เลือกช่วงวันที่',true); return; } exportRange(f,t,CARRIER_LABEL[curCarrier]+'_'+f+'_ถึง_'+t+'.xlsx'); };
+
+async function exportRange(from,to,fname){
+  $('expInfo').textContent='กำลังดึงข้อมูล...';
+  let rows=[], off=0; const page=1000;
+  try{
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('pdate,tracking,fee,data').eq('carrier',curCarrier)
+        .gte('pdate',from).lte('pdate',to).order('pdate',{ascending:true}).order('id',{ascending:true}).range(off,off+page-1);
+      if(error) throw error;
+      rows=rows.concat(data||[]); if(!data||data.length<page) break; off+=page;
+    }
+  }catch(err){ $('expInfo').textContent=''; toast('ดึงข้อมูลไม่สำเร็จ: '+(err.message||err),true); return; }
+  if(!rows.length){ $('expInfo').textContent=''; toast('ไม่มีข้อมูลในช่วงนี้',true); return; }
+  // union headers
+  const headers=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!headers.includes(k)) headers.push(k); }));
+  const feeCol=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|fee/i.test(h));
+  const W=1+headers.length;
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('ไปรษณีย์');
+  // หัวตาราง
+  ws.addRow(['วันที่', ...headers]);
+  ws.columns.forEach((c,i)=>{ const name=(i===0?'วันที่':headers[i-1])||''; c.width=Math.max(12, String(name).length+3); });
+  ws.getRow(1).eachCell({includeEmpty:true}, cell=>{
+    cell.font={bold:true, color:{argb:'FFFFFFFF'}};
+    cell.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FF1F3864'}};
+    cell.alignment={vertical:'middle'};
+  });
+  let curDate=null, dayCount=0, daySum=0;
+  function flushDay(){
+    if(curDate===null) return;
+    const arr=new Array(W).fill('');
+    arr[0]=`▶ สรุปวันที่ ${curDate}`;
+    arr[1]=`จำนวน ${fmtInt(dayCount)} ชิ้น รวม ${fmtNum(daySum)} บาท`;
+    if(feeCol>=0) arr[1+feeCol]=daySum;
+    const r=ws.addRow(arr);
+    for(let ci=1; ci<=W; ci++){
+      const c=r.getCell(ci);
+      c.font={bold:true, color:{argb:'FF5C4300'}, size:12};
+      c.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FFFFE08A'}};
+      c.border={top:{style:'medium',color:{argb:'FFD9A404'}}, bottom:{style:'medium',color:{argb:'FFD9A404'}}};
+    }
+    ws.addRow([]); // บรรทัดว่างคั่นวัน
+  }
+  rows.forEach(r=>{
+    if(r.pdate!==curDate){ flushDay(); curDate=r.pdate; dayCount=0; daySum=0; }
+    ws.addRow([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]);
+    dayCount++; daySum+=Number(r.fee)||0;
+  });
+  flushDay();
+  // บรรทัดสุดท้าย = ผลรวมทั้งเดือน/ช่วง (เหลืองเข้ม)
+  const grandCount=rows.length, grandSum=rows.reduce((a,r)=>a+(Number(r.fee)||0),0);
+  ws.addRow([]);
+  const g=new Array(W).fill('');
+  g[0]='รวมทั้งหมด';
+  g[1]=`รวมทั้งสิ้น ${fmtInt(grandCount)} ชิ้น = ${fmtNum(grandSum)} บาท`;
+  if(feeCol>=0) g[1+feeCol]=grandSum;
+  const gr=ws.addRow(g);
+  for(let ci=1; ci<=W; ci++){
+    const c=gr.getCell(ci);
+    c.font={bold:true, color:{argb:'FF3A2C00'}, size:13};
+    c.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FFE6A817'}};
+    c.border={top:{style:'thick',color:{argb:'FFB8860B'}}, bottom:{style:'thick',color:{argb:'FFB8860B'}}};
+  }
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  $('expInfo').textContent=`ส่งออก ${fmtInt(rows.length)} รายการแล้ว`;
+  toast('ส่งออกแล้ว');
+}
+</script>
+</body>
+</html>
