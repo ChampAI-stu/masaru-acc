@@ -476,6 +476,10 @@ async function handleFile(file){
     const trackRe=/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ/i;
     const feeRe=/ค่าบริการ|ค่าขนส่ง|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|cod|amount|fee/i;
     for(const name of wb.SheetNames){
+      { const ws=wb.Sheets[name]; let mnR=Infinity,mnC=Infinity,mxR=-1,mxC=-1;
+        Object.keys(ws).forEach(k=>{ if(k[0]==='!') return; const c=XLSX.utils.decode_cell(k);
+          if(c.r<mnR)mnR=c.r; if(c.c<mnC)mnC=c.c; if(c.r>mxR)mxR=c.r; if(c.c>mxC)mxC=c.c; });
+        if(mxR>=0) ws['!ref']=XLSX.utils.encode_range({s:{r:mnR,c:mnC},e:{r:mxR,c:mxC}}); }
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
       if(!aoa.length) continue;
       // 1) หาแถว "หัวตารางจริง" = แถวที่มีทั้งคำ Barcode/เลขพัสดุ และ ค่าบริการ
