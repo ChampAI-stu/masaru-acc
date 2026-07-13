@@ -81,6 +81,7 @@
     </div>
     <input type="file" id="file" accept=".xlsx,.xls" multiple class="hidden">
     <div class="filelist" id="filelist"></div>
+    <div id="preCheck"></div>
     <div class="row" style="margin-top:14px">
       <button class="btn btn-primary" id="mergeBtn" disabled>🔗 รวมไฟล์</button>
       <button class="btn btn-sm" id="clearBtn">ล้างทั้งหมด</button>
@@ -137,6 +138,20 @@ $('clearBtn').onclick=()=>{ files=[]; renderFiles(); $('resultCard').classList.a
 
 const trkRe=/tracking|พัสดุ|barcode/i;
 const codRe=/cod amount|cod|amount|ยอด/i;
+// ดึง "Total COD Amount" จากหน้าปก (ไว้เทียบกับผลรวม COD Detail)
+function extractCoverTotal(wb){
+  for(const name of wb.SheetNames){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+    for(const row of aoa){
+      const cells=(row||[]).map(norm);
+      const idx=cells.findIndex(c=>/total\s*cod\s*amount/i.test(c));
+      if(idx>=0){ for(let j=idx+1;j<cells.length;j++){ const n=toNum(cells[j]); if(n!=null) return n; } }
+    }
+  }
+  return null;
+}
+function fileDate(name){ const m=name.match(/(\d{4})(\d{2})(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:''; }
+function fileAccount(name){ const p=name.split('_'); return (p[2]||'').trim(); }
 // ซ่อม !ref ที่ผิด (ไฟล์ Flash บาง export บอกขนาดตารางแค่แถวเดียว) → คำนวณจาก cell จริง
 function fixRange(ws){
   let minR=Infinity,minC=Infinity,maxR=-1,maxC=-1;
@@ -170,22 +185,56 @@ async function addFiles(fileList){
       }
       if(!picked){ toast('ข้าม '+f.name+' (ไม่พบชีต COD Detail)',true); continue; }
       if(files.some(x=>x.name===f.name)){ toast('มีไฟล์ '+f.name+' อยู่แล้ว',true); continue; }
-      files.push({ name:f.name, ...picked, count:picked.rows.length, codSum:picked.rows.reduce((a,r)=>a+r.cod,0) });
+      const codSum=picked.rows.reduce((a,r)=>a+r.cod,0);
+      files.push({ name:f.name, ...picked, count:picked.rows.length, codSum,
+        fdate:fileDate(f.name), account:fileAccount(f.name), coverTotal:extractCoverTotal(wb) });
     }catch(err){ toast('อ่าน '+f.name+' ไม่ได้',true); console.error(err); }
   }
   renderFiles();
 }
 function renderFiles(){
-  $('filelist').innerHTML=files.map((f,i)=>`
-    <div class="fileitem">
+  $('filelist').innerHTML=files.map((f,i)=>{
+    const bad = f.coverTotal!=null && Math.abs(f.codSum-f.coverTotal)>=0.01;
+    const flag = bad ? `<span style="color:var(--red);font-weight:700" title="COD Detail รวม ${fmtNum(f.codSum)} · หน้าปกแจ้ง ${fmtNum(f.coverTotal)}">⚠️ ยอดไม่ตรงหน้าปก</span>` : '';
+    return `<div class="fileitem">
       <span style="color:var(--flash);font-size:16px">📄</span>
-      <span class="fn">${htmlesc(f.name)}</span>
+      <span class="fn">${htmlesc(f.name)}${f.fdate?` <span style="color:var(--muted);font-weight:400">· ${f.fdate}</span>`:''}</span>
+      ${flag}
       <span class="meta">${fmtInt(f.count)} รายการ · COD ${fmtNum(f.codSum)}</span>
       <button class="rm" data-i="${i}" title="ลบ">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   $('filelist').querySelectorAll('.rm').forEach(b=>b.onclick=()=>{ files.splice(+b.dataset.i,1); renderFiles(); });
   $('mergeBtn').disabled=files.length===0;
   $('mInfo').textContent=files.length?`${files.length} ไฟล์ พร้อมรวม`:'';
+  renderChecks();
+}
+
+// ===== ตรวจสอบเบื้องต้น เตือนก่อนรวม (ไม่บล็อก) =====
+function renderChecks(){
+  if(!files.length){ $('preCheck').innerHTML=''; return; }
+  const w=[];
+  // 1) ยอด COD Detail ไม่ตรงหน้าปก
+  const mm=files.filter(f=>f.coverTotal!=null && Math.abs(f.codSum-f.coverTotal)>=0.01);
+  mm.forEach(f=> w.push(`❌ <b>${htmlesc(f.name)}</b>: COD Detail รวม ${fmtNum(f.codSum)} แต่หน้าปกแจ้ง ${fmtNum(f.coverTotal)} <b>(ต่าง ${fmtNum(f.codSum-f.coverTotal)})</b>`));
+  // 2) วันที่ซ้ำ (2 ไฟล์วันเดียวกัน)
+  const byDate={}; files.forEach(f=>{ if(f.fdate){ (byDate[f.fdate]=byDate[f.fdate]||[]).push(f.name); } });
+  Object.entries(byDate).filter(([d,a])=>a.length>1).forEach(([d,a])=> w.push(`🔁 <b>วันที่ ${d} มี ${a.length} ไฟล์</b>: ${a.map(htmlesc).join(', ')} — อาจอัปซ้ำ`));
+  // 3) Sub Account ต่างกัน
+  const accs=[...new Set(files.map(f=>f.account).filter(Boolean))];
+  if(accs.length>1) w.push(`⚠️ <b>มีหลาย Sub Account:</b> ${accs.map(htmlesc).join(', ')} — อาจปนไฟล์ของลูกค้าอื่น`);
+  // 4) วันที่ขาดช่วง
+  const dates=files.map(f=>f.fdate).filter(Boolean).sort();
+  if(dates.length>=2){
+    const miss=[]; const d0=new Date(dates[0]), d1=new Date(dates[dates.length-1]); const have=new Set(dates);
+    for(let d=new Date(d0); d<=d1; d.setDate(d.getDate()+1)){ const s=d.toISOString().slice(0,10); if(!have.has(s)) miss.push(s); }
+    if(miss.length) w.push(`📅 <b>ช่วง ${dates[0]} ถึง ${dates[dates.length-1]} ขาด ${miss.length} วัน</b>: ${miss.join(', ')} — ตรวจว่าลืมไฟล์ไหมไหม`);
+  }
+  const noDate=files.filter(f=>!f.fdate).length;
+  if(noDate) w.push(`ℹ️ มี ${noDate} ไฟล์ที่อ่านวันที่จากชื่อไม่ได้ (เช็กช่วงวันขาดไม่ได้)`);
+  $('preCheck').innerHTML = w.length
+    ? `<div class="warnbox" style="margin-top:14px">🔎 <b>ตรวจเจอสิ่งที่ควรเช็กก่อนรวม:</b><br>${w.join('<br>')}<br><span style="font-size:12px;color:var(--muted)">— ระบบไม่ลบให้อัตโนมัติ คุณตรวจแล้วจัดการเอง (ลบไฟล์ที่ผิดออก / หาไฟล์ที่ขาดมาเพิ่ม) จากนั้นค่อยกดรวม</span></div>`
+    : `<div style="margin-top:14px;background:#f2fbf5;border:1px solid #bfe6cb;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--green)">✅ ตรวจเบื้องต้นผ่าน — ยอดตรงหน้าปกทุกไฟล์ · ไม่มีวันซ้ำ/ขาด</div>`;
 }
 
 $('mergeBtn').onclick=doMerge;
