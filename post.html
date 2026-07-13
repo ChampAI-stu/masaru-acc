@@ -12,17 +12,20 @@
 <style>
   :root{
     --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
+    /* ธีมเริ่มต้น (ไปรษณีย์ไทย) */
+    --hd:#8A0B24; --hd-txt:#ffffff; --hd-sub:#e7aab3; --logo-accent:#F5C518;
+    --brand:#E4002B; --brand-dk:#B00020; --brand-txt:#ffffff; --accent-line:#E4002B;
     --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f3f5f9; --card:#fff;
     --shadow:0 2px 10px rgba(20,40,80,.06); --gold:#C8A24B;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-  header{background:var(--navy-deep);color:#fff;padding:16px 0;position:relative;overflow:hidden}
+  header{background:var(--hd);color:var(--hd-txt);padding:16px 0;position:relative;overflow:hidden;transition:background .25s}
   header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px}
-  .brand span{color:var(--red)}
-  .tool-title{font-size:13px;color:#9db0d4;border-left:1px solid #3a4a6b;padding-left:14px}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px;color:var(--hd-txt)}
+  .brand span{color:var(--logo-accent)}
+  .tool-title{font-size:13px;color:var(--hd-sub);border-left:1px solid rgba(255,255,255,.28);padding-left:14px}
   .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;
     padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
@@ -30,10 +33,13 @@
   main{padding:26px 0 60px}
   .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
   .btn:hover{filter:brightness(.97)}
-  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary{background:var(--brand);color:var(--brand-txt)}
   .btn-red{background:var(--red);color:#fff}
-  .btn-gold{background:var(--gold);color:#fff}
-  .btn-ghost{background:#fff;border:1px solid var(--line)}
+  .btn-gold{background:#fff;border:1.5px solid var(--brand);color:var(--brand-dk);font-weight:700}
+  .btn-gold:hover{background:var(--brand);color:var(--brand-txt);filter:none}
+  .btn-ghost{background:#fff;border:1px solid var(--line);transition:.15s}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand-dk);filter:none}
+  input:focus, select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
   .btn-sm{padding:6px 12px;font-size:13px}
   .btn:disabled{opacity:.5;cursor:default}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
@@ -48,19 +54,25 @@
   .toast.err{background:var(--red-dk)}
 
   /* ===== ปฏิทิน ===== */
+
+  /* ===== ธีมตามเจ้าขนส่ง (สลับด้วย class บน body) ===== */
+  body.theme-thaipost{ --hd:#8A0B24; --hd-txt:#ffffff; --hd-sub:#e7aab3; --logo-accent:#F5C518;
+    --brand:#E4002B; --brand-dk:#B00020; --brand-txt:#ffffff; --accent-line:#E4002B; }
+  body.theme-flash{ --hd:#161616; --hd-txt:#FFD400; --hd-sub:#cccccc; --logo-accent:#FFD400;
+    --brand:#FFD400; --brand-dk:#C9A400; --brand-txt:#161616; --accent-line:#111111; }
   .carrier-tabs{display:flex;gap:10px;margin-bottom:16px}
   .carrier-tab{padding:10px 22px;border:1px solid var(--line);border-radius:11px;background:#fff;font-family:inherit;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;transition:.15s}
   .carrier-tab:hover{border-color:var(--blue)}
-  .carrier-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 3px 10px rgba(31,56,100,.2)}
+  .carrier-tab.active{background:var(--brand);color:var(--brand-txt);border-color:var(--brand);box-shadow:0 4px 12px rgba(0,0,0,.18)}
   .cal-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
-  .cal-title{font-size:20px;font-weight:700;color:var(--navy);min-width:180px;text-align:center}
+  .cal-title{font-size:20px;font-weight:700;color:var(--accent-line);min-width:180px;text-align:center}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
   .cal-dow{text-align:center;font-size:12px;color:var(--muted);font-weight:600;padding:4px 0}
   .cal-cell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:82px;padding:8px;cursor:pointer;
     display:flex;flex-direction:column;gap:4px;transition:.12s;position:relative}
   .cal-cell:hover{border-color:var(--blue);box-shadow:var(--shadow)}
   .cal-cell.empty{background:transparent;border:none;cursor:default}
-  .cal-cell.today{border-color:var(--red);box-shadow:0 0 0 2px rgba(216,31,44,.15)}
+  .cal-cell.today{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
   .cal-daynum{font-weight:700;font-size:14px}
   .cal-badge{font-size:11.5px;color:var(--navy);background:#eaf0fa;border-radius:6px;padding:1px 6px;align-self:flex-start}
   .cal-fee{font-size:11px;margin-top:auto}
@@ -75,8 +87,8 @@
   .cal-flag.warn{background:#e0a800;color:#fff}
   .cal-sum{font-size:11.5px;font-weight:700;color:var(--navy)}
   .month-sum{display:flex;gap:26px;flex-wrap:wrap;background:#eef3fb;border:1px solid #d7e2f3;border-radius:10px;padding:11px 18px;margin-bottom:12px;font-size:14px}
-  .month-sum b{color:var(--navy);font-size:17px}
-  .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--red);font-weight:700}
+  .month-sum b{color:var(--accent-line);font-size:17px}
+  .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--brand-dk);font-weight:700}
 
   /* ===== ตาราง ===== */
   .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
@@ -265,11 +277,13 @@ document.querySelectorAll('.carrier-tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.carrier-tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
   curCarrier=t.dataset.carrier;
+  document.body.className='theme-'+curCarrier;
   const cn=$('carrierName'); if(cn) cn.textContent='· '+CARRIER_LABEL[curCarrier];
   $('viewDay').classList.add('hidden'); $('viewCal').classList.remove('hidden');
   renderCalendar();
 });
 function initCalendar(){
+  document.body.className='theme-'+curCarrier;
   const cn=$('carrierName'); if(cn) cn.textContent='· '+CARRIER_LABEL[curCarrier];
   curMonth=new Date(); curMonth.setDate(1);
   $('calDow').innerHTML=TH_DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('');
