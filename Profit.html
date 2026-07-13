@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · เทียบกำไร-ขาดทุน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--navy-deep:#16233F;--navy:#1F3864;--blue:#2E75B6;--red:#D81F2C;--red-dk:#AE1420;
+    --ink:#1a2233;--muted:#667085;--line:#e4e8ef;--bg:#f3f5f9;--card:#fff;--shadow:0 2px 10px rgba(20,40,80,.06);--gold:#C8A24B;--green:#0a7d33}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy-deep);color:#fff;padding:16px 0}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px}.brand span{color:var(--red)}
+  .tool-title{font-size:13px;color:#9db0d4;border-left:1px solid #3a4a6b;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:26px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}.btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--navy);color:#fff}.btn-gold{background:var(--gold);color:#fff}.btn-ghost{background:#fff;border:1px solid var(--line)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.spacer{flex:1}
+  select{font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  label.lbl{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:var(--red-dk)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfd}
+  .drop:hover{border-color:var(--blue);background:#f3f8ff}
+  .drop.loaded{border-style:solid;border-color:var(--green);background:#f2fbf5}
+  .drop .ic{font-size:30px}.drop .t{font-weight:700;margin-top:6px}.drop .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .sec-label{font-weight:700;color:var(--navy);margin:16px 0 8px;font-size:15px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:8px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:22px;font-weight:800;margin-top:3px;color:var(--navy)}
+  .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 11px;text-align:left;font-weight:600;z-index:1}
+  tbody td{padding:6px 11px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  tr.order-start td{border-top:2px solid #c9d6ec}
+  td.sku{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
+  td.price{font-weight:700}
+  .note{background:#eef3fb;border:1px solid #d7e2f3;border-radius:10px;padding:11px 15px;font-size:13px;line-height:1.65;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">เทียบกำไร-ขาดทุน · แยก SKU รายออร์เดอร์</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card">
+    <div class="sec-label" style="margin-top:0">1️⃣ อัปโหลดไฟล์คำสั่งซื้อ (Excel)</div>
+    <div class="drop" id="drop">
+      <div class="ic">🧾</div>
+      <div class="t">อัปโหลดไฟล์คำสั่งซื้อ</div>
+      <div class="s">ระบบจะแยก SKU ของแต่ละออร์เดอร์ออกเป็นคนละบรรทัด</div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hidden">
+
+    <div id="mapArea" class="hidden" style="margin-top:16px">
+      <div class="sec-label">2️⃣ ตรวจคอลัมน์ (ระบบเดาให้ ปรับได้)</div>
+      <div class="row">
+        <div><label class="lbl">คอลัมน์ SKU (ข้อมูลสินค้า)</label><select id="cSku"></select></div>
+        <div><label class="lbl">คอลัมน์ราคา (ยอดรวมออร์เดอร์)</label><select id="cPrice"></select></div>
+        <div><label class="lbl">คอลัมน์เลขออร์เดอร์</label><select id="cOrder"></select></div>
+        <div style="align-self:flex-end"><button class="btn btn-primary" id="splitBtn">✂️ แยก SKU</button></div>
+      </div>
+      <div class="note">
+        <b>ตรรกะจำนวน (ต่อ 1 SKU):</b> ตัวเลขหลัง <b>*</b> ตัวแรก = ตั้งจำนวน · <b>*</b> ตัวถัดไป = บวกเพิ่ม<br>
+        เช่น <code>SKU*2</code> → จำนวน 2 · <code>SKU*2*3</code> → จำนวน 5 (2+3) &nbsp;|&nbsp; <b>ราคา</b> = ยอดรวมทั้งออร์เดอร์ ใส่ที่บรรทัดแรกของออร์เดอร์ครั้งเดียว
+      </div>
+    </div>
+  </div>
+
+  <div id="resultCard" class="card hidden" style="margin-top:18px">
+    <div class="row">
+      <div class="sec-label" style="margin:0">📋 ผลลัพธ์ (แยก SKU รายบรรทัด)</div>
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-sm" id="expBtn">⬇️ ส่งออก Excel</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tbl-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+    <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let src=null, result=null;
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0]); e.target.value=''; };
+
+async function readFile(file){
+  try{
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    // ใช้ชีตแรกที่มีข้อมูลหลายคอลัมน์
+    let headers=null, rows=null;
+    for(const name of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+      let hi=-1;
+      for(let i=0;i<Math.min(aoa.length,10);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=4){ hi=i; break; } }
+      if(hi<0) continue;
+      headers=(aoa[hi]||[]).map((h,i)=>norm(h)||('คอลัมน์'+(i+1)));
+      rows=aoa.slice(hi+1).filter(r=>(r||[]).some(x=>norm(x)!==''));
+      break;
+    }
+    if(!headers||!rows){ toast('ไม่พบข้อมูลในไฟล์',true); return; }
+    src={file:file.name, headers, rows};
+    const skuGuess=headers.findIndex(h=>/ข้อมูลสินค้า|รายการสินค้า|สินค้า|sku|product/i.test(h));
+    const priceGuess=headers.findIndex(h=>/จำนวนเงินที่ควรได้รับ|ควรได้รับ|ยอดที่ควร|จำนวนเงิน|ราคา|amount|total/i.test(h));
+    const orderGuess=headers.findIndex(h=>/หมายเลขคำสั่งซื้อ(?!ออนไลน์)|เลขที่ออเดอร์|order/i.test(h));
+    fillSel('cSku',headers,skuGuess>=0?skuGuess:0);
+    fillSel('cPrice',headers,priceGuess>=0?priceGuess:headers.length-1);
+    fillSel('cOrder',headers,orderGuess>=0?orderGuess:0);
+    $('drop').classList.add('loaded');
+    $('drop').querySelector('.t').textContent='🧾 '+file.name;
+    $('drop').querySelector('.s').textContent=`✅ ${fmtInt(rows.length)} ออร์เดอร์ (กดเพื่อเปลี่ยนไฟล์)`;
+    $('mapArea').classList.remove('hidden');
+  }catch(err){ toast('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+function fillSel(id,headers,sel){ $(id).innerHTML=headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${htmlesc(h)}</option>`).join(''); }
+
+/* แยก segment "SKU*a*b" → {sku, qty} : a=ตั้งจำนวน, b..=บวกเพิ่ม */
+function parseSeg(seg){
+  seg=norm(seg); if(!seg) return null;
+  const parts=seg.split('*');
+  const sku=norm(parts[0]); if(!sku) return null;
+  if(parts.length===1) return {sku, qty:1};
+  let qty=0, got=false;
+  for(let k=1;k<parts.length;k++){
+    const n=toNum(parts[k]); if(n==null) continue;
+    qty+=n; got=true;
+  }
+  return {sku, qty: got?qty:1};
+}
+
+$('splitBtn').onclick=doSplit;
+function doSplit(){
+  if(!src) return;
+  const sIdx=+$('cSku').value, pIdx=+$('cPrice').value;
+  const H=src.headers;
+  // หัวตารางผลลัพธ์: คอลัมน์เดิมทั้งหมด + แทรก "จำนวน(แยก)" หลังคอลัมน์ SKU
+  const outH=[]; H.forEach((h,i)=>{ outH.push(h); if(i===sIdx) outH.push('จำนวน (แยก)'); });
+  const out=[]; let orders=0, skuRows=0, totalPrice=0;
+  src.rows.forEach(r=>{
+    const cell=norm(r[sIdx]); if(!cell) return;
+    const segs=cell.split(',').map(parseSeg).filter(Boolean);
+    if(!segs.length) return;
+    orders++;
+    const price=toNum(r[pIdx]); if(price!=null) totalPrice+=price;
+    segs.forEach((sg,j)=>{
+      const row=[];
+      H.forEach((h,i)=>{
+        let v = r[i]==null?'':r[i];
+        if(i===sIdx) v=sg.sku;                       // SKU เดี่ยว
+        if(i===pIdx) v=(j===0)?(r[i]==null?'':r[i]):''; // ราคาใส่ครั้งเดียว
+        row.push(v);
+        if(i===sIdx) row.push(sg.qty);               // แทรกจำนวน
+      });
+      row._first=(j===0);
+      out.push(row);
+      skuRows++;
+    });
+  });
+  result={ headers:outH, rows:out, orders, skuRows, totalPrice };
+  renderResult();
+}
+
+function renderResult(){
+  const r=result; $('resultCard').classList.remove('hidden');
+  $('stats').innerHTML=`
+    <div class="stat"><div class="k">จำนวนออร์เดอร์</div><div class="v">${fmtInt(r.orders)}</div></div>
+    <div class="stat"><div class="k">บรรทัด SKU (หลังแยก)</div><div class="v">${fmtInt(r.skuRows)}</div></div>
+    <div class="stat"><div class="k">ยอดรวมราคา (ทุกออร์เดอร์)</div><div class="v" style="font-size:18px">${fmtNum(r.totalPrice)}</div></div>`;
+  const skuColOut=result.headers.indexOf('จำนวน (แยก)')-1;
+  const priceIdxOut=+$('cPrice').value + (( +$('cPrice').value > +$('cSku').value)?1:0); // ชดเชยคอลัมน์ที่แทรก
+  $('thead').innerHTML='<tr>'+r.headers.map(h=>`<th>${htmlesc(h)}</th>`).join('')+'</tr>';
+  const cap=1500;
+  $('tbody').innerHTML=r.rows.slice(0,cap).map(row=>{
+    return `<tr class="${row._first?'order-start':''}">`+r.headers.map((h,i)=>{
+      let cls='';
+      if(i===skuColOut) cls='sku';
+      if(i===priceIdxOut) cls='price';
+      return `<td class="${cls}">${htmlesc(row[i]==null?'':row[i])}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+  $('resInfo').textContent = r.rows.length>cap ? `แสดง ${fmtInt(cap)} แรกจาก ${fmtInt(r.rows.length)} บรรทัด · ส่งออกเพื่อดูทั้งหมด` : `ทั้งหมด ${fmtInt(r.rows.length)} บรรทัด`;
+}
+
+$('expBtn').onclick=exportResult;
+async function exportResult(){
+  if(!result) return;
+  toast('กำลังสร้างไฟล์...');
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('แยก SKU');
+  ws.addRow(result.headers);
+  ws.getRow(1).eachCell({includeEmpty:true},c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}}; });
+  result.rows.forEach(row=>{
+    const arr=result.headers.map((h,i)=> row[i]==null?'':row[i]);
+    const r=ws.addRow(arr);
+    if(row._first) r.eachCell({includeEmpty:true},c=>{ c.border={top:{style:'thin',color:{argb:'FFB9C6E0'}}}; });
+  });
+  ws.columns.forEach((c,i)=>{ c.width=Math.max(12, String(result.headers[i]||'').length+3); });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='แยกSKU_'+(src.file.replace(/\.[^.]+$/,''))+'.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('ส่งออกแล้ว');
+}
+</script>
+</body>
+</html>
