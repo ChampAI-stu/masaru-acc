@@ -248,7 +248,7 @@ function doMerge(){
   let totalCod=0;
   files.forEach(f=>{
     f.rows.forEach(r=>{
-      if(seen.has(r.trk)){ dups.push({trk:r.trk, file:f.name, first:seen.get(r.trk)}); return; }
+      if(seen.has(r.trk)){ dups.push({trk:r.trk, dupFile:f.name, first:seen.get(r.trk), cod:r.cod}); return; }
       seen.set(r.trk, f.name);
       const vals=outCols.map(c=>{ const v=r.vals[c.i]; return v==null?'':v; });
       out.push({ file:f.name, trk:r.trk, cod:r.cod, vals });
@@ -268,8 +268,12 @@ function renderResult(){
     <div class="stat ${r.dups.length?'bad':''}"><div class="k">🔁 เลขซ้ำ (ตัดออก)</div><div class="v">${fmtInt(r.dups.length)}</div></div>
     <div class="stat flash"><div class="k">💵 COD รวมทั้งหมด</div><div class="v" style="font-size:18px">${fmtNum(r.totalCod)}</div></div>`;
   if(r.dups.length){
-    const list=r.dups.slice(0,40).map(d=>`${htmlesc(d.trk)} <span style="color:var(--muted)">(ซ้ำจาก ${htmlesc(d.file)})</span>`).join(' · ');
-    $('dupWarn').innerHTML=`<div class="warnbox">🔁 พบเลขพัสดุซ้ำ <b>${fmtInt(r.dups.length)} รายการ</b> — ระบบตัดออกให้แล้ว (นับ COD ครั้งเดียว):<br>${list}${r.dups.length>40?' …':''}</div>`;
+    const list=r.dups.slice(0,40).map(d=>
+      `<div style="padding:3px 0;border-bottom:1px solid #f3d3d3">
+        <b>${htmlesc(d.trk)}</b> · COD ${fmtNum(d.cod)}
+        <span style="color:var(--muted)"> — ต้นฉบับอยู่ <b style="color:var(--ink)">${htmlesc(d.first)}</b> · ซ้ำใน <b style="color:var(--red-dk)">${htmlesc(d.dupFile)}</b></span>
+      </div>`).join('');
+    $('dupWarn').innerHTML=`<div class="warnbox">🔁 พบเลขพัสดุซ้ำ <b>${fmtInt(r.dups.length)} รายการ</b> — ตัดตัวซ้ำออกให้แล้ว (นับ COD ครั้งเดียว จากไฟล์ต้นฉบับ):${list}${r.dups.length>40?'<div style="color:var(--muted);margin-top:4px">… และอีก '+fmtInt(r.dups.length-40)+' รายการ (ดูครบในไฟล์ส่งออก แท็บ "เลขซ้ำ")</div>':''}</div>`;
   } else $('dupWarn').innerHTML='';
   // ตาราง
   const cols=['ลำดับ','ไฟล์ต้นทาง',...r.outCols.map(c=>c.h)];
@@ -307,6 +311,14 @@ async function exportResult(){
   const gr=ws.addRow(g);
   for(let ci=1;ci<=cols.length;ci++){ const c=gr.getCell(ci); c.font={bold:true,color:{argb:'FF3A2C00'},size:13}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFD400'}}; c.border={top:{style:'thick',color:{argb:'FFC9A400'}}}; }
   ws.columns.forEach((c,i)=>{ c.width=Math.max(12,String(cols[i]||'').length+3); });
+  // ชีตเลขซ้ำ (บอกว่าอยู่ไฟล์ไหน ซ้ำกับไฟล์ไหน)
+  if(r.dups.length){
+    const wd=wb.addWorksheet('เลขซ้ำ');
+    wd.addRow(['ลำดับ','เลขพัสดุ','COD','ไฟล์ต้นฉบับ (นับยอดนี้)','ซ้ำในไฟล์ (ตัดออก)']);
+    wd.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFAE1420'}}; });
+    r.dups.forEach((d,i)=> wd.addRow([i+1, d.trk, d.cod, d.first, d.dupFile]));
+    wd.columns.forEach((c,i)=>{ c.width=[8,26,12,34,34][i]; });
+  }
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='COD_รวม_'+r.fileCount+'ไฟล์.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
