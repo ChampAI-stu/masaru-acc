@@ -243,19 +243,26 @@ function doMerge(){
   // หัวตารางมาตรฐาน = ไฟล์แรก (ตัดคอลัมน์ No. เดิม เพราะจะเลขใหม่)
   const base=files[0];
   const outCols=base.headers.map((h,i)=>({h,i})).filter(c=>!/^no\.?$|^ลำดับ$/i.test(c.h));
-  const seen=new Map();   // trk -> row แรก
-  const out=[]; const dups=[];
+  const seenExact=new Set();        // trk|cod (กันอัปไฟล์ซ้ำเป๊ะ)
+  const byTrk=new Map();            // trk -> [{file,cod}] (ดูคู่ +/−)
+  const out=[]; const exactDups=[];
   let totalCod=0;
   files.forEach(f=>{
     f.rows.forEach(r=>{
-      if(seen.has(r.trk)){ dups.push({trk:r.trk, dupFile:f.name, first:seen.get(r.trk), cod:r.cod}); return; }
-      seen.set(r.trk, f.name);
+      const key=r.trk+'|'+r.cod;
+      if(seenExact.has(key)){ exactDups.push({trk:r.trk, dupFile:f.name, first:(byTrk.get(r.trk)||[{file:''}])[0].file, cod:r.cod}); return; }
+      seenExact.add(key);
       const vals=outCols.map(c=>{ const v=r.vals[c.i]; return v==null?'':v; });
       out.push({ file:f.name, trk:r.trk, cod:r.cod, vals });
       totalCod+=r.cod;
+      if(!byTrk.has(r.trk)) byTrk.set(r.trk,[]);
+      byTrk.get(r.trk).push({file:f.name, cod:r.cod});
     });
   });
-  result={ outCols, rows:out, dups, totalCod, fileCount:files.length,
+  // เลขพัสดุที่มีหลายรายการค่าต่างกัน (คู่ตีกลับ/คืนเงิน → หักลบกัน)
+  const netGroups=[];
+  byTrk.forEach((arr,trk)=>{ if(arr.length>1){ const net=arr.reduce((a,x)=>a+x.cod,0); netGroups.push({trk, items:arr, net}); } });
+  result={ outCols, rows:out, exactDups, netGroups, totalCod, fileCount:files.length,
            rawTotal: files.reduce((a,f)=>a+f.count,0) };
   renderResult();
 }
@@ -264,17 +271,25 @@ function renderResult(){
   const r=result; $('resultCard').classList.remove('hidden');
   $('stats').innerHTML=`
     <div class="stat"><div class="k">จำนวนไฟล์</div><div class="v">${fmtInt(r.fileCount)}</div></div>
-    <div class="stat good"><div class="k">รายการรวม (ไม่ซ้ำ)</div><div class="v">${fmtInt(r.rows.length)}</div></div>
-    <div class="stat ${r.dups.length?'bad':''}"><div class="k">🔁 เลขซ้ำ (ตัดออก)</div><div class="v">${fmtInt(r.dups.length)}</div></div>
-    <div class="stat flash"><div class="k">💵 COD รวมทั้งหมด</div><div class="v" style="font-size:18px">${fmtNum(r.totalCod)}</div></div>`;
-  if(r.dups.length){
-    const list=r.dups.slice(0,40).map(d=>
-      `<div style="padding:3px 0;border-bottom:1px solid #f3d3d3">
-        <b>${htmlesc(d.trk)}</b> · COD ${fmtNum(d.cod)}
-        <span style="color:var(--muted)"> — ต้นฉบับอยู่ <b style="color:var(--ink)">${htmlesc(d.first)}</b> · ซ้ำใน <b style="color:var(--red-dk)">${htmlesc(d.dupFile)}</b></span>
-      </div>`).join('');
-    $('dupWarn').innerHTML=`<div class="warnbox">🔁 พบเลขพัสดุซ้ำ <b>${fmtInt(r.dups.length)} รายการ</b> — ตัดตัวซ้ำออกให้แล้ว (นับ COD ครั้งเดียว จากไฟล์ต้นฉบับ):${list}${r.dups.length>40?'<div style="color:var(--muted);margin-top:4px">… และอีก '+fmtInt(r.dups.length-40)+' รายการ (ดูครบในไฟล์ส่งออก แท็บ "เลขซ้ำ")</div>':''}</div>`;
-  } else $('dupWarn').innerHTML='';
+    <div class="stat good"><div class="k">รายการรวม (เก็บไว้)</div><div class="v">${fmtInt(r.rows.length)}</div></div>
+    <div class="stat ${r.netGroups.length?'flash':''}"><div class="k">🔄 คู่ตีกลับ/คืนเงิน (หักลบ)</div><div class="v" style="font-size:18px">${fmtInt(r.netGroups.length)}</div></div>
+    <div class="stat ${r.exactDups.length?'bad':''}"><div class="k">🔁 ซ้ำเป๊ะ อัปไฟล์ผิด (ตัด)</div><div class="v">${fmtInt(r.exactDups.length)}</div></div>
+    <div class="stat flash"><div class="k">💵 COD รวมสุทธิ</div><div class="v" style="font-size:18px">${fmtNum(r.totalCod)}</div></div>`;
+  let warn='';
+  if(r.netGroups.length){
+    const list=r.netGroups.slice(0,40).map(g=>{
+      const parts=g.items.map(x=>`${x.cod>=0?'+':''}${fmtNum(x.cod)} <span style="color:var(--muted)">(${htmlesc(x.file)})</span>`).join(' , ');
+      const netTxt = Math.abs(g.net)<0.01 ? '<b style="color:var(--green)">สุทธิ 0 (ตีกลับหมด)</b>' : `<b>สุทธิ ${fmtNum(g.net)}</b>`;
+      return `<div style="padding:3px 0;border-bottom:1px solid #f0e08a"><b>${htmlesc(g.trk)}</b>: ${parts} → ${netTxt}</div>`;
+    }).join('');
+    warn+=`<div class="warnbox" style="background:#fffbe6;border-color:#f0e08a">🔄 <b>เลขพัสดุที่มีหลายรายการ ${fmtInt(r.netGroups.length)} เลข</b> (ส่งแล้วตีกลับ/คืนเงิน) — เก็บทุกแถว <b>เอามาหักลบกัน</b>:${list}${r.netGroups.length>40?'<div style="color:var(--muted);margin-top:4px">… ดูครบในไฟล์ส่งออก แท็บ "คู่หักลบ"</div>':''}</div>`;
+  }
+  if(r.exactDups.length){
+    const list=r.exactDups.slice(0,30).map(d=>`<b>${htmlesc(d.trk)}</b> · COD ${fmtNum(d.cod)} <span style="color:var(--muted)">— ต้นฉบับ ${htmlesc(d.first)} · ซ้ำเป๊ะใน ${htmlesc(d.dupFile)}</span>`).join('<br>');
+    warn+=`<div class="warnbox" style="margin-top:10px">🔁 <b>ซ้ำเป๊ะ ${fmtInt(r.exactDups.length)} รายการ</b> (เลขพัสดุ+ยอดเท่ากัน = น่าจะอัปไฟล์เดิมซ้ำ) — ตัดออกให้แล้ว:<br>${list}${r.exactDups.length>30?'<br>…':''}</div>`;
+  }
+  if(!warn) warn=`<div style="margin-top:12px;background:#f2fbf5;border:1px solid #bfe6cb;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--green)">✅ ไม่มีเลขซ้ำ/ตีกลับ — ยอดตรงทุกแถว</div>`;
+  $('dupWarn').innerHTML=warn;
   // ตาราง
   const cols=['ลำดับ','ไฟล์ต้นทาง',...r.outCols.map(c=>c.h)];
   const trkColOut=r.outCols.findIndex(c=>trkRe.test(c.h))+2;   // +2 (ลำดับ+ไฟล์)
@@ -311,12 +326,20 @@ async function exportResult(){
   const gr=ws.addRow(g);
   for(let ci=1;ci<=cols.length;ci++){ const c=gr.getCell(ci); c.font={bold:true,color:{argb:'FF3A2C00'},size:13}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFD400'}}; c.border={top:{style:'thick',color:{argb:'FFC9A400'}}}; }
   ws.columns.forEach((c,i)=>{ c.width=Math.max(12,String(cols[i]||'').length+3); });
-  // ชีตเลขซ้ำ (บอกว่าอยู่ไฟล์ไหน ซ้ำกับไฟล์ไหน)
-  if(r.dups.length){
-    const wd=wb.addWorksheet('เลขซ้ำ');
-    wd.addRow(['ลำดับ','เลขพัสดุ','COD','ไฟล์ต้นฉบับ (นับยอดนี้)','ซ้ำในไฟล์ (ตัดออก)']);
+  // ชีตคู่หักลบ (ตีกลับ/คืนเงิน)
+  if(r.netGroups.length){
+    const wn=wb.addWorksheet('คู่หักลบ');
+    wn.addRow(['ลำดับ','เลขพัสดุ','รายการ (ยอด @ ไฟล์)','สุทธิ']);
+    wn.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:'FF3A2C00'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFD400'}}; });
+    r.netGroups.forEach((g,i)=> wn.addRow([i+1, g.trk, g.items.map(x=>`${x.cod>=0?'+':''}${x.cod} @ ${x.file}`).join('  |  '), g.net]));
+    wn.columns.forEach((c,i)=>{ c.width=[8,26,60,14][i]; });
+  }
+  // ชีตซ้ำเป๊ะ (อัปไฟล์ผิด)
+  if(r.exactDups.length){
+    const wd=wb.addWorksheet('ซ้ำเป๊ะ');
+    wd.addRow(['ลำดับ','เลขพัสดุ','COD','ไฟล์ต้นฉบับ (นับยอดนี้)','ซ้ำเป๊ะในไฟล์ (ตัดออก)']);
     wd.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFAE1420'}}; });
-    r.dups.forEach((d,i)=> wd.addRow([i+1, d.trk, d.cod, d.first, d.dupFile]));
+    r.exactDups.forEach((d,i)=> wd.addRow([i+1, d.trk, d.cod, d.first, d.dupFile]));
     wd.columns.forEach((c,i)=>{ c.width=[8,26,12,34,34][i]; });
   }
   const buf=await wb.xlsx.writeBuffer();
