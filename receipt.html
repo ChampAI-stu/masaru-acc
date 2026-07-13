@@ -491,6 +491,7 @@
     </div>
 
     <div id="docResults" class="hidden">
+      <div id="docDupWarn"></div>
       <div class="summary" id="docSummary" style="margin-top:20px"></div>
       <div class="toolbar">
         <div class="search"><span class="si">🔍</span>
@@ -1725,15 +1726,16 @@ function renderDoc(){
       ? '<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
       : `<span class="st-bad" data-act="reason" data-key="${htmlesc(r.key)}" title="กดดูสาเหตุ">❌ ไม่ตรง</span>`;
     const dn=docIssued[r.key]||'';
+    const issuedBadge = dn ? ' <span style="font-size:10px;background:#fff0e0;color:#9a5b00;border:1px solid #f0c98a;padding:1px 6px;border-radius:6px;white-space:nowrap">เคยออกแล้ว</span>' : '';
     const noCell = dn ? `${dn} <button class="icon-act" data-act="editno" data-key="${htmlesc(r.key)}" title="แก้ไขเลข">✏️</button>` : '—';
     let act = dn
       ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="view" data-key="${htmlesc(r.key)}" title="ดูบิล / ดาวน์โหลด">👁️</button>`
       : (r.status==='match' ? `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>` : '');
     act += ` <button class="icon-act" data-act="editbill" data-key="${htmlesc(r.key)}" title="แก้ไขรายละเอียดบิล">📝</button>`;
     act += ` <button class="icon-act" data-act="delbill" data-key="${htmlesc(r.key)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`;
-    return `<tr>
+    return `<tr${dn?' style="background:#fffaf2"':''}>
       <td class="ord">${r.internal?htmlesc(r.internal):'<span style="color:var(--muted)">—</span>'}</td>
-      <td class="ord">${htmlesc(r.key)}</td>
+      <td class="ord">${htmlesc(r.key)}${issuedBadge}</td>
       <td title="${htmlesc(r.customer)}">${htmlesc(r.customer)}</td>
       <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
       <td class="num">${money(r.ftotal)}</td>
@@ -1744,6 +1746,13 @@ function renderDoc(){
       <td>${act}</td></tr>`;
   }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
   $('docInfo').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(docRows.length)} ออเดอร์`;
+  // ⚠️ เตือนออร์เดอร์ที่ "เคยออกใบเสร็จแล้ว" (มีอยู่ในประวัติ) แต่โผล่ในไฟล์ใหม่อีก
+  const already=docRows.filter(r=>docIssued[r.key]);
+  if(already.length){
+    const list=already.slice(0,30).map(r=>`<b>${htmlesc(r.internal||r.key)}</b>${r.customer?' · '+htmlesc(r.customer):''} → เลขที่ <b style="color:var(--red-dk)">${htmlesc(docIssued[r.key])}</b>`).join('<br>');
+    $('docDupWarn').innerHTML=`<div style="background:#fff6e5;border:1px solid #f0c98a;border-radius:12px;padding:13px 16px;margin-top:16px;font-size:13.5px;line-height:1.6">
+      ⚠️ <b>พบ ${fmtInt(already.length)} ออเดอร์ที่เคยออกใบเสร็จไปแล้ว</b> (มีในประวัติ) แต่มีในไฟล์นี้อีก — ระบบจะ<b>ไม่ออกเลขซ้ำ</b>ให้อัตโนมัติ ถ้าต้องการออกใหม่/แก้ไข ให้ไปที่ 📚 ประวัติใบเสร็จ:<br>${list}${already.length>30?`<br><span style="color:var(--muted)">… และอีก ${fmtInt(already.length-30)} ออเดอร์</span>`:''}</div>`;
+  } else $('docDupWarn').innerHTML='';
 }
 async function insertReceipt(key){
   const f=docForm[key]; const year=new Date().getFullYear();
@@ -1978,7 +1987,7 @@ function renderHist(){
             <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
             <td class="num">${money(r.amount)}</td>
             <td>${htmlesc((r.data&&r.data.date)||'—')}</td>
-            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button>${isViewer?'':` <button class="icon-act" data-del="${htmlesc(r.doc_no)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`}</td>
+            <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button>${isViewer?'':` <button class="icon-act" data-edit="${htmlesc(r.doc_no)}" title="แก้ไขข้อมูลบิล" style="color:var(--blue)">✏️</button> <button class="icon-act" data-del="${htmlesc(r.doc_no)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`}</td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -2022,16 +2031,27 @@ function checkDocLive(){
   docWarn(''); return true;
 }
 /* ---- แก้ไขรายละเอียดบิล ---- */
-let billKey=null, billLines=[];
+let billKey=null, billLines=[], histEditDoc=null;
 function openBill(key){
   const f=docForm[key]; if(!f){ toast('ไม่พบข้อมูลบิล',true); return; }
-  billKey=key;
+  histEditDoc=null; billKey=key;
   $('bCustomer').value=f.customer||''; $('bTax').value=f.tax||''; $('bBranch').value=f.branch||'';
   $('bDate').value=f.date||''; $('bAddr').value=f.addr||''; $('bShop').value=f.shop||'';
   billLines=(f.lines||[]).map(l=>({desc:l.desc,qty:l.qty,unit:l.unit}));
   renderBillLines(); $('billBg').classList.add('show');
 }
-function closeBill(){ $('billBg').classList.remove('show'); billKey=null; billLines=[]; }
+// แก้ไขข้อมูลบิลจากหน้าประวัติ (ใช้ modal เดียวกัน)
+function openHistEdit(docNo){
+  if(isViewer) return;
+  const r=histRows.find(x=>x.doc_no===docNo); if(!r){ toast('ไม่พบบิล',true); return; }
+  const f=billToF(r);
+  billKey=null; histEditDoc=docNo;
+  $('bCustomer').value=f.customer||''; $('bTax').value=f.tax||''; $('bBranch').value=f.branch||'';
+  $('bDate').value=f.date||''; $('bAddr').value=f.addr||''; $('bShop').value=f.shop||'';
+  billLines=(f.lines||[]).map(l=>({desc:l.desc,qty:l.qty,unit:l.unit}));
+  renderBillLines(); $('billBg').classList.add('show');
+}
+function closeBill(){ $('billBg').classList.remove('show'); billKey=null; billLines=[]; histEditDoc=null; }
 function billTotal(){ return billLines.reduce((a,l)=>a+(Number(l.qty)||0)*(Number(l.unit)||0),0); }
 function renderBillLines(){
   $('bLines').innerHTML=billLines.map((l,i)=>`<tr>
@@ -2053,6 +2073,27 @@ $('bLines').addEventListener('input',e=>{
 $('bLines').addEventListener('click',e=>{ const b=e.target.closest('[data-bdel]'); if(!b) return; billLines.splice(+b.dataset.bdel,1); renderBillLines(); });
 $('bAddLine').onclick=()=>{ billLines.push({desc:'',qty:1,unit:0}); renderBillLines(); };
 async function saveBill(){
+  // ---- กรณีแก้ไขจากหน้าประวัติ ----
+  if(histEditDoc){
+    if(!dbReady()) return;
+    const r=histRows.find(x=>x.doc_no===histEditDoc); if(!r){ toast('ไม่พบบิล',true); return; }
+    const lines=billLines.filter(l=>(l.desc&&l.desc.trim()!=='')||l.qty||l.unit)
+      .map((l,idx)=>({no:idx+1,desc:(l.desc||'').trim(),qty:(Number(l.qty)||0),unit:(Number(l.unit)||0),amount:(Number(l.qty)||0)*(Number(l.unit)||0)}));
+    const total=lines.reduce((a,l)=>a+l.amount,0);
+    const data=Object.assign({}, r.data||{}, {
+      customer:$('bCustomer').value.trim(), tax:$('bTax').value.trim(), branch:$('bBranch').value.trim(),
+      date:$('bDate').value.trim(), addr:$('bAddr').value.trim(), shop:$('bShop').value.trim(),
+      total, lines });
+    const btn=$('billSave'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังบันทึก...';
+    try{
+      const {error}=await sb.from('receipts').update({customer:data.customer, shop:data.shop, amount:total, data, saved_at:new Date().toISOString()}).eq('doc_no',histEditDoc);
+      if(error) throw error;
+      Object.assign(r,{customer:data.customer, shop:data.shop, amount:total, data});
+      renderHist(); closeBill(); toast('แก้ไขบิล '+histEditDoc+' แล้ว');
+    }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+    btn.disabled=false; btn.textContent=lb; return;
+  }
+  // ---- กรณีแก้ระหว่างออกใบเสร็จ (เดิม) ----
   if(!billKey) return; const f=docForm[billKey]; if(!f) return;
   f.customer=$('bCustomer').value.trim(); f.tax=$('bTax').value.trim(); f.branch=$('bBranch').value.trim();
   f.date=$('bDate').value.trim(); f.addr=$('bAddr').value.trim(); f.shop=$('bShop').value.trim();
@@ -2124,6 +2165,8 @@ $('histBody').onclick=e=>{
   if(mb){ if(mb.dataset.mact==='dl') downloadMonth(mb.dataset.mk); else if(mb.dataset.mact==='del') deleteMonth(mb.dataset.mk); return; }
   const del=e.target.closest('[data-del]');
   if(del){ deleteBillHist(del.dataset.del); return; }
+  const ed=e.target.closest('[data-edit]');
+  if(ed){ openHistEdit(ed.dataset.edit); return; }
   const b=e.target.closest('[data-doc]');
   if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', r.data&&r.data.signature); }
 };
