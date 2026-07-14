@@ -1754,12 +1754,13 @@ function renderDoc(){
       <td>${act}</td></tr>`;
   }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
   $('docInfo').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(docRows.length)} ออเดอร์`;
-  // ⚠️ เตือนออร์เดอร์ที่ "เคยออกใบเสร็จแล้ว" (มีอยู่ในประวัติ) แต่โผล่ในไฟล์ใหม่อีก
-  const already=docRows.filter(r=>docIssued[r.key]);
+  // ⚠️ เตือนออร์เดอร์ที่ "เคยออกใบเสร็จแล้วจริง" (บันทึกลง DB = อยู่ในประวัติ) แต่โผล่ในไฟล์ใหม่อีก
+  //    ไม่นับ draft ที่เพิ่งจองเลขในเครื่อง (ยังไม่บันทึก)
+  const already=docRows.filter(r=>docSaved.has(r.key));
   if(already.length){
     const list=already.slice(0,30).map(r=>`<b>${htmlesc(r.internal||r.key)}</b>${r.customer?' · '+htmlesc(r.customer):''} → เลขที่ <b style="color:var(--red-dk)">${htmlesc(docIssued[r.key])}</b>`).join('<br>');
     $('docDupWarn').innerHTML=`<div style="background:#fff6e5;border:1px solid #f0c98a;border-radius:12px;padding:13px 16px;margin-top:16px;font-size:13.5px;line-height:1.6">
-      ⚠️ <b>พบ ${fmtInt(already.length)} ออเดอร์ที่เคยออกใบเสร็จไปแล้ว</b> (มีในประวัติ) แต่มีในไฟล์นี้อีก — ระบบจะ<b>ไม่ออกเลขซ้ำ</b>ให้อัตโนมัติ ถ้าต้องการออกใหม่/แก้ไข ให้ไปที่ 📚 ประวัติใบเสร็จ:<br>${list}${already.length>30?`<br><span style="color:var(--muted)">… และอีก ${fmtInt(already.length-30)} ออเดอร์</span>`:''}</div>`;
+      ⚠️ <b>พบ ${fmtInt(already.length)} ออเดอร์ที่เคยออกใบเสร็จไปแล้ว</b> (บันทึกในประวัติแล้ว) แต่มีในไฟล์นี้อีก — ระบบจะ<b>ไม่ออกเลขซ้ำ</b>ให้อัตโนมัติ ถ้าต้องการออกใหม่/แก้ไข ให้ไปที่ 📚 ประวัติใบเสร็จ:<br>${list}${already.length>30?`<br><span style="color:var(--muted)">… และอีก ${fmtInt(already.length-30)} ออเดอร์</span>`:''}</div>`;
   } else $('docDupWarn').innerHTML='';
 }
 function seqFromDn(dn){ const m=String(dn||'').match(/(\d+)$/); return m?parseInt(m[1],10):0; }
