@@ -281,7 +281,7 @@ function bahttext(num){
 
 /* ---- อ่านไฟล์ ---- */
 let vouchers=[];
-const HDR={ no:/เลขที่/, date:/วันที่/, from:/ได้รับ/, acc:/รายการบัญชี|บัญชี|รายการ/, amt:/จำนวนเงิน|จำนวน|amount/i, period:/รอบบิล/, shop:/ร้าน|store/i };
+const HDR={ no:/เลขที่/, date:/วันที่/, from:/ได้รับ/, acc:/รายการบัญชี|บัญชี|รายการ/, amt:/จำนวนเงิน|จำนวน|amount/i, period:/รอบบิล/, shop:/ร้าน|store/i, cr:/^cr$|เครดิต/i };
 $('drop').onclick=()=>$('file').click();
 $('drop').ondragover=e=>{ e.preventDefault(); $('drop').style.borderColor='var(--blue)'; };
 $('drop').ondragleave=()=>{ $('drop').style.borderColor=''; };
@@ -316,23 +316,37 @@ async function readFile(f){
       if(hi<0) continue;
       const H=(aoa[hi]||[]).map(norm);
       const col=k=>H.findIndex(h=>HDR[k].test(h));
-      const cNo=col('no'),cDate=col('date'),cFrom=col('from'),cAcc=col('acc'),cAmt=col('amt'),cPeriod=col('period');
+      const cNo=col('no'),cDate=col('date'),cFrom=col('from'),cAcc=col('acc'),cAmt=col('amt'),cCr=col('cr');
       const raw=wb.Sheets[name];
-      // อ่านค่า raw (วันที่เป็น Date) อีกรอบ
       const aoaD=XLSX.utils.sheet_to_json(raw,{header:1,defval:'',raw:true,cellDates:true});
-      const list=[];
+      // จับกลุ่มตามเลข RV — 1 ใบมีได้หลายบรรทัด DR (เงินฝาก + ค่าธรรมเนียมหักลบ)
+      const list=[]; let cur=null;
       for(let i=hi+1;i<aoaD.length;i++){
         const r=aoaD[i]||[]; const no=norm(r[cNo]);
-        if(!/^RV/i.test(no)) continue;
-        const amt=toNum(r[cAmt]); if(amt==null) continue;
-        list.push({ no, date:excelDate(r[cDate]), from:norm(r[cFrom]), acc:norm(r[cAcc])||'เงินฝากธนาคาร',
-          amount:amt, period:norm(r[cPeriod]) });
+        const amt=toNum(r[cAmt]);
+        const acc=norm(r[cAcc]);
+        const from=norm(r[cFrom]); const date=excelDate(r[cDate]);
+        const crAcc=cCr>=0?norm(r[cCr]):'';
+        if(/^RV/i.test(no)){
+          if(!cur || cur.no!==no){ cur={ no, date, from, crAcc:crAcc||'ลูกหนี้การค้า', lines:[] }; list.push(cur); }
+          if(!cur.date && date) cur.date=date;
+          if(!cur.from && from) cur.from=from;
+          if(crAcc) cur.crAcc=crAcc;
+          if(amt!=null && (acc||amt)) cur.lines.push({ acc:acc||'เงินฝากธนาคาร', amt });
+        } else if(cur && amt!=null && acc){
+          // แถวต่อเนื่อง (เลข RV เว้นว่าง) → เป็นบรรทัด DR เพิ่มของใบปัจจุบัน
+          cur.lines.push({ acc, amt });
+        }
       }
-      if(list.length){ picked=list; break; }
+      // สรุปยอดสุทธิแต่ละใบ (CR = ผลรวม DR ทุกบรรทัด)
+      list.forEach(v=>{ v.net=v.lines.reduce((a,l)=>a+l.amt,0); v.acc=(v.lines[0]||{}).acc||''; v.amount=v.net; });
+      const valid=list.filter(v=>v.lines.length);
+      if(valid.length){ picked=valid; break; }
     }
     if(!picked){ toast('ไม่พบข้อมูลใบสำคัญรับในไฟล์ (ต้องมีคอลัมน์ เลขที่/ได้รับจาก/จำนวนเงิน)',true); return; }
     vouchers=picked;
-    $('loadInfo').innerHTML=`✅ อ่านได้ <b>${fmtInt(vouchers.length)}</b> ใบ จากไฟล์ <b>${htmlesc(f.name)}</b>`;
+    const multi=vouchers.filter(v=>v.lines.length>1).length;
+    $('loadInfo').innerHTML=`✅ อ่านได้ <b>${fmtInt(vouchers.length)}</b> ใบ จากไฟล์ <b>${htmlesc(f.name)}</b>`+(multi?` · <b style="color:var(--blue)">${fmtInt(multi)} ใบมีหลายบรรทัด</b> (มีค่าธรรมเนียม/หักลบ)`:'');
     buildFilter(); render(); $('resultCard').classList.remove('hidden');
   }catch(err){ toast('อ่านไฟล์ไม่ได้: '+(err.message||err),true); console.error(err); }
 }
@@ -364,8 +378,8 @@ function render(){
       <td class="no">${htmlesc(v.no)}</td>
       <td>${fmtDate(v.date)||'—'}</td>
       <td title="${htmlesc(v.from)}">${htmlesc(v.from)||'—'}</td>
-      <td>${htmlesc(v.acc)}</td>
-      <td class="amt">${fmt(v.amount)}</td>
+      <td>${htmlesc(v.acc)}${v.lines.length>1?` <span style="font-size:10px;background:#eaf1fb;color:var(--blue);border:1px solid #bcd4f0;padding:1px 6px;border-radius:6px">+${v.lines.length-1} บรรทัด</span>`:''}</td>
+      <td class="amt">${fmt(v.net)}</td>
       <td><button class="icon-act" data-view="${gi}" title="ดู/พิมพ์">👁️</button>
           <button class="icon-act" data-pdf="${gi}" title="ดาวน์โหลด PDF">⬇️</button></td>
     </tr>`;
@@ -393,15 +407,14 @@ function voucherHTML(v){
       <span><span class="vbox">/</span>โอน</span>
       <span><span class="vbox"></span>เช็คธนาคาร เลขที่เช็ค __________ ลงวันที่ __________</span>
     </div>
-    <div class="vamt">จำนวนเงิน <u>(${bahttext(v.amount)})</u></div>
+    <div class="vamt">จำนวนเงิน <u>(${bahttext(v.net)})</u></div>
     <table class="ventry">
       <thead><tr><th style="width:12%">เลขที่บิล</th><th class="desc">รายการ / Description</th><th style="width:10%">รหัส</th><th style="width:15%">DR</th><th style="width:15%">CR</th></tr></thead>
       <tbody>
-        <tr><td></td><td>${htmlesc(v.acc)}</td><td></td><td class="n">${fmt(v.amount)}</td><td class="n"></td></tr>
-        <tr><td></td><td></td><td></td><td class="n"></td><td class="n"></td></tr>
-        <tr><td></td><td></td><td></td><td class="n"></td><td class="n"></td></tr>
-        <tr><td></td><td>ลูกหนี้การค้า</td><td></td><td class="n"></td><td class="n">${fmt(v.amount)}</td></tr>
-        <tr><td colspan="3" style="text-align:right;font-weight:600">รวม</td><td class="n" style="font-weight:700">${fmt(v.amount)}</td><td class="n" style="font-weight:700">${fmt(v.amount)}</td></tr>
+        ${v.lines.map(l=>`<tr><td></td><td>${htmlesc(l.acc)}</td><td></td><td class="n">${fmt(l.amt)}</td><td class="n"></td></tr>`).join('')}
+        ${Array(Math.max(0,3-v.lines.length)).fill('<tr><td></td><td></td><td></td><td class="n"></td><td class="n"></td></tr>').join('')}
+        <tr><td></td><td>${htmlesc(v.crAcc||'ลูกหนี้การค้า')}</td><td></td><td class="n"></td><td class="n">${fmt(v.net)}</td></tr>
+        <tr><td colspan="3" style="text-align:right;font-weight:600">รวม</td><td class="n" style="font-weight:700">${fmt(v.net)}</td><td class="n" style="font-weight:700">${fmt(v.net)}</td></tr>
       </tbody>
     </table>
     <div class="vsign">
