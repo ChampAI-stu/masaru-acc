@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · ใบสำคัญรับ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--navy-deep:#16233F;--navy:#1F3864;--blue:#2E75B6;--red:#D81F2C;--red-dk:#AE1420;
+    --ink:#1a2233;--muted:#667085;--line:#e4e8ef;--bg:#f3f5f9;--card:#fff;--shadow:0 2px 10px rgba(20,40,80,.06);--gold:#C8A24B;--green:#0a7d33}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy-deep);color:#fff;padding:16px 0;border-bottom:3px solid var(--red)}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px}.brand span{color:var(--red)}
+  .tool-title{font-size:13px;color:#9db0d4;border-left:1px solid #33507f;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:24px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}.btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-gold{background:var(--gold);color:#fff}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.spacer{flex:1}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:200}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:var(--red-dk)}
+  .sec-label{font-weight:700;color:var(--navy);font-size:15px;display:flex;align-items:center;gap:8px}
+  .sec-label .n{width:22px;height:22px;border-radius:6px;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  label.fld{font-size:12.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px}
+  select,input[type=text]{font-family:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  select:focus,input:focus{outline:none;border-color:var(--blue)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;cursor:pointer;transition:.15s;background:#fafcff}
+  .drop:hover{border-color:var(--blue);background:#f2f8ff}
+  .drop .ic{font-size:30px}.drop .t{font-weight:700;margin-top:6px}.drop .s{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px;border-left:4px solid var(--blue)}
+  .stat.n{border-left-color:var(--navy)} .stat.g{border-left-color:var(--green)}
+  .stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:22px;font-weight:800;margin-top:3px;color:var(--navy)}
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .search{position:relative;flex:1;min-width:200px}.search .si{position:absolute;left:11px;top:9px;color:var(--muted)}
+  .search input{width:100%;padding:9px 12px 9px 32px}
+  .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px}
+  table.list{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  table.list thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 11px;text-align:left;font-weight:600}
+  table.list tbody td{padding:6px 11px;border-bottom:1px solid var(--line)}
+  table.list tbody tr:hover{background:#f7f9fc}
+  td.no{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
+  td.amt{text-align:right;font-weight:700}
+  .icon-act{background:none;border:none;cursor:pointer;font-size:15px;padding:2px 5px;color:var(--navy)}
+  .icon-act:hover{color:var(--blue)}
+  /* ---------- modal preview ---------- */
+  .modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.55);display:none;align-items:flex-start;justify-content:center;z-index:150;padding:26px 12px;overflow:auto}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:14px;max-width:860px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.3)}
+  .modal-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-size:16px;color:var(--navy)}
+  .modal-close{margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)}
+  .modal-body{padding:18px;max-height:70vh;overflow:auto;background:#eef1f6}
+  .modal-foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  /* ---------- ใบสำคัญรับ (A4) ---------- */
+  .voucher{font-family:'Sarabun',sans-serif;background:#fff;color:#000;width:190mm;min-height:128mm;margin:0 auto;padding:10mm 12mm;box-sizing:border-box}
+  .vh{text-align:center;font-weight:700;font-size:19px;border:1.5px solid #000;padding:6px}
+  .vtop{display:flex;justify-content:space-between;margin-top:10px}
+  .vtitle b{font-size:18px}.vtitle .en{font-size:12px;letter-spacing:1px;border-bottom:1px solid #000;display:inline-block}
+  .vno{font-size:14px;line-height:1.9;text-align:right}
+  .vno u{min-width:120px;display:inline-block;text-align:left}
+  .vfrom{margin-top:12px;font-size:14px}.vfrom u{display:inline-block;min-width:60%}
+  .vpay{margin-top:8px;font-size:13.5px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .vbox{display:inline-block;width:15px;height:15px;border:1px solid #000;text-align:center;line-height:15px;font-weight:700;margin-right:5px;vertical-align:middle}
+  .vamt{margin-top:10px;font-size:14px}.vamt u{display:inline-block;min-width:74%}
+  table.ventry{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+  table.ventry th,table.ventry td{border:1px solid #000;padding:4px 6px}
+  table.ventry th{text-align:center;font-weight:600;background:#f3f3f3}
+  table.ventry td.n{text-align:right;font-family:'IBM Plex Mono',monospace}
+  table.ventry .desc{width:48%}
+  .vsign{display:flex;justify-content:space-between;margin-top:26px;font-size:13px;text-align:center}
+  .vsign div{flex:1}.vsign .ln{border-top:1px dotted #000;margin:0 8px 4px;padding-top:3px}
+  #printArea{position:fixed;left:-99999px;top:0}
+  @media print{
+    body *{visibility:hidden}
+    #printArea,#printArea *{visibility:visible}
+    #printArea{position:absolute;left:0;top:0;width:100%}
+    .voucher{page-break-after:always;width:100%;min-height:auto;padding:8mm 10mm}
+    @page{size:A4;margin:8mm}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">ใบสำคัญรับ · Receipt Voucher</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- 1) ตั้งค่า -->
+  <div class="card">
+    <div class="sec-label"><span class="n">1</span> ตั้งค่าหัวกระดาษ + อัปโหลดข้อมูล</div>
+    <div class="row" style="margin-top:14px;align-items:flex-end">
+      <div style="min-width:280px;flex:1">
+        <label class="fld">บริษัท (หัวกระดาษ)</label>
+        <select id="company" style="width:100%">
+          <option value="บริษัท ไลค์ช็อป มอลล์ จำกัด">บริษัท ไลค์ช็อป มอลล์ จำกัด</option>
+          <option value="บริษัท มาซารุ มาร์เก็ตติ้ง จำกัด">บริษัท มาซารุ มาร์เก็ตติ้ง จำกัด</option>
+          <option value="บริษัท ไดกิ เทรดดิ้ง จำกัด">บริษัท ไดกิ เทรดดิ้ง จำกัด</option>
+        </select>
+      </div>
+    </div>
+    <div class="drop" id="drop" style="margin-top:14px">
+      <div class="ic">📄</div>
+      <div class="t">ลากไฟล์ Excel มาวาง หรือกดเพื่อเลือก</div>
+      <div class="s">อ่านชีต "data" อัตโนมัติ (คอลัมน์: เลขที่ · วันที่ · ได้รับจาก · รายการบัญชี · จำนวนเงิน)</div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls" class="hidden">
+    <div id="loadInfo" style="font-size:12.5px;color:var(--muted);margin-top:10px"></div>
+  </div>
+
+  <!-- 2) ผลลัพธ์ -->
+  <div id="resultCard" class="card hidden" style="margin-top:18px">
+    <div class="row">
+      <div class="sec-label" style="margin:0"><span class="n">2</span> รายการใบสำคัญรับ</div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" id="printAllBtn">🖨️ พิมพ์ทั้งหมด</button>
+      <button class="btn btn-gold btn-sm" id="pdfAllBtn">⬇️ PDF ทั้งหมด</button>
+    </div>
+    <div class="stats" id="stats" style="margin-top:14px"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <div class="search"><span class="si">🔍</span><input type="text" id="q" placeholder="ค้นหา เลขที่ / ได้รับจาก / จำนวนเงิน ..."></div>
+      <select id="fltFrom"><option value="">— ได้รับจาก: ทั้งหมด —</option></select>
+    </div>
+    <div class="tbl-wrap" style="margin-top:12px">
+      <table class="list"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    </div>
+    <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
+  </div>
+</main>
+
+<!-- preview modal -->
+<div class="modal-bg" id="pvBg">
+  <div class="modal">
+    <div class="modal-head"><h2>👁️ ดูใบสำคัญรับ</h2><button class="modal-close" id="pvClose">&times;</button></div>
+    <div class="modal-body" id="pvBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="pvCancel">ปิด</button>
+      <button class="btn btn-primary" id="pvPrint">🖨️ พิมพ์</button>
+      <button class="btn btn-gold" id="pvPdf">⬇️ ดาวน์โหลด PDF</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('เฉพาะฝ่ายบัญชีเท่านั้น'); location.replace('index.html'); return; }
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2600); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmt(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+
+/* ---- แปลงจำนวนเงินเป็นตัวหนังสือไทย ---- */
+function bahttext(num){
+  num=Number(num)||0;
+  const neg=num<0; num=Math.abs(num);
+  const int=Math.floor(num);
+  const satang=Math.round((num-int)*100);
+  const t1=['','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'];
+  const pos=['','สิบ','ร้อย','พัน','หมื่น','แสน','ล้าน'];
+  function conv(nStr){
+    let s=''; const L=nStr.length;
+    for(let i=0;i<L;i++){
+      const d=+nStr[i]; const p=L-i-1; const pm=p%6;
+      if(d===0) continue;
+      if(pm===0 && p>=6){ s+=t1[d]; continue; }
+      if(pm===1 && d===1) s+='สิบ';
+      else if(pm===1 && d===2) s+='ยี่สิบ';
+      else if(pm===1) s+=t1[d]+'สิบ';
+      else if(pm===0 && d===1 && L>1 && i>0) s+='เอ็ด';
+      else s+=t1[d]+pos[pm];
+    }
+    return s;
+  }
+  function big(n){
+    n=String(n);
+    if(n==='0') return 'ศูนย์';
+    let res='';
+    while(n.length>6){ const head=n.slice(0,n.length-6); const tail=n.slice(-6); res+=conv(tail)?conv(tail)+'ล้าน':(head?'':''); n=head; 
+      // จัดการล้าน (ซ้อน) แบบง่าย: รวมส่วนหน้าเป็นล้าน
+      if(n.length<=6){ res = conv(String(parseInt(n,10)))+'ล้าน'+res; n=''; break; } }
+    if(n!=='') res=conv(n)+ (res?'' :'') + res;
+    // แก้ "เอ็ด" หน่วยเดี่ยว
+    return res;
+  }
+  // วิธีที่เชื่อถือได้: แยกกลุ่มล้าน
+  function toText(n){
+    n=Math.floor(n);
+    if(n===0) return 'ศูนย์';
+    let parts=[]; let s=String(n);
+    // ตัดเป็นก้อนละ 6 หลักจากขวา
+    const chunks=[]; while(s.length>0){ chunks.unshift(s.slice(-6)); s=s.slice(0,-6); }
+    let txt='';
+    chunks.forEach((c,idx)=>{ const c2=conv(c); if(c2) txt+=c2+ (idx<chunks.length-1?'ล้าน':''); else if(idx<chunks.length-1 && txt) txt+='ล้าน'; });
+    return txt||'ศูนย์';
+  }
+  let res=toText(int)+'บาท';
+  if(satang>0) res+=toText(satang)+'สตางค์'; else res+='ถ้วน';
+  return (neg?'ลบ':'')+res;
+}
+
+/* ---- อ่านไฟล์ ---- */
+let vouchers=[];
+const HDR={ no:/เลขที่/, date:/วันที่/, from:/ได้รับ/, acc:/รายการบัญชี|บัญชี|รายการ/, amt:/จำนวนเงิน|จำนวน|amount/i, period:/รอบบิล/, shop:/ร้าน|store/i };
+$('drop').onclick=()=>$('file').click();
+$('drop').ondragover=e=>{ e.preventDefault(); $('drop').style.borderColor='var(--blue)'; };
+$('drop').ondragleave=()=>{ $('drop').style.borderColor=''; };
+$('drop').ondrop=e=>{ e.preventDefault(); $('drop').style.borderColor=''; if(e.dataTransfer.files.length) readFile(e.dataTransfer.files[0]); };
+$('file').onchange=e=>{ if(e.target.files.length) readFile(e.target.files[0]); e.target.value=''; };
+
+function fixRange(ws){ let a=Infinity,b=Infinity,c=-1,d=-1; Object.keys(ws).forEach(k=>{ if(k[0]==='!')return; const e=XLSX.utils.decode_cell(k); if(e.r<a)a=e.r;if(e.c<b)b=e.c;if(e.r>c)c=e.r;if(e.c>d)d=e.c;}); if(c>=0)ws['!ref']=XLSX.utils.encode_range({s:{r:a,c:b},e:{r:c,c:d}}); }
+function excelDate(v){
+  if(v instanceof Date) return v;
+  if(typeof v==='number'){ const d=XLSX.SSF.parse_date_code(v); if(d) return new Date(d.y,d.m-1,d.d); }
+  const s=norm(v); const m=s.match(/(\d{1,4})[\/\-.](\d{1,2})[\/\-.](\d{1,4})/); 
+  if(m){ let a=+m[1],b=+m[2],c=+m[3]; if(a>31){return new Date(a,b-1,c);} return new Date(c,b-1,a); }
+  return null;
+}
+function fmtDate(d){ if(!(d instanceof Date)||isNaN(d)) return ''; return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear(); }
+
+async function readFile(f){
+  try{
+    const buf=await f.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    // เลือกชีต: "data" ก่อน ไม่งั้นหาชีตที่มีหัว เลขที่+จำนวนเงิน
+    let sheetName=wb.SheetNames.find(n=>/^data$/i.test(n));
+    let picked=null;
+    const names = sheetName ? [sheetName, ...wb.SheetNames] : wb.SheetNames;
+    for(const name of names){
+      fixRange(wb.Sheets[name]);
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false});
+      let hi=-1;
+      for(let i=0;i<Math.min(aoa.length,15);i++){
+        const cells=(aoa[i]||[]).map(norm);
+        if(cells.some(c=>HDR.no.test(c)) && cells.some(c=>HDR.amt.test(c)) && cells.some(c=>HDR.from.test(c))){ hi=i; break; }
+      }
+      if(hi<0) continue;
+      const H=(aoa[hi]||[]).map(norm);
+      const col=k=>H.findIndex(h=>HDR[k].test(h));
+      const cNo=col('no'),cDate=col('date'),cFrom=col('from'),cAcc=col('acc'),cAmt=col('amt'),cPeriod=col('period');
+      const raw=wb.Sheets[name];
+      // อ่านค่า raw (วันที่เป็น Date) อีกรอบ
+      const aoaD=XLSX.utils.sheet_to_json(raw,{header:1,defval:'',raw:true,cellDates:true});
+      const list=[];
+      for(let i=hi+1;i<aoaD.length;i++){
+        const r=aoaD[i]||[]; const no=norm(r[cNo]);
+        if(!/^RV/i.test(no)) continue;
+        const amt=toNum(r[cAmt]); if(amt==null) continue;
+        list.push({ no, date:excelDate(r[cDate]), from:norm(r[cFrom]), acc:norm(r[cAcc])||'เงินฝากธนาคาร',
+          amount:amt, period:norm(r[cPeriod]) });
+      }
+      if(list.length){ picked=list; break; }
+    }
+    if(!picked){ toast('ไม่พบข้อมูลใบสำคัญรับในไฟล์ (ต้องมีคอลัมน์ เลขที่/ได้รับจาก/จำนวนเงิน)',true); return; }
+    vouchers=picked;
+    $('loadInfo').innerHTML=`✅ อ่านได้ <b>${fmtInt(vouchers.length)}</b> ใบ จากไฟล์ <b>${htmlesc(f.name)}</b>`;
+    buildFilter(); render(); $('resultCard').classList.remove('hidden');
+  }catch(err){ toast('อ่านไฟล์ไม่ได้: '+(err.message||err),true); console.error(err); }
+}
+
+function buildFilter(){
+  const froms=[...new Set(vouchers.map(v=>v.from).filter(Boolean))];
+  $('fltFrom').innerHTML='<option value="">— ได้รับจาก: ทั้งหมด —</option>'+froms.map(f=>`<option value="${htmlesc(f)}">${htmlesc(f)}</option>`).join('');
+}
+
+function filtered(){
+  const q=norm($('q').value).toLowerCase(); const ff=$('fltFrom').value;
+  return vouchers.filter(v=>{
+    if(ff && v.from!==ff) return false;
+    if(q && !((v.no+' '+v.from+' '+v.amount+' '+fmtDate(v.date)).toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+function render(){
+  const rows=filtered();
+  const total=vouchers.reduce((a,v)=>a+v.amount,0);
+  $('stats').innerHTML=`
+    <div class="stat n"><div class="k">จำนวนใบทั้งหมด</div><div class="v">${fmtInt(vouchers.length)}</div></div>
+    <div class="stat g"><div class="k">ยอดรวมทั้งหมด</div><div class="v" style="font-size:18px">฿${fmt(total)}</div></div>
+    <div class="stat"><div class="k">บริษัทหัวกระดาษ</div><div class="v" style="font-size:14px;line-height:1.3">${htmlesc($('company').value)}</div></div>`;
+  $('thead').innerHTML=`<tr><th style="width:15%">เลขที่</th><th style="width:12%">วันที่</th><th>ได้รับจาก</th><th style="width:20%">รายการบัญชี (DR)</th><th class="amt" style="width:12%">จำนวนเงิน</th><th style="width:12%">จัดการ</th></tr>`;
+  $('tbody').innerHTML = rows.length ? rows.map((v,i)=>{
+    const gi=vouchers.indexOf(v);
+    return `<tr>
+      <td class="no">${htmlesc(v.no)}</td>
+      <td>${fmtDate(v.date)||'—'}</td>
+      <td title="${htmlesc(v.from)}">${htmlesc(v.from)||'—'}</td>
+      <td>${htmlesc(v.acc)}</td>
+      <td class="amt">${fmt(v.amount)}</td>
+      <td><button class="icon-act" data-view="${gi}" title="ดู/พิมพ์">👁️</button>
+          <button class="icon-act" data-pdf="${gi}" title="ดาวน์โหลด PDF">⬇️</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
+  $('resInfo').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(vouchers.length)} ใบ`;
+}
+$('q').oninput=render; $('fltFrom').onchange=render; $('company').onchange=render;
+$('tbody').onclick=e=>{
+  const vb=e.target.closest('[data-view]'); if(vb){ openPreview(+vb.dataset.view); return; }
+  const pb=e.target.closest('[data-pdf]'); if(pb){ downloadPdf([+pb.dataset.pdf]); return; }
+};
+
+/* ---- สร้าง HTML ใบสำคัญรับ ---- */
+function voucherHTML(v){
+  const company=$('company').value;
+  return `<div class="voucher">
+    <div class="vh">${htmlesc(company)}</div>
+    <div class="vtop">
+      <div class="vtitle"><b>ใบสำคัญรับ</b><br><span class="en">RECEIPT VOUCHER</span></div>
+      <div class="vno">เลขที่ <u>${htmlesc(v.no)}</u><br>วันที่ <u>${fmtDate(v.date)}</u></div>
+    </div>
+    <div class="vfrom">ได้รับจาก <u>${htmlesc(v.from)}</u></div>
+    <div class="vpay">
+      <span><span class="vbox"></span>เงินสด</span>
+      <span><span class="vbox">/</span>โอน</span>
+      <span><span class="vbox"></span>เช็คธนาคาร เลขที่เช็ค __________ ลงวันที่ __________</span>
+    </div>
+    <div class="vamt">จำนวนเงิน <u>(${bahttext(v.amount)})</u></div>
+    <table class="ventry">
+      <thead><tr><th style="width:12%">เลขที่บิล</th><th class="desc">รายการ / Description</th><th style="width:10%">รหัส</th><th style="width:15%">DR</th><th style="width:15%">CR</th></tr></thead>
+      <tbody>
+        <tr><td></td><td>${htmlesc(v.acc)}</td><td></td><td class="n">${fmt(v.amount)}</td><td class="n"></td></tr>
+        <tr><td></td><td></td><td></td><td class="n"></td><td class="n"></td></tr>
+        <tr><td></td><td></td><td></td><td class="n"></td><td class="n"></td></tr>
+        <tr><td></td><td>ลูกหนี้การค้า</td><td></td><td class="n"></td><td class="n">${fmt(v.amount)}</td></tr>
+        <tr><td colspan="3" style="text-align:right;font-weight:600">รวม</td><td class="n" style="font-weight:700">${fmt(v.amount)}</td><td class="n" style="font-weight:700">${fmt(v.amount)}</td></tr>
+      </tbody>
+    </table>
+    <div class="vsign">
+      <div><div class="ln"></div>ผู้จัดทำ</div>
+      <div><div class="ln"></div>ผู้ตรวจสอบ</div>
+      <div><div class="ln"></div>ผู้อนุมัติ</div>
+      <div><div class="ln"></div>ผู้รับเงิน</div>
+    </div>
+  </div>`;
+}
+
+let pvIdx=null;
+function openPreview(i){ pvIdx=i; $('pvBody').innerHTML=voucherHTML(vouchers[i]); $('pvBg').classList.add('show'); }
+function closePv(){ $('pvBg').classList.remove('show'); pvIdx=null; }
+$('pvClose').onclick=closePv; $('pvCancel').onclick=closePv;
+$('pvBg').onclick=e=>{ if(e.target.id==='pvBg') closePv(); };
+$('pvPrint').onclick=()=>{ if(pvIdx==null)return; printVouchers([pvIdx]); };
+$('pvPdf').onclick=()=>{ if(pvIdx==null)return; downloadPdf([pvIdx]); };
+
+function printVouchers(idxs){
+  $('printArea').innerHTML=idxs.map(i=>voucherHTML(vouchers[i])).join('');
+  setTimeout(()=>window.print(),80);
+}
+$('printAllBtn').onclick=()=>{ const idx=filtered().map(v=>vouchers.indexOf(v)); if(!idx.length){toast('ไม่มีรายการ',true);return;} printVouchers(idx); };
+
+async function downloadPdf(idxs){
+  if(!(window.jspdf&&window.html2canvas)){ toast('ยังโหลดตัวสร้าง PDF ไม่เสร็จ ลองใหม่',true); return; }
+  toast('กำลังสร้าง PDF...');
+  const { jsPDF }=window.jspdf; const pdf=new jsPDF('p','mm','a4'); const PW=210,PH=297;
+  const host=document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; document.body.appendChild(host);
+  try{
+    for(let k=0;k<idxs.length;k++){
+      host.innerHTML=voucherHTML(vouchers[idxs[k]]);
+      const el=host.querySelector('.voucher');
+      const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      const img=canvas.toDataURL('image/jpeg',0.92);
+      const w=PW-16, h=canvas.height*w/canvas.width;
+      if(k>0) pdf.addPage();
+      pdf.addImage(img,'JPEG',8,8,w,Math.min(h,PH-16));
+    }
+    const fn = idxs.length===1 ? ('ใบสำคัญรับ_'+vouchers[idxs[0]].no+'.pdf') : ('ใบสำคัญรับ_'+idxs.length+'ใบ.pdf');
+    pdf.save(fn); toast('ดาวน์โหลดแล้ว');
+  }catch(err){ toast('สร้าง PDF ไม่สำเร็จ',true); console.error(err); }
+  finally{ document.body.removeChild(host); }
+}
+$('pdfAllBtn').onclick=()=>{ const idx=filtered().map(v=>vouchers.indexOf(v)); if(!idx.length){toast('ไม่มีรายการ',true);return;} if(idx.length>60 && !confirm(`จะสร้าง PDF ${idx.length} ใบ อาจใช้เวลาสักครู่ ดำเนินการต่อ?`)) return; downloadPdf(idx); };
+</script>
+</body>
+</html>
