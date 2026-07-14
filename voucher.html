@@ -141,6 +141,7 @@
       <div class="sec-label" style="margin:0"><span class="n">2</span> รายการใบสำคัญรับ</div>
       <div class="spacer"></div>
       <button class="btn btn-ghost btn-sm" id="printAllBtn">🖨️ พิมพ์ทั้งหมด</button>
+      <button class="btn btn-primary btn-sm" id="fileAllBtn">⬇️ รวมทุกใบเป็นไฟล์เดียว</button>
       <button class="btn btn-gold btn-sm" id="pdfAllBtn">⬇️ PDF ทั้งหมด</button>
     </div>
     <div class="stats" id="stats" style="margin-top:14px"></div>
@@ -446,7 +447,67 @@ async function downloadPdf(idxs){
   }catch(err){ toast('สร้าง PDF ไม่สำเร็จ',true); console.error(err); }
   finally{ document.body.removeChild(host); }
 }
-$('pdfAllBtn').onclick=()=>{ const idx=filtered().map(v=>vouchers.indexOf(v)); if(!idx.length){toast('ไม่มีรายการ',true);return;} if(idx.length>60 && !confirm(`จะสร้าง PDF ${idx.length} ใบ อาจใช้เวลาสักครู่ ดำเนินการต่อ?`)) return; downloadPdf(idx); };
+$('pdfAllBtn').onclick=()=>{ const idx=filtered().map(v=>vouchers.indexOf(v)); if(!idx.length){toast('ไม่มีรายการ',true);return;} if(idx.length>60 && !confirm(`จะสร้าง PDF ${idx.length} ใบ อาจใช้เวลาสักครู่ (ถ้าเยอะมากแนะนำใช้ "รวมทุกใบเป็นไฟล์เดียว" จะเร็วกว่า) ดำเนินการต่อ?`)) return; downloadPdf(idx); };
+
+/* ---- รวมทุกใบเป็นไฟล์ HTML เดียว (พิมพ์ทีเดียวทุกใบ) ---- */
+const VOUCHER_CSS=`
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e9edf3;font-family:'Sarabun',sans-serif}
+.bar{position:sticky;top:0;background:#16233F;color:#fff;padding:12px 18px;font-size:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;z-index:9}
+.bar button{font-family:inherit;font-size:14px;font-weight:700;border:none;border-radius:8px;padding:9px 18px;background:#C8A24B;color:#fff;cursor:pointer}
+.bar .hint{font-size:12.5px;color:#cbd6ea}
+.sheet{padding:14px}
+.voucher{font-family:'Sarabun',sans-serif;background:#fff;color:#000;width:190mm;min-height:128mm;margin:0 auto 14px;padding:10mm 12mm;box-sizing:border-box;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.vh{text-align:center;font-weight:700;font-size:19px;border:1.5px solid #000;padding:6px}
+.vtop{display:flex;justify-content:space-between;margin-top:10px}
+.vtitle b{font-size:18px}.vtitle .en{font-size:12px;letter-spacing:1px;border-bottom:1px solid #000;display:inline-block}
+.vno{font-size:14px;line-height:1.9;text-align:right}.vno u{min-width:120px;display:inline-block;text-align:left}
+.vfrom{margin-top:12px;font-size:14px}.vfrom u{display:inline-block;min-width:60%}
+.vpay{margin-top:8px;font-size:13.5px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.vbox{display:inline-block;width:15px;height:15px;border:1px solid #000;text-align:center;line-height:15px;font-weight:700;margin-right:5px;vertical-align:middle}
+.vamt{margin-top:10px;font-size:14px}.vamt u{display:inline-block;min-width:74%}
+table.ventry{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+table.ventry th,table.ventry td{border:1px solid #000;padding:4px 6px}
+table.ventry th{text-align:center;font-weight:600;background:#f3f3f3}
+table.ventry td.n{text-align:right;font-family:'IBM Plex Mono',monospace}
+table.ventry .desc{width:48%}
+.vsign{display:flex;justify-content:space-between;margin-top:26px;font-size:13px;text-align:center}
+.vsign div{flex:1}.vsign .ln{border-top:1px dotted #000;margin:0 8px 4px;padding-top:3px}
+.vsign .sig-img{height:34px;display:flex;align-items:flex-end;justify-content:center}
+.vsign .sig-img img{max-height:34px;max-width:90%;object-fit:contain}
+.vsign .sig-name{font-size:11px;color:#333}
+@media print{
+  .bar{display:none}.sheet{padding:0}
+  .voucher{margin:0;box-shadow:none;width:100%;min-height:auto;padding:8mm 10mm;page-break-after:always}
+  @page{size:A4;margin:8mm}
+}`;
+function buildStandalone(idxs){
+  const body=idxs.map(i=>voucherHTML(vouchers[i])).join('');
+  const co=$('company').value;
+  return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ใบสำคัญรับ ${idxs.length} ใบ · ${co}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<style>${VOUCHER_CSS}</style></head>
+<body>
+<div class="bar">
+  <button onclick="window.print()">🖨️ พิมพ์ทั้งหมด (${idxs.length} ใบ)</button>
+  <span class="hint">เปิดไฟล์นี้แล้วกดปุ่มพิมพ์ หรือ Ctrl+P → เลือกเครื่องพิมพ์ หรือ "Save as PDF" เพื่อได้ทุกใบในไฟล์เดียว</span>
+</div>
+<div class="sheet">${body}</div>
+</body></html>`;
+}
+$('fileAllBtn').onclick=()=>{
+  const idx=filtered().map(v=>vouchers.indexOf(v));
+  if(!idx.length){ toast('ไม่มีรายการ',true); return; }
+  const html=buildStandalone(idx);
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='ใบสำคัญรับ_รวม'+idx.length+'ใบ.html';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('ดาวน์โหลดไฟล์รวม '+idx.length+' ใบแล้ว — เปิดไฟล์แล้วกดพิมพ์');
+};
 
 /* ---- ลายเซ็น (ผู้ตรวจสอบ + ผู้อนุมัติ) ใช้ร่วมทั้งองค์กร ---- */
 let sigReviewer=null, sigApprover=null, sigNameR='', sigNameA='';
