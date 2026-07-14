@@ -300,7 +300,7 @@ function fmtDate(d){ if(!(d instanceof Date)||isNaN(d)) return ''; return d.getD
 
 async function readFile(f){
   try{
-    const buf=await f.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const buf=await f.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:false});
     // เลือกชีต: "data" ก่อน ไม่งั้นหาชีตที่มีหัว เลขที่+จำนวนเงิน
     let sheetName=wb.SheetNames.find(n=>/^data$/i.test(n));
     let picked=null;
@@ -318,7 +318,7 @@ async function readFile(f){
       const col=k=>H.findIndex(h=>HDR[k].test(h));
       const cNo=col('no'),cDate=col('date'),cFrom=col('from'),cAcc=col('acc'),cAmt=col('amt'),cCr=col('cr');
       const raw=wb.Sheets[name];
-      const aoaD=XLSX.utils.sheet_to_json(raw,{header:1,defval:'',raw:true,cellDates:true});
+      const aoaD=XLSX.utils.sheet_to_json(raw,{header:1,defval:'',raw:true,cellDates:false});
       // จับกลุ่มตามเลข RV — 1 ใบมีได้หลายบรรทัด DR (เงินฝาก + ค่าธรรมเนียมหักลบ)
       const list=[]; let cur=null;
       for(let i=hi+1;i<aoaD.length;i++){
