@@ -86,6 +86,9 @@
   table.ventry .desc{width:48%}
   .vsign{display:flex;justify-content:space-between;margin-top:26px;font-size:13px;text-align:center}
   .vsign div{flex:1}.vsign .ln{border-top:1px dotted #000;margin:0 8px 4px;padding-top:3px}
+  .vsign .sig-img{height:34px;display:flex;align-items:flex-end;justify-content:center}
+  .vsign .sig-img img{max-height:34px;max-width:90%;object-fit:contain}
+  .vsign .sig-name{font-size:11px;color:#333}
   #printArea{position:fixed;left:-99999px;top:0}
   @media print{
     body *{visibility:hidden}
@@ -121,6 +124,7 @@
           <option value="บริษัท ไดกิ เทรดดิ้ง จำกัด">บริษัท ไดกิ เทรดดิ้ง จำกัด</option>
         </select>
       </div>
+      <button class="btn btn-ghost" id="sigBtn">✍️ ลายเซ็น (ผู้ตรวจสอบ / ผู้อนุมัติ)</button>
     </div>
     <div class="drop" id="drop" style="margin-top:14px">
       <div class="ic">📄</div>
@@ -167,6 +171,42 @@
 <div id="printArea"></div>
 <div class="toast" id="toast"></div>
 
+<!-- signature modal -->
+<div class="modal-bg" id="sigBg">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head"><h2>✍️ ลายเซ็นใบสำคัญรับ</h2><button class="modal-close" id="sigClose">&times;</button></div>
+    <div class="modal-body" style="background:#fff">
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">อัปรูปลายเซ็น (PNG พื้นหลังโปร่งใสสวยสุด · JPG ก็ได้ ระบบลบพื้นขาวให้) — ใช้กับใบสำคัญรับทุกใบ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div style="border:1px solid var(--line);border-radius:10px;padding:12px">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">ผู้ตรวจสอบ (ตรงกลาง)</div>
+          <div id="pvR" style="min-height:70px;display:flex;align-items:center;justify-content:center;background:#f3f5f9;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:12px">ยังไม่มีลายเซ็น</div>
+          <input type="text" id="nameR" placeholder="ชื่อผู้ตรวจสอบ (ไม่บังคับ)" style="width:100%;margin-top:8px">
+          <div class="row" style="margin-top:8px;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="upR">📁 เลือกรูป</button>
+            <button class="btn btn-ghost btn-sm" id="rmR" style="color:var(--red)">ลบ</button>
+          </div>
+          <input type="file" id="fileR" accept="image/*" class="hidden">
+        </div>
+        <div style="border:1px solid var(--line);border-radius:10px;padding:12px">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">ผู้อนุมัติ (ทางขวา)</div>
+          <div id="pvA" style="min-height:70px;display:flex;align-items:center;justify-content:center;background:#f3f5f9;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:12px">ยังไม่มีลายเซ็น</div>
+          <input type="text" id="nameA" placeholder="ชื่อผู้อนุมัติ (ไม่บังคับ)" style="width:100%;margin-top:8px">
+          <div class="row" style="margin-top:8px;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="upA">📁 เลือกรูป</button>
+            <button class="btn btn-ghost btn-sm" id="rmA" style="color:var(--red)">ลบ</button>
+          </div>
+          <input type="file" id="fileA" accept="image/*" class="hidden">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="sigCancel">ปิด</button>
+      <button class="btn btn-primary" id="sigSave">💾 บันทึกลายเซ็น</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
 const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
@@ -177,6 +217,7 @@ sb.auth.getSession().then(({data})=>{
   if(!data.session){ location.replace('index.html'); return; }
   const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
   if(role!=='บัญชี'){ alert('เฉพาะฝ่ายบัญชีเท่านั้น'); location.replace('index.html'); return; }
+  loadSignatures();
 });
 sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
 $('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
@@ -363,10 +404,10 @@ function voucherHTML(v){
       </tbody>
     </table>
     <div class="vsign">
-      <div><div class="ln"></div>ผู้จัดทำ</div>
-      <div><div class="ln"></div>ผู้ตรวจสอบ</div>
-      <div><div class="ln"></div>ผู้อนุมัติ</div>
-      <div><div class="ln"></div>ผู้รับเงิน</div>
+      <div><div class="sig-img"></div><div class="ln"></div>ผู้จัดทำ</div>
+      <div><div class="sig-img">${sigReviewer?`<img src="${sigReviewer}">`:''}</div><div class="ln"></div>ผู้ตรวจสอบ${sigNameR?`<div class="sig-name">(${htmlesc(sigNameR)})</div>`:''}</div>
+      <div><div class="sig-img">${sigApprover?`<img src="${sigApprover}">`:''}</div><div class="ln"></div>ผู้อนุมัติ${sigNameA?`<div class="sig-name">(${htmlesc(sigNameA)})</div>`:''}</div>
+      <div><div class="sig-img"></div><div class="ln"></div>ผู้รับเงิน</div>
     </div>
   </div>`;
 }
@@ -406,6 +447,67 @@ async function downloadPdf(idxs){
   finally{ document.body.removeChild(host); }
 }
 $('pdfAllBtn').onclick=()=>{ const idx=filtered().map(v=>vouchers.indexOf(v)); if(!idx.length){toast('ไม่มีรายการ',true);return;} if(idx.length>60 && !confirm(`จะสร้าง PDF ${idx.length} ใบ อาจใช้เวลาสักครู่ ดำเนินการต่อ?`)) return; downloadPdf(idx); };
+
+/* ---- ลายเซ็น (ผู้ตรวจสอบ + ผู้อนุมัติ) ใช้ร่วมทั้งองค์กร ---- */
+let sigReviewer=null, sigApprover=null, sigNameR='', sigNameA='';
+let pendR=null, pendA=null;
+async function loadSignatures(){
+  try{
+    const {data,error}=await sb.from('voucher_signatures').select('slot,signer_name,signature');
+    if(error) throw error;
+    (data||[]).forEach(r=>{
+      if(r.slot==='reviewer'){ sigReviewer=r.signature||null; sigNameR=r.signer_name||''; }
+      if(r.slot==='approver'){ sigApprover=r.signature||null; sigNameA=r.signer_name||''; }
+    });
+  }catch(err){ console.error('load sig',err); }
+}
+function fileToSignature(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{ const img=new Image();
+      img.onload=()=>{ const maxW=380; const sc=Math.min(1,maxW/img.width);
+        const w=Math.round(img.width*sc), h=Math.round(img.height*sc);
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+        try{ const im=ctx.getImageData(0,0,w,h); const d=im.data;
+          for(let i=0;i<d.length;i+=4){ if(d[i]>228&&d[i+1]>228&&d[i+2]>228) d[i+3]=0; }
+          ctx.putImageData(im,0,0);
+        }catch(e){}
+        res(c.toDataURL('image/png')); };
+      img.onerror=rej; img.src=fr.result; };
+    fr.onerror=rej; fr.readAsDataURL(file);
+  });
+}
+function renderSigModal(){
+  $('pvR').innerHTML = (pendR||sigReviewer) ? `<img src="${pendR||sigReviewer}" style="max-width:200px;max-height:64px;object-fit:contain">` : 'ยังไม่มีลายเซ็น';
+  $('pvA').innerHTML = (pendA||sigApprover) ? `<img src="${pendA||sigApprover}" style="max-width:200px;max-height:64px;object-fit:contain">` : 'ยังไม่มีลายเซ็น';
+}
+function openSig(){ pendR=null; pendA=null; $('nameR').value=sigNameR; $('nameA').value=sigNameA; renderSigModal(); $('sigBg').classList.add('show'); }
+function closeSig(){ $('sigBg').classList.remove('show'); pendR=null; pendA=null; }
+$('sigBtn').onclick=openSig; $('sigClose').onclick=closeSig; $('sigCancel').onclick=closeSig;
+$('sigBg').onclick=e=>{ if(e.target.id==='sigBg') closeSig(); };
+$('upR').onclick=()=>$('fileR').click(); $('upA').onclick=()=>$('fileA').click();
+$('fileR').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; try{ pendR=await fileToSignature(f); renderSigModal(); }catch(_){ toast('อ่านรูปไม่ได้',true);} e.target.value=''; };
+$('fileA').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; try{ pendA=await fileToSignature(f); renderSigModal(); }catch(_){ toast('อ่านรูปไม่ได้',true);} e.target.value=''; };
+$('rmR').onclick=()=>{ pendR=null; sigReviewer=null; renderSigModal(); };
+$('rmA').onclick=()=>{ pendA=null; sigApprover=null; renderSigModal(); };
+$('sigSave').onclick=async ()=>{
+  const btn=$('sigSave'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังบันทึก...';
+  try{
+    const rows=[
+      { slot:'reviewer', signer_name:$('nameR').value.trim(), signature: pendR||sigReviewer||null, updated_at:new Date().toISOString() },
+      { slot:'approver', signer_name:$('nameA').value.trim(), signature: pendA||sigApprover||null, updated_at:new Date().toISOString() }
+    ];
+    const {error}=await sb.from('voucher_signatures').upsert(rows,{onConflict:'slot'});
+    if(error) throw error;
+    sigReviewer=rows[0].signature; sigNameR=rows[0].signer_name;
+    sigApprover=rows[1].signature; sigNameA=rows[1].signer_name;
+    pendR=null; pendA=null; closeSig(); render(); toast('บันทึกลายเซ็นแล้ว');
+    if(pvIdx!=null){ $('pvBody').innerHTML=voucherHTML(vouchers[pvIdx]); }
+  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent=lb;
+};
+
 </script>
 </body>
 </html>
