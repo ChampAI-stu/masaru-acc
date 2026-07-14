@@ -90,7 +90,7 @@
       <div class="fld"><label>อีเมล</label><input id="suEmail" type="email" placeholder="name@masaru.co.th"></div>
       <div class="fld"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="suPassword" type="password"></div>
       <div class="fld"><label>ฝ่าย</label>
-        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option><option value="facebook">ฝ่าย Facebook</option><option value="shopee">ฝ่าย Shopee</option></select>
+        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option><option value="บัญชีทั่วไป">บัญชีทั่วไป (ดูประวัติบิล)</option><option value="facebook">ฝ่าย Facebook</option><option value="shopee">ฝ่าย Shopee</option></select>
       </div>
       <div class="fld"><label>รหัสเชิญ</label><input id="suInvite" placeholder="ขอจากแอดมิน"></div>
       <button class="btn-primary" id="signupBtn">สมัครสมาชิก</button>
@@ -126,11 +126,12 @@ const $ = id => document.getElementById(id);
 
 /* ===== รหัสเชิญต่อฝ่าย (แก้ได้ที่นี่) — กันสมัครผิดตำแหน่ง ===== */
 const INVITE_CODES = {
-  'บัญชี'    : 'ACC-VA8J-J32M-7QKW',
-  'facebook' : 'FB-7FPK-SWKZ-3GUJ',
-  'shopee'   : 'SHP-JNMN-ZF6C-MT9U'
+  'บัญชี'       : 'ACC-VA8J-J32M-7QKW',
+  'บัญชีทั่วไป' : 'ACCG-9F3K-P7MW-2XQN',
+  'facebook'    : 'FB-7FPK-SWKZ-3GUJ',
+  'shopee'      : 'SHP-JNMN-ZF6C-MT9U'
 };
-const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
+const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'บัญชีทั่วไป':'บัญชีทั่วไป', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
 /* ===== ระบบที่แต่ละฝ่ายเข้าได้ (บัญชี = ทุกระบบ) ===== */
 const APPS = [
   { icon:'\uD83D\uDCCA', title:'ระบบบัญชี',  desc:'รวมไฟล์บัญชี · ลิสพัสดุ · คำนวนต้นทุน · ฐานข้อมูล', url:'acc.html',     roles:['บัญชี'] },
@@ -139,7 +140,7 @@ const APPS = [
   { icon:'\uD83C\uDFE4', title:'เช็คบิลไปรษณีย์', desc:'เทียบไฟล์รวมของเรา ↔ ไฟล์ไปรษณีย์ · หาเลขขาด/เกิน/ค่าต่าง', url:'check.html', roles:['บัญชี'] },
   { icon:'\uD83D\uDCC8', title:'เทียบกำไร-ขาดทุน', desc:'แยก SKU รายออร์เดอร์ · เตรียมข้อมูลเทียบต้นทุน-กำไร', url:'profit.html', roles:['บัญชี'] },
   { icon:'\uD83D\uDCB5', title:'รวมไฟล์ COD ขนส่ง', desc:'รวมไฟล์ COD Remittance (Flash) หลายวันเป็นไฟล์เดียว · ตรวจเลขซ้ำ · รวมยอด COD', url:'cod.html', roles:['บัญชี'] },
-  { icon:'\uD83D\uDCDA', title:'ประวัติใบเสร็จ', desc:'ดู · ค้นหา · ดาวน์โหลดใบเสร็จย้อนหลัง (อ่านอย่างเดียว)', url:'receipt.html', roles:['facebook','shopee'] }
+  { icon:'\uD83D\uDCDA', title:'ประวัติใบเสร็จ', desc:'ดู · ค้นหา · ดาวน์โหลดใบเสร็จย้อนหลัง (อ่านอย่างเดียว)', url:'receipt.html', roles:['facebook','shopee','บัญชีทั่วไป'] }
 ];
 function getRole(session){ return (session && session.user && session.user.user_metadata && session.user.user_metadata.role) || ''; }
 
