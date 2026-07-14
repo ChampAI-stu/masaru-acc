@@ -1564,7 +1564,7 @@ $('costExportBtn').onclick=()=>{
   toast('ส่งออกแล้ว');
 };
 /* ============ แท็บ: ออกใบเสร็จ (เทียบ JST ↔ ฟอร์ม) ============ */
-let docJst={}, docJstAmbig=new Set(), docForm={}, docFormDup={}, docRows=[], docIssued={}, docSaved=new Set(), docJstName='', docFormName='', docJstCount=0, docFormCount=0;
+let docJst={}, docJstAmbig=new Set(), docForm={}, docFormDup={}, docRows=[], docIssued={}, docSaved=new Set(), docDraft=new Set(), dbMaxSeq=0, docJstName='', docFormName='', docJstCount=0, docFormCount=0;
 let currentUserId=null, mySignature=null, sigPending=null;
 let myRole='', isViewer=false;
 function applyRoleUI(){
@@ -1667,12 +1667,16 @@ async function handleDocForm(file){
   }catch(err){ toast('อ่านไฟล์ฟอร์มไม่ได้',true); console.error(err); }
 }
 async function loadIssued(){
-  docIssued={}; docSaved=new Set(); if(!sb) return;
+  docIssued={}; docSaved=new Set(); docDraft=new Set(); dbMaxSeq=0; if(!sb) return;
   const year=new Date().getFullYear(); let from=0; const page=1000;
   while(true){
-    const {data,error}=await sb.from('receipts').select('order_key,doc_no,saved').eq('year',year).range(from,from+page-1);
+    const {data,error}=await sb.from('receipts').select('order_key,doc_no,saved,seq').eq('year',year).range(from,from+page-1);
     if(error){ console.error(error); break; }
-    (data||[]).forEach(r=>{ docIssued[r.order_key]=r.doc_no; if(r.saved) docSaved.add(r.order_key); });
+    (data||[]).forEach(r=>{
+      if(typeof r.seq==='number') dbMaxSeq=Math.max(dbMaxSeq,r.seq);
+      // นับเป็น "ออกใบเสร็จแล้ว/มีในประวัติ" เฉพาะใบที่บันทึกจริง (saved) เท่านั้น
+      if(r.saved){ docIssued[r.order_key]=r.doc_no; docSaved.add(r.order_key); }
+    });
     if(!data||data.length<page) break; from+=page;
   }
 }
@@ -1719,14 +1723,18 @@ function renderDoc(){
     <div class="stat n"><div class="k">❌ ไม่ตรง</div><div class="v">${fmtInt(nDiff+nAmbig+nDup+nNo)}</div></div>
     <div class="stat"><div class="k">🔁 ซ้ำในฟอร์ม</div><div class="v">${fmtInt(nDup)}</div></div>
     <div class="stat"><div class="k">ไม่พบใน JST</div><div class="v">${fmtInt(nNo)}</div></div>
-    <div class="stat"><div class="k">ออกเลขแล้ว</div><div class="v">${fmtInt(nIssued)}</div></div>`;
+    <div class="stat"><div class="k">ออกเลข (รวม draft)</div><div class="v">${fmtInt(nIssued)}</div></div>
+    <div class="stat g"><div class="k">💾 บันทึกลงระบบแล้ว</div><div class="v">${fmtInt(docSaved.size)}</div></div>`;
   $('docHead').innerHTML=`<tr><th style="width:8%">เลขออเดอร์ภายใน</th><th style="width:13%">เลขออเดอร์/พัสดุ</th><th style="width:13%">ลูกค้า</th><th style="width:12%">ร้าน</th><th class="num" style="width:9%">ยอดฟอร์ม</th><th class="num" style="width:9%">ยอด JST</th><th class="num" style="width:7%">ส่วนต่าง</th><th style="width:8%">สถานะ</th><th style="width:9%">เลขเอกสาร</th><th style="width:12%">จัดการ</th></tr>`;
   $('docBody').innerHTML = rows.length? rows.map(r=>{
     const st = r.status==='match'
       ? '<span style="color:#0a7d33;font-weight:600">✅ ตรง</span>'
       : `<span class="st-bad" data-act="reason" data-key="${htmlesc(r.key)}" title="กดดูสาเหตุ">❌ ไม่ตรง</span>`;
     const dn=docIssued[r.key]||'';
-    const issuedBadge = dn ? ' <span style="font-size:10px;background:#fff0e0;color:#9a5b00;border:1px solid #f0c98a;padding:1px 6px;border-radius:6px;white-space:nowrap">เคยออกแล้ว</span>' : '';
+    const isDraft=docDraft.has(r.key);
+    const issuedBadge = dn ? (isDraft
+        ? ' <span style="font-size:10px;background:#eaf1fb;color:#1c4e87;border:1px solid #bcd4f0;padding:1px 6px;border-radius:6px;white-space:nowrap">ยังไม่บันทึก</span>'
+        : ' <span style="font-size:10px;background:#fff0e0;color:#9a5b00;border:1px solid #f0c98a;padding:1px 6px;border-radius:6px;white-space:nowrap">เคยออกแล้ว</span>') : '';
     const noCell = dn ? `${dn} <button class="icon-act" data-act="editno" data-key="${htmlesc(r.key)}" title="แก้ไขเลข">✏️</button>` : '—';
     let act = dn
       ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="view" data-key="${htmlesc(r.key)}" title="ดูบิล / ดาวน์โหลด">👁️</button>`
@@ -1754,38 +1762,19 @@ function renderDoc(){
       ⚠️ <b>พบ ${fmtInt(already.length)} ออเดอร์ที่เคยออกใบเสร็จไปแล้ว</b> (มีในประวัติ) แต่มีในไฟล์นี้อีก — ระบบจะ<b>ไม่ออกเลขซ้ำ</b>ให้อัตโนมัติ ถ้าต้องการออกใหม่/แก้ไข ให้ไปที่ 📚 ประวัติใบเสร็จ:<br>${list}${already.length>30?`<br><span style="color:var(--muted)">… และอีก ${fmtInt(already.length-30)} ออเดอร์</span>`:''}</div>`;
   } else $('docDupWarn').innerHTML='';
 }
-async function insertReceipt(key){
-  const f=docForm[key]; const year=new Date().getFullYear();
-  for(let a=0;a<4;a++){
-    const {data,error:e1}=await sb.from('receipts').select('seq').eq('year',year).order('seq',{ascending:false}).limit(1);
-    if(e1) throw e1;
-    const seq=(data&&data.length?data[0].seq:0)+1; const dn=docNoStr(seq);
-    const {error}=await sb.from('receipts').insert({doc_no:dn,seq,year,order_key:key,shop:f.shop,customer:f.customer,amount:f.total});
-    if(!error){ return dn; }
-    if(error.code==='23505') continue;   // ชนเลข → ลองใหม่
-    throw error;
-  }
-  throw new Error('ออกเลขชนกันหลายครั้ง ลองใหม่');
-}
+function seqFromDn(dn){ const m=String(dn||'').match(/(\d+)$/); return m?parseInt(m[1],10):0; }
 async function issueDoc(key){
-  if(!dbReady()) return;
   const r=docRows.find(x=>x.key===key); if(!r||r.status!=='match'){ toast('ออกเลขได้เฉพาะออเดอร์ที่ตรง',true); return; }
   if(docIssued[key]){ toast('ออเดอร์นี้ออกเลขแล้ว: '+docIssued[key]); return; }
-  try{ const dn=await insertReceipt(key); docIssued[key]=dn; renderDoc(); toast('ออกเลข '+dn+' แล้ว'); }
-  catch(err){ toast('ออกเลขไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  const dn=docNoStr(nextSeqLocal()); docIssued[key]=dn; docDraft.add(key);
+  renderDoc(); toast('ออกเลข '+dn+' (ยังไม่บันทึก — กด 💾 บันทึกเพื่อยืนยันลงระบบ)');
 }
 async function issueAllMatched(){
-  if(!dbReady()) return;
   const pend=docRows.filter(r=>r.status==='match' && !docIssued[r.key]);
   if(!pend.length){ toast('ไม่มีออเดอร์ที่ตรงและยังไม่ออกเลข'); return; }
-  if(!confirm(`ออกเลขเอกสารให้ ${pend.length} ออเดอร์ที่ตรง?`)) return;
-  const btn=$('docIssueAllBtn'); btn.disabled=true; let ok=0;
-  for(const r of pend){
-    try{ const dn=await insertReceipt(r.key); docIssued[r.key]=dn; ok++; }
-    catch(err){ console.error(err); }
-    btn.textContent=`ออกเลข ${ok}/${pend.length}...`;
-  }
-  btn.disabled=false; btn.textContent='🏷️ ออกเลขทั้งหมดที่ตรง'; renderDoc(); toast(`ออกเลขแล้ว ${ok}/${pend.length}`);
+  if(!confirm(`ออกเลขเอกสารให้ ${pend.length} ออเดอร์ที่ตรง?\n(ยังไม่บันทึกลงระบบจนกว่าจะกดบันทึก)`)) return;
+  for(const r of pend){ const dn=docNoStr(nextSeqLocal()); docIssued[r.key]=dn; docDraft.add(r.key); }
+  renderDoc(); toast(`ออกเลขแล้ว ${pend.length} รายการ (ยังไม่บันทึก) — กด 💾 บันทึกทั้งหมดเพื่อยืนยัน`);
 }
 function buildReceiptHTML(f, dn, sig){
   const hasShop=!!f.shop;
@@ -1848,12 +1837,13 @@ function closeReason(){ $('reasonBg').classList.remove('show'); }
 async function deleteBill(key){
   const r=docRows.find(x=>x.key===key); if(!r) return;
   const hasDoc=!!docIssued[key];
-  if(!confirm(`ลบบิลนี้ออกจากรายการ?\n\nออเดอร์: ${key}\nลูกค้า: ${r.customer||'—'}`+(hasDoc?`\nเลขเอกสาร: ${docIssued[key]} (จะถูกลบออกจากฐานข้อมูลด้วย)`:''))) return;
-  if(hasDoc && sb){
+  const inDB = hasDoc && !docDraft.has(key);
+  if(!confirm(`ลบบิลนี้ออกจากรายการ?\n\nออเดอร์: ${key}\nลูกค้า: ${r.customer||'—'}`+(inDB?`\nเลขเอกสาร: ${docIssued[key]} (จะถูกลบออกจากฐานข้อมูลด้วย)`:(hasDoc?`\nเลขเอกสาร: ${docIssued[key]} (ยังไม่บันทึก — ลบในเครื่องเท่านั้น)`:'')))) return;
+  if(inDB && sb){
     try{ const {error}=await sb.from('receipts').delete().eq('order_key',key).eq('year',new Date().getFullYear()); if(error) throw error; }
     catch(err){ toast('ลบใน DB ไม่สำเร็จ: '+(err.message||err),true); console.error(err); return; }
-    delete docIssued[key]; docSaved.delete(key);
   }
+  delete docIssued[key]; docSaved.delete(key); docDraft.delete(key);
   docRows=docRows.filter(x=>x.key!==key); delete docForm[key]; delete docFormDup[key];
   renderDoc(); toast('ลบบิลแล้ว');
 }
@@ -1868,16 +1858,34 @@ function printSaved(r){
   $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature); window.print();
 }
 async function saveReceiptData(key){
-  const dn=docIssued[key]; if(!dn) throw new Error('ยังไม่ออกเลข');
+  const dn0=docIssued[key]; if(!dn0) throw new Error('ยังไม่ออกเลข');
   const f=docForm[key]; if(!f) throw new Error('ไม่พบข้อมูลบิล');
   const row=docRows.find(x=>x.key===key)||{};
+  const year=new Date().getFullYear();
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
     total:f.total, key, internal:row.internal||'', signature: mySignature||null,
     lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
-  const {error}=await sb.from('receipts').update({saved:true, saved_at:new Date().toISOString(), data})
-    .eq('order_key',key).eq('year',new Date().getFullYear());
-  if(error) throw error;
-  docSaved.add(key);
+  if(docDraft.has(key)){
+    // ยังไม่เคยลง DB → insert ตอนนี้ (จองเลข + บันทึกพร้อมกัน) พร้อม retry ถ้าเลขชน
+    let dn=dn0;
+    for(let a=0;a<5;a++){
+      const {error}=await sb.from('receipts').insert({doc_no:dn,seq:seqFromDn(dn),year,order_key:key,
+        shop:f.shop,customer:f.customer,amount:f.total,saved:true,saved_at:new Date().toISOString(),data});
+      if(!error){ docIssued[key]=dn; docDraft.delete(key); docSaved.add(key); return; }
+      if(error.code==='23505'){   // เลขชน (คนอื่นบันทึกไปแล้ว) → ดึงเลขล่าสุดจาก DB แล้วลองใหม่
+        const {data:mx}=await sb.from('receipts').select('seq').eq('year',year).order('seq',{ascending:false}).limit(1);
+        dn=docNoStr((mx&&mx.length?mx[0].seq:0)+1); continue;
+      }
+      throw error;
+    }
+    throw new Error('บันทึกไม่สำเร็จ (เลขชนหลายครั้ง ลองใหม่)');
+  } else {
+    // มีใน DB แล้ว → update
+    const {error}=await sb.from('receipts').update({saved:true, saved_at:new Date().toISOString(), data,
+      shop:f.shop, customer:f.customer, amount:f.total}).eq('order_key',key).eq('year',year);
+    if(error) throw error;
+    docSaved.add(key);
+  }
 }
 async function saveReceipt(key){
   if(!dbReady()) return;
@@ -2019,7 +2027,7 @@ async function deleteMonth(mk){
 }
 /* ---- แก้ไข/รันเลขเอกสาร (modal) ---- */
 let docEditKey=null;
-function nextSeqLocal(){ let mx=0; for(const k in docIssued){ const m=String(docIssued[k]).match(/(\d+)$/); if(m) mx=Math.max(mx,parseInt(m[1],10)); } return mx+1; }
+function nextSeqLocal(){ let mx=dbMaxSeq||0; for(const k in docIssued){ const m=String(docIssued[k]).match(/(\d+)$/); if(m) mx=Math.max(mx,parseInt(m[1],10)); } return mx+1; }
 function docNoUsedByOther(dn,key){ for(const k in docIssued){ if(k!==key && docIssued[k]===dn) return true; } return false; }
 function parseDocNo(v){ const m=norm(v).toUpperCase().match(/^RE(\d{1,6})$/); return m?parseInt(m[1],10):null; }
 function docWarn(msg){ const w=$('docEditWarn'); if(msg){ w.textContent=msg; w.style.display='block'; } else w.style.display='none'; }
@@ -2131,18 +2139,19 @@ async function saveDocEdit(){
   const year=new Date().getFullYear(); const cur=docIssued[key]; const f=docForm[key];
   const btn=$('docEditSave'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังบันทึก...';
   try{
-    // ตรวจซ้ำกับ DB (กันชนกับที่คนอื่นเพิ่งออก)
+    // ตรวจซ้ำกับ DB (กันชนกับที่คนอื่นเพิ่งบันทึก)
     const {data,error}=await sb.from('receipts').select('order_key').eq('doc_no',dn).limit(1);
     if(error) throw error;
     if(data&&data.length && data[0].order_key!==key){ docWarn(`⚠️ เลข ${dn} ถูกใช้ไปแล้ว (ในฐานข้อมูล)`); btn.disabled=false; btn.textContent=lb; return; }
-    if(cur){
+    const inDB = cur && !docDraft.has(key);
+    if(inDB){
       const {error:e2}=await sb.from('receipts').update({doc_no:dn,seq}).eq('order_key',key).eq('year',year);
       if(e2) throw e2;
+      docIssued[key]=dn; renderDoc(); closeDocEdit(); toast('บันทึกเลข '+dn+' แล้ว');
     } else {
-      const {error:e3}=await sb.from('receipts').insert({doc_no:dn,seq,year,order_key:key,shop:f.shop,customer:f.customer,amount:f.total});
-      if(e3) throw e3;
+      // draft หรือยังไม่ออกเลข → ตั้งเลขในเครื่อง (ยังไม่ลง DB จนกว่าจะกดบันทึก)
+      docIssued[key]=dn; docDraft.add(key); renderDoc(); closeDocEdit(); toast('ตั้งเลข '+dn+' แล้ว (ยังไม่บันทึก — กด 💾 เพื่อยืนยัน)');
     }
-    docIssued[key]=dn; renderDoc(); closeDocEdit(); toast('บันทึกเลข '+dn+' แล้ว');
   }catch(err){ docWarn('บันทึกไม่สำเร็จ: '+(err.message||err)); btn.disabled=false; btn.textContent=lb; console.error(err); return; }
   btn.disabled=false; btn.textContent=lb;
 }
