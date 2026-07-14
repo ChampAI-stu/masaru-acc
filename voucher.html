@@ -124,7 +124,7 @@
           <option value="บริษัท ไดกิ เทรดดิ้ง จำกัด">บริษัท ไดกิ เทรดดิ้ง จำกัด</option>
         </select>
       </div>
-      <button class="btn btn-ghost" id="sigBtn">✍️ ลายเซ็น (ผู้ตรวจสอบ / ผู้อนุมัติ)</button>
+      <button class="btn btn-ghost" id="sigBtn">✍️ ลายเซ็น (ผู้จัดทำ / ผู้ตรวจสอบ)</button>
     </div>
     <div class="drop" id="drop" style="margin-top:14px">
       <div class="ic">📄</div>
@@ -177,10 +177,10 @@
   <div class="modal" style="max-width:640px">
     <div class="modal-head"><h2>✍️ ลายเซ็นใบสำคัญรับ</h2><button class="modal-close" id="sigClose">&times;</button></div>
     <div class="modal-body" style="background:#fff">
-      <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">อัปรูปลายเซ็น (PNG พื้นหลังโปร่งใสสวยสุด · JPG ก็ได้ ระบบลบพื้นขาวให้) — ใช้กับใบสำคัญรับทุกใบ</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">อัปรูปลายเซ็น (PNG พื้นหลังโปร่งใสสวยสุด · JPG ก็ได้ ระบบลบพื้นขาวให้) — ใช้กับใบสำคัญรับทุกใบ (ช่องผู้จัดทำ + ผู้ตรวจสอบ)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div style="border:1px solid var(--line);border-radius:10px;padding:12px">
-          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">ผู้ตรวจสอบ (ตรงกลาง)</div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">ผู้ตรวจสอบ</div>
           <div id="pvR" style="min-height:70px;display:flex;align-items:center;justify-content:center;background:#f3f5f9;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:12px">ยังไม่มีลายเซ็น</div>
           <input type="text" id="nameR" placeholder="ชื่อผู้ตรวจสอบ (ไม่บังคับ)" style="width:100%;margin-top:8px">
           <div class="row" style="margin-top:8px;gap:8px">
@@ -190,9 +190,9 @@
           <input type="file" id="fileR" accept="image/*" class="hidden">
         </div>
         <div style="border:1px solid var(--line);border-radius:10px;padding:12px">
-          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">ผู้อนุมัติ (ทางขวา)</div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">ผู้จัดทำ</div>
           <div id="pvA" style="min-height:70px;display:flex;align-items:center;justify-content:center;background:#f3f5f9;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:12px">ยังไม่มีลายเซ็น</div>
-          <input type="text" id="nameA" placeholder="ชื่อผู้อนุมัติ (ไม่บังคับ)" style="width:100%;margin-top:8px">
+          <input type="text" id="nameA" placeholder="ชื่อผู้จัดทำ (ไม่บังคับ)" style="width:100%;margin-top:8px">
           <div class="row" style="margin-top:8px;gap:8px">
             <button class="btn btn-ghost btn-sm" id="upA">📁 เลือกรูป</button>
             <button class="btn btn-ghost btn-sm" id="rmA" style="color:var(--red)">ลบ</button>
@@ -405,10 +405,8 @@ function voucherHTML(v){
       </tbody>
     </table>
     <div class="vsign">
-      <div><div class="sig-img"></div><div class="ln"></div>ผู้จัดทำ</div>
+      <div><div class="sig-img">${sigApprover?`<img src="${sigApprover}">`:''}</div><div class="ln"></div>ผู้จัดทำ${sigNameA?`<div class="sig-name">(${htmlesc(sigNameA)})</div>`:''}</div>
       <div><div class="sig-img">${sigReviewer?`<img src="${sigReviewer}">`:''}</div><div class="ln"></div>ผู้ตรวจสอบ${sigNameR?`<div class="sig-name">(${htmlesc(sigNameR)})</div>`:''}</div>
-      <div><div class="sig-img">${sigApprover?`<img src="${sigApprover}">`:''}</div><div class="ln"></div>ผู้อนุมัติ${sigNameA?`<div class="sig-name">(${htmlesc(sigNameA)})</div>`:''}</div>
-      <div><div class="sig-img"></div><div class="ln"></div>ผู้รับเงิน</div>
     </div>
   </div>`;
 }
