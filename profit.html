@@ -227,26 +227,28 @@ $('expBtn').onclick=exportResult;
 async function exportResult(){
   if(!result) return;
   toast('กำลังสร้างไฟล์...');
-  const wb=new ExcelJS.Workbook();
-  const skuColOut=result.headers.indexOf('จำนวน (แยก)')-1;   // ตำแหน่งคอลัมน์ SKU ในผลลัพธ์
-  function addSheet(name, skuAsCombo){
-    const ws=wb.addWorksheet(name);
-    ws.addRow(result.headers);
-    ws.getRow(1).eachCell({includeEmpty:true},c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}}; });
-    result.rows.forEach(row=>{
-      const arr=result.headers.map((h,i)=> row[i]==null?'':row[i]);
-      if(skuAsCombo && skuColOut>=0) arr[skuColOut]=(row._sku||'')+'*'+(row._qty==null?'':row._qty);  // คง SKU*จำนวน
-      const rr=ws.addRow(arr);
-      if(row._first) rr.eachCell({includeEmpty:true},c=>{ c.border={top:{style:'thin',color:{argb:'FFB9C6E0'}}}; });
-    });
-    ws.columns.forEach((c,i)=>{ c.width=Math.max(12, String(result.headers[i]||'').length+3); });
-  }
-  addSheet('แยก SKU', false);                    // ชีท 1: SKU เดี่ยว + คอลัมน์จำนวน
-  addSheet('ตรวจสอบ (SKU*จำนวน)', true);         // ชีท 2: เหมือนกันเป๊ะ แต่ช่อง SKU เป็น SKU*จำนวน
-  const buf=await wb.xlsx.writeBuffer();
-  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='แยกSKU_'+(src.file.replace(/\.[^.]+$/,''))+'.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  toast('ส่งออกแล้ว (2 ชีท)');
+  try{
+    const wb=new ExcelJS.Workbook();
+    const skuColOut=result.headers.indexOf('จำนวน (แยก)')-1;   // ตำแหน่งคอลัมน์ SKU ในผลลัพธ์
+    function addSheet(name, skuAsCombo){
+      const ws=wb.addWorksheet(name);
+      ws.addRow(result.headers);
+      ws.getRow(1).eachCell({includeEmpty:true},c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}}; });
+      result.rows.forEach(row=>{
+        const arr=result.headers.map((h,i)=> row[i]==null?'':row[i]);
+        if(skuAsCombo && skuColOut>=0) arr[skuColOut]=(row._sku||'')+'*'+(row._qty==null?'':row._qty);  // คง SKU*จำนวน
+        const rr=ws.addRow(arr);
+        if(row._first) rr.eachCell({includeEmpty:true},c=>{ c.border={top:{style:'thin',color:{argb:'FFB9C6E0'}}}; });
+      });
+      ws.columns.forEach((c,i)=>{ c.width=Math.max(12, String(result.headers[i]||'').length+3); });
+    }
+    addSheet('แยก SKU', false);                       // ชีท 1: SKU เดี่ยว + คอลัมน์จำนวน
+    addSheet('ตรวจสอบ (SKU ติดจำนวน)', true);         // ชีท 2: เหมือนกันเป๊ะ แต่ช่อง SKU เป็น SKU*จำนวน
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='แยกSKU_'+(src.file.replace(/\.[^.]+$/,''))+'.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    toast('ส่งออกแล้ว (2 ชีท)');
+  }catch(err){ toast('ส่งออกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
 </script>
 </body>
