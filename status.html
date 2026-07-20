@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{--navy-deep:#16233F;--navy:#1F3864;--blue:#2E75B6;--red:#D81F2C;--red-dk:#AE1420;
@@ -343,32 +344,56 @@ function render(){
 }
 $('q').oninput=render; $('fltStatus').onchange=render; $('fltMonth').onchange=render;
 
-/* ---------- ส่งออก Excel (หน้าตาเหมือนตัวอย่าง) ---------- */
-$('exportBtn').onclick=()=>{
+/* ---------- ส่งออก Excel (มีสไตล์ เหมือนบนหน้าจอ) ---------- */
+$('exportBtn').onclick=async()=>{
   if(!result){ toast('ยังไม่มีผล',true); return; }
-  const HDR=['เลขพัสดุ','เดือนที่พบ','ยอดที่ควรได้รับ','ยอดที่ได้รับ','ส่วนต่าง','สถานะเงิน','หมายเหตุไม่ตรงยอด','หมายเหตุ','ช่องทางรับเงิน','ร้านค้า','วันที่ออกจากคลัง'];
-  // แถวสรุป (เดือน + ไม่พบ)
-  const sum=['','จำนวนเลขพัสดุทั้งหมด',result.total,''];
-  Object.keys(result.byMonth).filter(m=>m!=='ไม่พบ').sort((a,b)=>monthKey(a)-monthKey(b)).forEach(m=>{ sum.push('พบใน'+m, result.byMonth[m], ''); });
-  if(result.notFound) sum.push('ไม่พบในต้นฉบับ', result.notFound);
-  const months=[...new Set(srcFiles.map(f=>f.month))];
-  const aoa=[
-    [],
-    ['','สรุปตรวจสอบสถานะพัสดุและยอดเงิน'],
-    ['','ตรวจเลขพัสดุจากไฟล์เลขพัสดุ กับชีท '+(months.length?months.join(' และ '):'ต้นฉบับ')],
-    [],
-    sum,
-    [],
-    ['', ...HDR]
-  ];
-  const rnd=x=>x==null||x===''?'':Math.round(Number(x)*100)/100;
-  result.rows.forEach(r=>aoa.push(['', r.trk, r.month, rnd(r.jst), rnd(r.recv), rnd(r.diff), r.status, r.noteDiff, r.note, r.chan, r.shop, r.outDate]));
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:3},{wch:20},{wch:11},{wch:15},{wch:13},{wch:12},{wch:14},{wch:20},{wch:22},{wch:16},{wch:14},{wch:16}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'สรุปตรวจสอบ');
-  const d=new Date(); const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  XLSX.writeFile(wb,`ตรวจสอบสถานะพัสดุ_${stamp}.xlsx`);
-  toast('ส่งออกแล้ว');
+  toast('กำลังสร้างไฟล์...');
+  try{
+    const HDR=['เลขพัสดุ','เดือนที่พบ','ยอดที่ควรได้รับ','ยอดที่ได้รับ','ส่วนต่าง','สถานะเงิน','หมายเหตุไม่ตรงยอด','หมายเหตุ','ช่องทางรับเงิน','ร้านค้า','วันที่ออกจากคลัง'];
+    const months=[...new Set(srcFiles.map(f=>f.month))];
+    const monthList=Object.keys(result.byMonth).filter(m=>m!=='ไม่พบ').sort((a,b)=>monthKey(a)-monthKey(b));
+    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('สรุปตรวจสอบ');
+    const NAVY='FF1F3864', RED='FFD81F2C', GREEN='FF0A7D33', ORANGE='FFC47F00', GREY='FF5A6577', PURPLE='FF7A3EA8';
+    ws.getColumn(1).width=3;
+    [20,13,11,14,12,13,15,26,22,15,15].forEach((w,i)=>ws.getColumn(i+2).width=w);
+    // หัวเรื่อง
+    ws.getCell('B2').value='สรุปตรวจสอบสถานะพัสดุและยอดเงิน';
+    ws.getCell('B2').font={bold:true,size:16,color:{argb:NAVY}};
+    ws.getCell('B3').value='ตรวจเลขพัสดุจากไฟล์เลขพัสดุ กับชีท '+(months.length?months.join(' และ '):'ต้นฉบับ');
+    ws.getCell('B3').font={italic:true,size:11,color:{argb:'FF667085'}};
+    // สรุป (แถว 5)
+    ws.getCell('B5').value='จำนวนเลขพัสดุทั้งหมด'; ws.getCell('C5').value=result.total;
+    let colIdx=5; // E
+    monthList.forEach(m=>{ ws.getCell(5,colIdx).value='พบใน'+m; ws.getCell(5,colIdx+1).value=result.byMonth[m]; colIdx+=3; });
+    if(result.notFound){ ws.getCell(5,colIdx).value='ไม่พบในต้นฉบับ'; ws.getCell(5,colIdx+1).value=result.notFound; }
+    ws.getRow(5).eachCell(c=>{ c.font={bold:true,size:12,color:{argb:NAVY}}; });
+    // หัวตาราง (แถว 7)
+    HDR.forEach((h,i)=>{ const c=ws.getCell(7,i+2); c.value=h;
+      c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:NAVY}};
+      c.alignment={vertical:'middle',horizontal:(i>=2&&i<=4)?'right':'left'}; });
+    ws.getRow(7).height=22;
+    // ข้อมูล
+    const rnd=x=>x==null||x===''?null:Math.round(Number(x)*100)/100;
+    const stColor={'ตรงยอด':GREEN,'ไม่ตรงยอด':ORANGE,'ยังไม่ได้รับเงิน':RED,'พัสดุตีกลับ':GREY,'เคลมสินค้า':PURPLE,'ไม่พบ':RED};
+    let ri=8;
+    result.rows.forEach(r=>{
+      const vals=[r.trk,r.month,rnd(r.jst),rnd(r.recv),rnd(r.diff),r.status,r.noteDiff,r.note,r.chan,r.shop,r.outDate];
+      vals.forEach((v,i)=>{ const c=ws.getCell(ri,i+2); c.value=(v===''?null:v);
+        if(i>=2&&i<=4){ c.numFmt='#,##0.00'; c.alignment={horizontal:'right'}; }
+        if(i===0) c.font={color:{argb:NAVY},bold:true};
+        if(i===5 && stColor[r.status]) c.font={bold:true,color:{argb:stColor[r.status]}};
+        c.border={bottom:{style:'thin',color:{argb:'FFE4E8EF'}}};
+      });
+      ri++;
+    });
+    ws.views=[{state:'frozen',ySplit:7}];
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    const d=new Date(); const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    a.href=url; a.download=`ตรวจสอบสถานะพัสดุ_${stamp}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    toast('ส่งออกแล้ว');
+  }catch(err){ toast('ส่งออกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 };
 </script>
 </body>
