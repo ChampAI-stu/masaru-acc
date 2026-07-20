@@ -47,6 +47,17 @@
     padding:15px 20px;cursor:pointer;border-bottom:3px solid transparent;transition:.15s;margin-bottom:-1px}
   .tab:hover{color:var(--navy)}
   .tab.active{color:var(--navy);border-bottom-color:var(--red)}
+  .cost-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .cmode{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;cursor:pointer;
+    border:2px solid var(--line);background:#fff;border-radius:14px;padding:14px 16px;font-family:inherit;transition:.15s}
+  .cmode:hover{border-color:var(--blue)}
+  .cmode .ci{font-size:22px}
+  .cmode .ct{font-size:15px;font-weight:700;color:var(--ink)}
+  .cmode .cd{font-size:12px;color:var(--muted);font-weight:500}
+  .cmode.active{border-color:var(--navy);background:linear-gradient(180deg,#f5f8ff,#eef3fc);box-shadow:0 2px 10px rgba(31,56,100,.12)}
+  .cmode.active .ct{color:var(--navy)}
+  .cmode.active::after{content:'● กำลังใช้';font-size:11px;font-weight:700;color:var(--red);margin-top:3px}
+  @media(max-width:560px){.cost-modes{grid-template-columns:1fr}}
   .page.hidden{display:none}
   .cost-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
@@ -383,6 +394,18 @@
 
     <div id="costResults" class="hidden">
       <div class="section-label" style="margin-top:28px"><span class="n">3</span> ผลคำนวนต้นทุน</div>
+      <div class="cost-modes">
+        <button class="cmode active" data-mode="sku">
+          <span class="ci">💰</span>
+          <span class="ct">คิดเป็น SKU</span>
+          <span class="cd">รวมทุกออเดอร์ สรุปต้นทุนรายตัว SKU</span>
+        </button>
+        <button class="cmode" data-mode="order">
+          <span class="ci">📦</span>
+          <span class="ct">คิดเป็นออเดอร์</span>
+          <span class="cd">1 ออเดอร์ 1 แถว · ราคาขาย − ต้นทุน = กำไร</span>
+        </button>
+      </div>
       <div class="summary" id="costSummary"></div>
 
       <div class="toolbar">
@@ -390,7 +413,7 @@
           <span class="si">🔍</span>
           <input type="text" id="costSearch" placeholder="ค้นหา SKU / เลขออเดอร์ ...">
         </div>
-        <select id="costView">
+        <select id="costView" style="display:none">
           <option value="sku">สรุปต่อ SKU</option>
           <option value="order">แยกต่อออเดอร์</option>
         </select>
@@ -1272,6 +1295,10 @@ $('costOrderInput').onchange=e=>{ if(e.target.files[0]) handleCostOrder(e.target
 $('computeCostBtn').onclick=computeCost;
 $('costSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderCost,200); };
 $('costView').onchange=renderCost;
+document.querySelectorAll('.cmode').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.cmode').forEach(x=>x.classList.toggle('active', x===b));
+  $('costView').value=b.dataset.mode; renderCost();
+});
 $('costOnlyUnmatched').onchange=renderCost;
 
 /* ============ จัดการฐานข้อมูลต้นทุน (เพิ่ม/แก้ไข/ลบ/ค้นหา) — อยู่ในแท็บ 🗄️ ฐานข้อมูล ============ */
