@@ -351,10 +351,11 @@ $('exportBtn').onclick=()=>{
   const sum=['','จำนวนเลขพัสดุทั้งหมด',result.total,''];
   Object.keys(result.byMonth).filter(m=>m!=='ไม่พบ').sort((a,b)=>monthKey(a)-monthKey(b)).forEach(m=>{ sum.push('พบใน'+m, result.byMonth[m], ''); });
   if(result.notFound) sum.push('ไม่พบในต้นฉบับ', result.notFound);
+  const months=[...new Set(srcFiles.map(f=>f.month))];
   const aoa=[
     [],
-    ['','สรุปตรวจสอบสถานะพัสดุ'],
-    ['','ตรวจเลขพัสดุจากไฟล์เลขพัสดุ เทียบกับไฟล์ต้นฉบับ '+srcFiles.length+' ไฟล์'],
+    ['','สรุปตรวจสอบสถานะพัสดุและยอดเงิน'],
+    ['','ตรวจเลขพัสดุจากไฟล์เลขพัสดุ กับชีท '+(months.length?months.join(' และ '):'ต้นฉบับ')],
     [],
     sum,
     [],
