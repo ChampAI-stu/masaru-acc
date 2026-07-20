@@ -141,6 +141,7 @@ const APPS = [
   { icon:'\uD83D\uDCC8', title:'เทียบกำไร-ขาดทุน', desc:'แยก SKU รายออร์เดอร์ · เตรียมข้อมูลเทียบต้นทุน-กำไร', url:'profit.html', roles:['บัญชี'] },
   { icon:'\uD83D\uDCB5', title:'รวมไฟล์ COD ขนส่ง', desc:'รวมไฟล์ COD Remittance (Flash) หลายวันเป็นไฟล์เดียว · ตรวจเลขซ้ำ · รวมยอด COD', url:'cod.html', roles:['บัญชี'] },
   { icon:'\uD83E\uDDFE', title:'ใบสำคัญรับ', desc:'ออกใบสำคัญรับ (Receipt Voucher) จากไฟล์ data · เลือกบริษัทหัวกระดาษ · พิมพ์/PDF', url:'voucher.html', roles:['บัญชี'] },
+  { icon:'\uD83D\uDCE6', title:'ตรวจสอบสถานะพัสดุ', desc:'โยนไฟล์ต้นฉบับ + ไฟล์เลขพัสดุ (หลายไฟล์/หลายเดือน) → เช็คสถานะเงิน/ช่องทาง/ตีกลับ', url:'status.html', roles:['บัญชี'] },
   { icon:'\uD83D\uDCDA', title:'ประวัติใบเสร็จ', desc:'ดู · ค้นหา · ดาวน์โหลดใบเสร็จย้อนหลัง (อ่านอย่างเดียว)', url:'receipt.html', roles:['facebook','shopee','บัญชีทั่วไป'] }
 ];
 function getRole(session){ return (session && session.user && session.user.user_metadata && session.user.user_metadata.role) || ''; }
