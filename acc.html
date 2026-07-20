@@ -1053,6 +1053,7 @@ let costOrders = [];   // [{order, items:[{sku,qty,free}]}]
 let costMap = {};      // {SKU: unitCost}
 let costRefName = '';
 const PRODUCT_NAMES=['สินค้า','product','items','sku','รายการสินค้า'];
+const PRICE_NAMES=['จำนวนเงินที่ควรได้รับ','ราคาขาย','ยอดที่ต้องชำระ','ยอดชำระ','ยอดรวม','ราคา','amount','total'];
 const COST_SKU_NAMES=['sku','รหัสสินค้า','รหัส','sku code','seller sku','บาร์โค้ด','product code','รหัส sku'];
 const COST_VAL_NAMES=['ต้นทุนรวมส่ง +5%','ต้นทุนรวมส่ง+5%','ต้นทุนรวมส่ง','ราคาทุน','ต้นทุนต่อชิ้น','ต้นทุน/ชิ้น','ต้นทุน','ราคาต้นทุน','cost','unit cost','ทุน'];
 // หาคอลัมน์ต้นทุน: ให้ความสำคัญคอลัมน์ที่มี "+5%" ก่อน แล้วค่อย generic
@@ -1087,16 +1088,16 @@ async function handleCostOrder(file){
     let best=[];
     for(const sn of wb.SheetNames){
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
-      let hr=-1,pi=-1,oi=-1;
+      let hr=-1,pi=-1,oi=-1,pri=-1;
       for(let r=0;r<Math.min(aoa.length,20);r++){
         const p=findColBy(aoa[r]||[],PRODUCT_NAMES);
-        if(p!==-1){ hr=r; pi=p; oi=findColBy(aoa[r]||[],['หมายเลขออเดอร์ภายใน','เลขออเดอร์ออนไลน์','order no','order','เลขออเดอร์']); break; }
+        if(p!==-1){ hr=r; pi=p; oi=findColBy(aoa[r]||[],['หมายเลขออเดอร์ภายใน','เลขออเดอร์ออนไลน์','order no','order','เลขออเดอร์']); pri=findColBy(aoa[r]||[],PRICE_NAMES); break; }
       }
       if(hr===-1) continue;
       const list=[];
       for(let r=hr+1;r<aoa.length;r++){
         const row=aoa[r]||[]; const prod=norm(row[pi]); if(!prod) continue;
-        list.push({order: oi>=0?norm(row[oi]):'', items: parseSkuString(prod)});
+        list.push({order: oi>=0?norm(row[oi]):'', items: parseSkuString(prod), raw: prod, price: pri>=0?toNum(row[pri]):null});
       }
       if(list.length>best.length) best=list;
     }
@@ -1218,11 +1219,15 @@ function renderCost(){
   const totQty=agg.reduce((a,b)=>a+b.qty,0);
   const totCost=agg.reduce((a,b)=>a+(b.total||0),0);
   const unmatched=agg.filter(a=>!a.matched).length;
+  const totSales=costOrders.reduce((a,o)=>a+(o.price||0),0);
+  const totProfit=costOrders.reduce((a,o)=>{ const c=o.items.reduce((s,b)=>s+((costMap[b.sku]||0)*b.qty),0); const ok=o.items.length>0&&o.items.every(b=>costMap[b.sku]!=null); return a+((o.price!=null&&ok)?(o.price-c):0); },0);
   $('costSummary').innerHTML=`
     <div class="stat n"><div class="k">ออเดอร์</div><div class="v">${fmtInt(costOrders.length)}</div></div>
     <div class="stat"><div class="k">SKU ไม่ซ้ำ</div><div class="v">${fmtInt(agg.length)}</div></div>
     <div class="stat g"><div class="k">จำนวนชิ้นรวม</div><div class="v">${fmtInt(totQty)}</div></div>
     <div class="stat n"><div class="k">ต้นทุนรวม</div><div class="v">${hasCost?fmtNum(totCost):'—'}</div></div>
+    <div class="stat g"><div class="k">ยอดขายรวม</div><div class="v">${totSales?fmtNum(totSales):'—'}</div></div>
+    <div class="stat g"><div class="k">กำไรขั้นต้นรวม</div><div class="v">${hasCost&&totSales?fmtNum(totProfit):'—'}</div></div>
     <div class="stat r"><div class="k">SKU ไม่มีต้นทุน</div><div class="v">${hasCost?fmtInt(unmatched):'—'}</div></div>`;
   const q=norm($('costSearch').value).toLowerCase();
   const onlyUn=$('costOnlyUnmatched').checked;
@@ -1242,21 +1247,23 @@ function renderCost(){
       : `<tr><td colspan="5"><div class="empty"><div class="ico">💰</div>ไม่มีข้อมูล</div></td></tr>`;
     $('costInfo').textContent=`${fmtInt(rows.length)} SKU`+(hasCost?` · ต้นทุนรวม ${fmtNum(rows.reduce((a,b)=>a+(b.total||0),0))} บาท`:' · ยังไม่ได้โหลดไฟล์ต้นทุน');
   } else {
-    $('costHead').innerHTML=`<tr><th>เลขออเดอร์</th><th>SKU (จำนวน)</th><th class="num">ชิ้นรวม</th><th class="num">ต้นทุนออเดอร์</th></tr>`;
+    $('costHead').innerHTML=`<tr><th>เลขออเดอร์/รายการ</th><th>สินค้า / SKU</th><th class="num">ราคาขาย</th><th class="num">ต้นทุนรวมส่ง +5%/ชิ้น</th><th class="num">กำไรขั้นต้น</th></tr>`;
     let rows=costOrders.map(o=>{
-      const qty=o.items.reduce((a,b)=>a+b.qty,0);
       const cost=o.items.reduce((a,b)=>a+((costMap[b.sku]||0)*b.qty),0);
-      const allMatched=o.items.every(b=>costMap[b.sku]!=null);
-      return {order:o.order, items:o.items, qty, cost, allMatched};
+      const allMatched=o.items.length>0 && o.items.every(b=>costMap[b.sku]!=null);
+      const price=(o.price==null?null:o.price);
+      const profit=(price!=null && allMatched)?(price-cost):null;
+      return {order:o.order, raw:o.raw||o.items.map(i=>i.sku).join(','), price, cost, allMatched, profit};
     });
-    if(q) rows=rows.filter(r=>(r.order+' '+r.items.map(i=>i.sku).join(' ')).toLowerCase().includes(q));
+    if(q) rows=rows.filter(r=>((r.order||'')+' '+(r.raw||'')).toLowerCase().includes(q));
     if(onlyUn) rows=rows.filter(r=>!r.allMatched);
     $('costBody').innerHTML = rows.length? rows.slice(0,1000).map(r=>`<tr>
       <td class="ord">${r.order||'-'}</td>
-      <td>${r.items.map(i=>`${i.sku}${i.free?' <span style="color:var(--red);font-size:10px">แถม</span>':''}×${i.qty}`).join(' · ')}</td>
-      <td class="num">${fmtInt(r.qty)}</td>
-      <td class="num">${hasCost?(r.allMatched?fmtNum(r.cost):'<span style="color:var(--red)">ไม่ครบ</span>'):'—'}</td></tr>`).join('')
-      : `<tr><td colspan="4"><div class="empty"><div class="ico">💰</div>ไม่มีข้อมูล</div></td></tr>`;
+      <td style="font-size:12px">${r.raw||''}</td>
+      <td class="num">${r.price==null?'—':fmtNum(r.price)}</td>
+      <td class="num">${hasCost?(r.allMatched?fmtNum(r.cost):'<span style="color:var(--red)">ไม่ครบ</span>'):'—'}</td>
+      <td class="num">${r.profit==null?'—':`<b style="color:${r.profit>=0?'var(--green)':'var(--red)'}">${fmtNum(r.profit)}</b>`}</td></tr>`).join('')
+      : `<tr><td colspan="5"><div class="empty"><div class="ico">💰</div>ไม่มีข้อมูล</div></td></tr>`;
     $('costInfo').textContent=`${fmtInt(rows.length)} ออเดอร์`+(rows.length>1000?' · แสดง 1,000 แถวแรก':'');
   }
 }
@@ -1380,13 +1387,28 @@ $('costUpdateDbBtn').onclick=()=>$('costRefInput').click();
 $('costRefInput').onchange=e=>{ if(e.target.files[0]) importCostToDB(e.target.files[0]); e.target.value=''; };
 $('costExportBtn').onclick=()=>{
   if(!costOrders.length){ toast('ยังไม่มีข้อมูล',true); return; }
-  const agg=costSkuAgg();
-  const aoa=[['SKU','จำนวน','ของแถม','ต้นทุน/ชิ้น','ต้นทุนรวม']];
-  agg.forEach(r=>aoa.push([r.sku,r.qty,r.free||0,r.unit,r.total]));
-  const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:24},{wch:10},{wch:10},{wch:12},{wch:14}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'ต้นทุนต่อSKU');
+  const view=$('costView').value; let ws, sheetName;
+  if(view==='order'){
+    const aoa=[['เลขออเดอร์/รายการ','สินค้า / SKU','ราคาขาย','ต้นทุนรวมส่ง +5%/ชิ้น','กำไรขั้นต้น']];
+    costOrders.forEach(o=>{
+      const cost=o.items.reduce((a,b)=>a+((costMap[b.sku]||0)*b.qty),0);
+      const ok=o.items.length>0 && o.items.every(b=>costMap[b.sku]!=null);
+      const price=(o.price==null?null:o.price);
+      const profit=(price!=null&&ok)?(price-cost):null;
+      aoa.push([o.order||'', o.raw||o.items.map(i=>i.sku).join(','), price==null?'':price, ok?cost:'', profit==null?'':profit]);
+    });
+    ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:18},{wch:42},{wch:12},{wch:20},{wch:14}];
+    sheetName='กำไรต่อออเดอร์';
+  } else {
+    const agg=costSkuAgg();
+    const aoa=[['SKU','จำนวน','ของแถม','ต้นทุน/ชิ้น','ต้นทุนรวม']];
+    agg.forEach(r=>aoa.push([r.sku,r.qty,r.free||0,r.unit,r.total]));
+    ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:24},{wch:10},{wch:10},{wch:12},{wch:14}];
+    sheetName='ต้นทุนต่อSKU';
+  }
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheetName);
   const d=new Date(); const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  XLSX.writeFile(wb,`MASARU_ต้นทุน_${stamp}.xlsx`);
+  XLSX.writeFile(wb,`MASARU_ต้นทุน_${view==='order'?'ต่อออเดอร์':'ต่อSKU'}_${stamp}.xlsx`);
   toast('ส่งออกแล้ว');
 };
 </script>
