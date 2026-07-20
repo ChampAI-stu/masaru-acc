@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · ตรวจสอบสถานะพัสดุ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--navy-deep:#16233F;--navy:#1F3864;--blue:#2E75B6;--red:#D81F2C;--red-dk:#AE1420;
+    --ink:#1a2233;--muted:#667085;--line:#e4e8ef;--bg:#f3f5f9;--card:#fff;--shadow:0 2px 10px rgba(20,40,80,.06);--gold:#C8A24B;--green:#0a7d33;--orange:#c47f00}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy-deep);color:#fff;padding:16px 0;border-bottom:3px solid var(--red)}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px}.brand span{color:var(--red)}
+  .tool-title{font-size:13px;color:#9db0d4;border-left:1px solid #33507f;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:24px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}.btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-gold{background:var(--red);color:#fff}.btn-gold:hover:not(:disabled){background:var(--red-dk)}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.spacer{flex:1}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:200}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:var(--red-dk)}
+  .sec-label{font-weight:700;color:var(--navy);font-size:15px;display:flex;align-items:center;gap:8px}
+  .sec-label .n{width:22px;height:22px;border-radius:6px;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:.15s;background:#fafcff}
+  .drop:hover{border-color:var(--blue);background:#f2f8ff}
+  .drop .ic{font-size:26px}.drop .t{font-weight:700;margin-top:6px}.drop .s{font-size:12px;color:var(--muted);margin-top:3px}
+  .flist{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+  .fcard{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;background:#fff}
+  .fcard .fn{font-weight:600}.fcard .fm{font-size:11.5px;color:var(--muted)}
+  .fcard .badge{margin-left:auto;font-size:11px;font-weight:700;color:#fff;background:var(--navy);border-radius:6px;padding:2px 9px}
+  .fcard .rm{background:none;border:none;color:var(--red);cursor:pointer;font-size:15px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px;border-left:4px solid var(--blue)}
+  .stat.n{border-left-color:var(--navy)}.stat.g{border-left-color:var(--green)}.stat.r{border-left-color:var(--red)}.stat.o{border-left-color:var(--orange)}
+  .stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:22px;font-weight:800;margin-top:3px;color:var(--navy)}
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .search{position:relative;flex:1;min-width:200px}.search .si{position:absolute;left:11px;top:9px;color:var(--muted)}
+  .search input{width:100%;padding:9px 12px 9px 32px;font-family:inherit;font-size:14px;border:1px solid var(--line);border-radius:9px}
+  select{font-family:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  input:focus,select:focus{outline:none;border-color:var(--blue)}
+  .tbl-wrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:10px}
+  table.list{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+  table.list thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 10px;text-align:left;font-weight:600}
+  table.list tbody td{padding:6px 10px;border-bottom:1px solid var(--line)}
+  table.list tbody tr:hover{background:#f7f9fc}
+  td.trk{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
+  td.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+  .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+  .pill.ok{background:#e5f5ea;color:var(--green)} .pill.diff{background:#fff3e0;color:var(--orange)}
+  .pill.wait{background:#fdeaea;color:var(--red-dk)} .pill.ret{background:#eceff3;color:#5a6577}
+  .pill.claim{background:#f3e8ff;color:#7a3ea8} .pill.none{background:#fdeaea;color:var(--red-dk)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">ตรวจสอบสถานะพัสดุ · Parcel Status</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grid2">
+    <!-- 1) ต้นฉบับ -->
+    <div class="card">
+      <div class="sec-label"><span class="n">1</span> ไฟล์ต้นฉบับ (ฟอร์มตรวจสอบ COD)</div>
+      <div class="drop" id="srcDrop" style="margin-top:12px">
+        <div class="ic">📄</div>
+        <div class="t">ลากไฟล์ต้นฉบับมาวาง / กดเลือก</div>
+        <div class="s">อัปได้หลายไฟล์ (หลายเดือน) · อ่านชีต "พัสดุส่งออก (เก็บ COD)" + "(ไม่เก็บ COD)"</div>
+      </div>
+      <input type="file" id="srcInput" accept=".xlsx,.xls" multiple class="hidden">
+      <div class="flist" id="srcList"></div>
+    </div>
+    <!-- 2) เลขพัสดุ -->
+    <div class="card">
+      <div class="sec-label"><span class="n">2</span> ไฟล์เลขพัสดุ (ที่จะตรวจ)</div>
+      <div class="drop" id="trkDrop" style="margin-top:12px">
+        <div class="ic">🔢</div>
+        <div class="t">ลากไฟล์เลขพัสดุมาวาง / กดเลือก</div>
+        <div class="s">อัปได้หลายไฟล์ · อ่านเลขพัสดุจากคอลัมน์แรก (รวม + ตัดซ้ำอัตโนมัติ)</div>
+      </div>
+      <input type="file" id="trkInput" accept=".xlsx,.xls,.csv" multiple class="hidden">
+      <div class="flist" id="trkList"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="row">
+      <button class="btn btn-primary" id="checkBtn">🔍 ตรวจสอบสถานะ</button>
+      <span id="readyInfo" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">💡 ไฟล์ต้นฉบับที่มีหลายหมื่นแถวจะใช้เวลาอ่านสักครู่ (ราว 30 วิ/ไฟล์) — รอจนขึ้นชื่อไฟล์ในรายการก่อนกดตรวจสอบ</div>
+  </div>
+
+  <!-- ผลลัพธ์ -->
+  <div id="resultCard" class="card hidden" style="margin-top:16px">
+    <div class="row">
+      <div class="sec-label" style="margin:0"><span class="n">3</span> สรุปตรวจสอบสถานะพัสดุ</div>
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-sm" id="exportBtn">⬇️ ส่งออก Excel</button>
+    </div>
+    <div class="stats" id="stats" style="margin-top:14px"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <div class="search"><span class="si">🔍</span><input type="text" id="q" placeholder="ค้นหาเลขพัสดุ / ร้านค้า / ช่องทาง ..."></div>
+      <select id="fltStatus"><option value="">— สถานะ: ทั้งหมด —</option></select>
+      <select id="fltMonth"><option value="">— เดือน: ทั้งหมด —</option></select>
+    </div>
+    <div class="tbl-wrap" style="margin-top:12px">
+      <table class="list"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    </div>
+    <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('เฉพาะฝ่ายบัญชีเท่านั้น'); location.replace('index.html'); return; }
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return n==null||n===''?'':Number(n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function keyTrk(s){ return norm(s).toUpperCase(); }
+function monthFromName(name){
+  const m=name.match(/(\d{1,2})[_.\-](\d{2})(?=\D|$)/);
+  if(m){ return 'เดือน '+String(m[1]).padStart(2,'0'); }
+  const m2=name.match(/(0?[1-9]|1[0-2])/);
+  return 'ไฟล์: '+name.replace(/\.[^.]+$/,'');
+}
+function fixRange(ws){ let a=Infinity,b=Infinity,c=-1,d=-1; Object.keys(ws).forEach(k=>{ if(k[0]==='!')return; const e=XLSX.utils.decode_cell(k); if(e.r<a)a=e.r;if(e.c<b)b=e.c;if(e.r>c)c=e.r;if(e.c>d)d=e.c;}); if(c>=0)ws['!ref']=XLSX.utils.encode_range({s:{r:a,c:b},e:{r:c,c:d}}); }
+function serialDate(v){
+  if(v==null||v==='') return '';
+  if(typeof v==='number'){ const d=XLSX.SSF.parse_date_code(v); if(d) return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }
+  const s=norm(v); const m=s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m) return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  const m2=s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/); if(m2){ let y=m2[3]; if(y.length===2)y='20'+y; return y+'-'+String(m2[2]).padStart(2,'0')+'-'+String(m2[1]).padStart(2,'0'); }
+  return s;
+}
+
+/* ---------- state ---------- */
+let srcFiles=[];   // [{name, month, map:Map(trk→obj)}]
+let trkFiles=[];   // [{name, tracks:[...] }]
+let result=null;
+
+/* ---------- อ่านไฟล์ต้นฉบับ ---------- */
+const SRC_COLS={ track:['เลขพัสดุ'], jst:['ยอดเงินใน jst','ยอดเงินใน JST','ยอด jst'], recv:['รับรวมทั้งหมด'],
+  diff:['ส่วนต่าง'], status:['สถานะรับเงิน'], noteDiff:['ไม่ตรงยอด'], note:['หมายเหตุ'], shop:['ชื่อร้านค้า'], outDate:['วันที่ออกจากคลัง'] };
+function findCol(H, cands){
+  for(const c of cands){ const i=H.findIndex(h=>norm(h)===c); if(i>=0) return i; }        // exact
+  for(const c of cands){ const i=H.findIndex(h=>norm(h).toLowerCase().includes(String(c).toLowerCase())); if(i>=0) return i; }
+  return -1;
+}
+async function parseSource(file){
+  const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:false});
+  const map=new Map(); let sheetsUsed=0;
+  for(const sn of wb.SheetNames){
+    const ws=wb.Sheets[sn]; fixRange(ws);
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,cellDates:false});
+    if(!aoa.length) continue;
+    // หา header row (มี เลขพัสดุ + สถานะรับเงิน)
+    let hi=-1;
+    for(let i=0;i<Math.min(aoa.length,6);i++){ const H=(aoa[i]||[]).map(norm); if(H.includes('เลขพัสดุ') && H.some(h=>h.includes('สถานะรับเงิน'))){ hi=i; break; } }
+    if(hi<0) continue;
+    const H=aoa[hi]||[];
+    const c={}; for(const k in SRC_COLS) c[k]=findCol(H,SRC_COLS[k]);
+    if(c.track<0) continue;
+    // คอลัมน์ "รับจาก..." (ช่องทาง)
+    const recvCols=[];
+    H.forEach((h,i)=>{ const t=norm(h); if(/^รับจาก/.test(t)){ let label=t.replace(/^รับจาก/,'').replace(/\(.*?\)/g,'').trim(); recvCols.push({i,label}); } });
+    for(let r=hi+1;r<aoa.length;r++){
+      const row=aoa[r]||[]; const trk=keyTrk(row[c.track]); if(!trk) continue;
+      // ช่องทาง = คอลัมน์รับจากที่มีค่า
+      const chans=[]; const seen=new Set();
+      recvCols.forEach(rc=>{ const v=row[rc.i]; const nv=norm(v); if(nv!=='' && nv!=='0' && toNum(nv)!==0){ if(!seen.has(rc.label)){ seen.add(rc.label); chans.push(rc.label); } } });
+      map.set(trk, {
+        jst: c.jst>=0?toNum(row[c.jst]):null,
+        recv: c.recv>=0?toNum(row[c.recv]):null,
+        diff: c.diff>=0?toNum(row[c.diff]):null,
+        status: c.status>=0?norm(row[c.status]):'',
+        noteDiff: c.noteDiff>=0?norm(row[c.noteDiff]):'',
+        note: c.note>=0?norm(row[c.note]):'',
+        shop: c.shop>=0?norm(row[c.shop]):'',
+        outDate: c.outDate>=0?serialDate(row[c.outDate]):'',
+        chan: chans.join(' + ')
+      });
+    }
+    sheetsUsed++;
+  }
+  return { map, sheetsUsed, count:map.size };
+}
+$('srcDrop').onclick=()=>$('srcInput').click();
+$('srcDrop').ondragover=e=>{e.preventDefault();$('srcDrop').style.borderColor='var(--blue)';};
+$('srcDrop').ondragleave=()=>{$('srcDrop').style.borderColor='';};
+$('srcDrop').ondrop=e=>{e.preventDefault();$('srcDrop').style.borderColor='';addSrc(e.dataTransfer.files);};
+$('srcInput').onchange=e=>{ addSrc(e.target.files); e.target.value=''; };
+async function addSrc(files){
+  for(const f of files){
+    if(srcFiles.some(x=>x.name===f.name)){ toast('มีไฟล์ '+f.name+' แล้ว',true); continue; }
+    toast('กำลังอ่าน '+f.name+' ...');
+    try{ const p=await parseSource(f);
+      if(!p.count){ toast('ไม่พบชีตพัสดุส่งออกใน '+f.name,true); continue; }
+      srcFiles.push({name:f.name, month:monthFromName(f.name), map:p.map, count:p.count});
+      renderFiles(); updateReady();
+    }catch(err){ toast('อ่าน '+f.name+' ไม่ได้',true); console.error(err); }
+  }
+}
+
+/* ---------- อ่านไฟล์เลขพัสดุ ---------- */
+async function parseTrk(file){
+  const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'});
+  const set=new Set();
+  for(const sn of wb.SheetNames){
+    const ws=wb.Sheets[sn]; fixRange(ws);
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    aoa.forEach(row=>{
+      for(const cell of row){ const t=keyTrk(cell); if(t && /[A-Z0-9]{6,}/i.test(t) && !/เลขพัสดุ|tracking/i.test(t)){ set.add(t); break; } }
+    });
+  }
+  return [...set];
+}
+$('trkDrop').onclick=()=>$('trkInput').click();
+$('trkDrop').ondragover=e=>{e.preventDefault();$('trkDrop').style.borderColor='var(--blue)';};
+$('trkDrop').ondragleave=()=>{$('trkDrop').style.borderColor='';};
+$('trkDrop').ondrop=e=>{e.preventDefault();$('trkDrop').style.borderColor='';addTrk(e.dataTransfer.files);};
+$('trkInput').onchange=e=>{ addTrk(e.target.files); e.target.value=''; };
+async function addTrk(files){
+  for(const f of files){
+    if(trkFiles.some(x=>x.name===f.name)){ toast('มีไฟล์ '+f.name+' แล้ว',true); continue; }
+    try{ const tracks=await parseTrk(f);
+      if(!tracks.length){ toast('ไม่พบเลขพัสดุใน '+f.name,true); continue; }
+      trkFiles.push({name:f.name, tracks}); renderFiles(); updateReady();
+    }catch(err){ toast('อ่าน '+f.name+' ไม่ได้',true); console.error(err); }
+  }
+}
+
+function renderFiles(){
+  $('srcList').innerHTML=srcFiles.map((f,i)=>`<div class="fcard"><span>📄</span><div><div class="fn">${htmlesc(f.name)}</div><div class="fm">${fmtInt(f.count)} เลขพัสดุ</div></div><span class="badge">${htmlesc(f.month)}</span><button class="rm" data-src="${i}" title="ลบ">✕</button></div>`).join('');
+  $('trkList').innerHTML=trkFiles.map((f,i)=>`<div class="fcard"><span>🔢</span><div><div class="fn">${htmlesc(f.name)}</div><div class="fm">${fmtInt(f.tracks.length)} เลข</div></div><button class="rm" data-trk="${i}" title="ลบ">✕</button></div>`).join('');
+}
+$('srcList').onclick=e=>{ const b=e.target.closest('[data-src]'); if(b){ srcFiles.splice(+b.dataset.src,1); renderFiles(); updateReady(); } };
+$('trkList').onclick=e=>{ const b=e.target.closest('[data-trk]'); if(b){ trkFiles.splice(+b.dataset.trk,1); renderFiles(); updateReady(); } };
+function updateReady(){
+  const nt=new Set(); trkFiles.forEach(f=>f.tracks.forEach(t=>nt.add(t)));
+  $('readyInfo').textContent = `ต้นฉบับ ${srcFiles.length} ไฟล์ · เลขพัสดุ ${fmtInt(nt.size)} เลข (ไม่ซ้ำ)`;
+}
+
+/* ---------- ตรวจสอบ ---------- */
+function statusPill(s){
+  const map={'ตรงยอด':'ok','ไม่ตรงยอด':'diff','ยังไม่ได้รับเงิน':'wait','พัสดุตีกลับ':'ret','เคลมสินค้า':'claim','ไม่พบ':'none'};
+  const cls=map[s]||'ret';
+  return `<span class="pill ${cls}">${htmlesc(s||'—')}</span>`;
+}
+$('checkBtn').onclick=()=>{
+  if(!srcFiles.length){ toast('อัปไฟล์ต้นฉบับก่อน',true); return; }
+  if(!trkFiles.length){ toast('อัปไฟล์เลขพัสดุก่อน',true); return; }
+  // รวมเลขพัสดุ (ไม่ซ้ำ) เรียงตามลำดับที่เจอ
+  const seen=new Set(); const tracks=[];
+  trkFiles.forEach(f=>f.tracks.forEach(t=>{ if(!seen.has(t)){ seen.add(t); tracks.push(t); } }));
+  // เรียงไฟล์ต้นฉบับตามเดือน (มากก่อน = ล่าสุดชนะถ้าซ้ำ) — ค้นล่าสุดก่อน
+  const order=[...srcFiles].sort((a,b)=>monthKey(b.month)-monthKey(a.month));
+  const rows=tracks.map(trk=>{
+    for(const sf of order){ const hit=sf.map.get(trk); if(hit){ return {trk, month:sf.month, found:true, ...hit}; } }
+    return {trk, month:'ไม่พบ', found:false, jst:null,recv:null,diff:null,status:'ไม่พบ',noteDiff:'',note:'',shop:'',chan:''};
+  });
+  const byMonth={}; rows.forEach(r=>{ byMonth[r.month]=(byMonth[r.month]||0)+1; });
+  result={ rows, total:rows.length, byMonth, found:rows.filter(r=>r.found).length, notFound:rows.filter(r=>!r.found).length };
+  buildFilters(); render(); $('resultCard').classList.remove('hidden'); $('resultCard').scrollIntoView({behavior:'smooth',block:'start'});
+  toast('ตรวจสอบเสร็จ '+fmtInt(rows.length)+' เลข');
+};
+function monthKey(m){ const x=String(m).match(/(\d{1,2})/); return x?parseInt(x[1],10):0; }
+
+function buildFilters(){
+  const st=[...new Set(result.rows.map(r=>r.status).filter(Boolean))];
+  $('fltStatus').innerHTML='<option value="">— สถานะ: ทั้งหมด —</option>'+st.map(s=>`<option value="${htmlesc(s)}">${htmlesc(s)}</option>`).join('');
+  const mo=Object.keys(result.byMonth);
+  $('fltMonth').innerHTML='<option value="">— เดือน: ทั้งหมด —</option>'+mo.map(m=>`<option value="${htmlesc(m)}">${htmlesc(m)}</option>`).join('');
+}
+function filtered(){
+  const q=norm($('q').value).toLowerCase(); const fs=$('fltStatus').value, fm=$('fltMonth').value;
+  return result.rows.filter(r=>{
+    if(fs && r.status!==fs) return false;
+    if(fm && r.month!==fm) return false;
+    if(q && !((r.trk+' '+r.shop+' '+r.chan+' '+r.status).toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+function render(){
+  const monthCards=Object.keys(result.byMonth).filter(m=>m!=='ไม่พบ').sort((a,b)=>monthKey(a)-monthKey(b))
+    .map(m=>`<div class="stat g"><div class="k">พบใน ${htmlesc(m)}</div><div class="v">${fmtInt(result.byMonth[m])}</div></div>`).join('');
+  $('stats').innerHTML=`
+    <div class="stat n"><div class="k">เลขพัสดุทั้งหมด</div><div class="v">${fmtInt(result.total)}</div></div>
+    ${monthCards}
+    <div class="stat r"><div class="k">ไม่พบในต้นฉบับ</div><div class="v">${fmtInt(result.notFound)}</div></div>`;
+  const rows=filtered();
+  $('thead').innerHTML=`<tr><th>เลขพัสดุ</th><th>เดือนที่พบ</th><th class="num">ยอดที่ควรได้รับ</th><th class="num">ยอดที่ได้รับ</th><th class="num">ส่วนต่าง</th><th>สถานะเงิน</th><th>หมายเหตุไม่ตรงยอด</th><th>หมายเหตุ</th><th>ช่องทางรับเงิน</th><th>ร้านค้า</th><th>วันที่ออกจากคลัง</th></tr>`;
+  $('tbody').innerHTML = rows.length ? rows.slice(0,3000).map(r=>`<tr>
+    <td class="trk">${htmlesc(r.trk)}</td>
+    <td>${htmlesc(r.month)}</td>
+    <td class="num">${fmtNum(r.jst)}</td>
+    <td class="num">${fmtNum(r.recv)}</td>
+    <td class="num">${r.diff==null?'':fmtNum(r.diff)}</td>
+    <td>${statusPill(r.status)}</td>
+    <td>${htmlesc(r.noteDiff)}</td>
+    <td>${htmlesc(r.note)}</td>
+    <td>${htmlesc(r.chan)}</td>
+    <td>${htmlesc(r.shop)}</td>
+    <td>${htmlesc(r.outDate)}</td></tr>`).join('')
+    : `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
+  $('resInfo').textContent=`แสดง ${fmtInt(Math.min(rows.length,3000))} / ${fmtInt(rows.length)} รายการ`+(rows.length>3000?' (จำกัดบนจอ 3,000 · ส่งออก Excel ได้ครบ)':'');
+}
+$('q').oninput=render; $('fltStatus').onchange=render; $('fltMonth').onchange=render;
+
+/* ---------- ส่งออก Excel (หน้าตาเหมือนตัวอย่าง) ---------- */
+$('exportBtn').onclick=()=>{
+  if(!result){ toast('ยังไม่มีผล',true); return; }
+  const HDR=['เลขพัสดุ','เดือนที่พบ','ยอดที่ควรได้รับ','ยอดที่ได้รับ','ส่วนต่าง','สถานะเงิน','หมายเหตุไม่ตรงยอด','หมายเหตุ','ช่องทางรับเงิน','ร้านค้า','วันที่ออกจากคลัง'];
+  // แถวสรุป (เดือน + ไม่พบ)
+  const sum=['','จำนวนเลขพัสดุทั้งหมด',result.total,''];
+  Object.keys(result.byMonth).filter(m=>m!=='ไม่พบ').sort((a,b)=>monthKey(a)-monthKey(b)).forEach(m=>{ sum.push('พบใน'+m, result.byMonth[m], ''); });
+  if(result.notFound) sum.push('ไม่พบในต้นฉบับ', result.notFound);
+  const aoa=[
+    [],
+    ['','สรุปตรวจสอบสถานะพัสดุ'],
+    ['','ตรวจเลขพัสดุจากไฟล์เลขพัสดุ เทียบกับไฟล์ต้นฉบับ '+srcFiles.length+' ไฟล์'],
+    [],
+    sum,
+    [],
+    ['', ...HDR]
+  ];
+  const rnd=x=>x==null||x===''?'':Math.round(Number(x)*100)/100;
+  result.rows.forEach(r=>aoa.push(['', r.trk, r.month, rnd(r.jst), rnd(r.recv), rnd(r.diff), r.status, r.noteDiff, r.note, r.chan, r.shop, r.outDate]));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:3},{wch:20},{wch:11},{wch:15},{wch:13},{wch:12},{wch:14},{wch:20},{wch:22},{wch:16},{wch:14},{wch:16}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'สรุปตรวจสอบ');
+  const d=new Date(); const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb,`ตรวจสอบสถานะพัสดุ_${stamp}.xlsx`);
+  toast('ส่งออกแล้ว');
+};
+</script>
+</body>
+</html>
