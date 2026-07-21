@@ -165,9 +165,10 @@ function monthFromName(name){
 function fixRange(ws){ let a=Infinity,b=Infinity,c=-1,d=-1; Object.keys(ws).forEach(k=>{ if(k[0]==='!')return; const e=XLSX.utils.decode_cell(k); if(e.r<a)a=e.r;if(e.c<b)b=e.c;if(e.r>c)c=e.r;if(e.c>d)d=e.c;}); if(c>=0)ws['!ref']=XLSX.utils.encode_range({s:{r:a,c:b},e:{r:c,c:d}}); }
 function serialDate(v){
   if(v==null||v==='') return '';
-  if(typeof v==='number'){ const d=XLSX.SSF.parse_date_code(v); if(d) return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }
-  const s=norm(v); const m=s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m) return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
-  const m2=s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/); if(m2){ let y=m2[3]; if(y.length===2)y='20'+y; return y+'-'+String(m2[2]).padStart(2,'0')+'-'+String(m2[1]).padStart(2,'0'); }
+  const out=(y,m,d)=>String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y;
+  if(typeof v==='number'){ const d=XLSX.SSF.parse_date_code(v); if(d) return out(d.y,d.m,d.d); }
+  const s=norm(v); const m=s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m) return out(m[1],m[2],m[3]);
+  const m2=s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/); if(m2){ let y=m2[3]; if(y.length===2)y='20'+y; return out(y,m2[2],m2[1]); }
   return s;
 }
 
