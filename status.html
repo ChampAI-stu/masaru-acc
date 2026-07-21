@@ -186,41 +186,48 @@ function findCol(H, cands){
 }
 async function parseSource(file){
   const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:false});
-  const map=new Map(); let sheetsUsed=0;
+  const map=new Map(), recvDate=new Map(), claimDate=new Map(), returnDate=new Map();
   for(const sn of wb.SheetNames){
     const ws=wb.Sheets[sn]; fixRange(ws);
     const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,cellDates:false});
     if(!aoa.length) continue;
-    // หา header row (มี เลขพัสดุ + สถานะรับเงิน)
+    // ---- ชีตพัสดุส่งออก (main) : มี เลขพัสดุ + สถานะรับเงิน ----
     let hi=-1;
     for(let i=0;i<Math.min(aoa.length,6);i++){ const H=(aoa[i]||[]).map(norm); if(H.includes('เลขพัสดุ') && H.some(h=>h.includes('สถานะรับเงิน'))){ hi=i; break; } }
-    if(hi<0) continue;
-    const H=aoa[hi]||[];
-    const c={}; for(const k in SRC_COLS) c[k]=findCol(H,SRC_COLS[k]);
-    if(c.track<0) continue;
-    // คอลัมน์ "รับจาก..." (ช่องทาง)
-    const recvCols=[];
-    H.forEach((h,i)=>{ const t=norm(h); if(/^รับจาก/.test(t)){ let label=t.replace(/^รับจาก/,'').replace(/\(.*?\)/g,'').trim(); recvCols.push({i,label}); } });
-    for(let r=hi+1;r<aoa.length;r++){
-      const row=aoa[r]||[]; const trk=keyTrk(row[c.track]); if(!trk) continue;
-      // ช่องทาง = คอลัมน์รับจากที่มีค่า
-      const chans=[]; const seen=new Set();
-      recvCols.forEach(rc=>{ const v=row[rc.i]; const nv=norm(v); if(nv!=='' && nv!=='0' && toNum(nv)!==0){ if(!seen.has(rc.label)){ seen.add(rc.label); chans.push(rc.label); } } });
-      map.set(trk, {
-        jst: c.jst>=0?toNum(row[c.jst]):null,
-        recv: c.recv>=0?toNum(row[c.recv]):null,
-        diff: c.diff>=0?toNum(row[c.diff]):null,
-        status: c.status>=0?norm(row[c.status]):'',
-        noteDiff: c.noteDiff>=0?norm(row[c.noteDiff]):'',
-        note: c.note>=0?norm(row[c.note]):'',
-        shop: c.shop>=0?norm(row[c.shop]):'',
-        outDate: c.outDate>=0?serialDate(row[c.outDate]):'',
-        chan: chans.join(' + ')
-      });
+    if(hi>=0){
+      const H=aoa[hi]||[];
+      const c={}; for(const k in SRC_COLS) c[k]=findCol(H,SRC_COLS[k]);
+      if(c.track<0) continue;
+      const recvCols=[];
+      H.forEach((h,i)=>{ const t=norm(h); if(/^รับจาก/.test(t)){ let label=t.replace(/^รับจาก/,'').replace(/\(.*?\)/g,'').trim(); recvCols.push({i,label}); } });
+      for(let r=hi+1;r<aoa.length;r++){
+        const row=aoa[r]||[]; const trk=keyTrk(row[c.track]); if(!trk) continue;
+        const chans=[]; const seen=new Set();
+        recvCols.forEach(rc=>{ const nv=norm(row[rc.i]); if(nv!=='' && nv!=='0' && toNum(nv)!==0){ if(!seen.has(rc.label)){ seen.add(rc.label); chans.push(rc.label); } } });
+        map.set(trk, {
+          jst: c.jst>=0?toNum(row[c.jst]):null, recv: c.recv>=0?toNum(row[c.recv]):null,
+          diff: c.diff>=0?toNum(row[c.diff]):null, status: c.status>=0?norm(row[c.status]):'',
+          noteDiff: c.noteDiff>=0?norm(row[c.noteDiff]):'', note: c.note>=0?norm(row[c.note]):'',
+          shop: c.shop>=0?norm(row[c.shop]):'', outDate: c.outDate>=0?serialDate(row[c.outDate]):'',
+          chan: chans.join(' + ')
+        });
+      }
+      continue;
     }
-    sheetsUsed++;
+    // ---- ชีตอื่น ๆ : ดึงวันที่ ----
+    const H0=(aoa[0]||[]).map(norm);
+    if(/^รายรับ/.test(sn)){                         // วันที่รับ (ทั่วไป)
+      const t=findCol(H0,['เลขพัสดุ']); const d=findCol(H0,['วันที่รับ']);
+      if(t>=0 && d>=0) for(let r=1;r<aoa.length;r++){ const trk=keyTrk((aoa[r]||[])[t]); const dv=serialDate((aoa[r]||[])[d]); if(trk && dv && !recvDate.has(trk)) recvDate.set(trk,dv); }
+    } else if(/ตีกลับ/.test(sn)){                    // วันที่ตีกลับ
+      const t=findCol(H0,['เลขพัสดุ']); const d=findCol(H0,['วันที่ตีกลับ']);
+      if(t>=0 && d>=0) for(let r=1;r<aoa.length;r++){ const trk=keyTrk((aoa[r]||[])[t]); const dv=serialDate((aoa[r]||[])[d]); if(trk && dv) returnDate.set(trk,dv); }
+    } else if(/เคลม/.test(sn)){                      // วันที่ส่ง (เคลม) — match เลขพัสดุที่มีปัญหา/เดิม
+      const d=findCol(H0,['วันที่ส่ง']); const t1=findCol(H0,['เลขพัสดุที่มีปัญหา','เลขพัสดุ']); const t2=findCol(H0,['เลขพัสดุเดิม']);
+      if(d>=0) for(let r=1;r<aoa.length;r++){ const row=aoa[r]||[]; const dv=serialDate(row[d]); if(!dv)continue; [t1,t2].forEach(tc=>{ if(tc>=0){ const trk=keyTrk(row[tc]); if(trk) claimDate.set(trk,dv); } }); }
+    }
   }
-  return { map, sheetsUsed, count:map.size };
+  return { map, recvDate, claimDate, returnDate, count:map.size };
 }
 $('srcDrop').onclick=()=>$('srcInput').click();
 $('srcDrop').ondragover=e=>{e.preventDefault();$('srcDrop').style.borderColor='var(--blue)';};
@@ -233,7 +240,7 @@ async function addSrc(files){
     toast('กำลังอ่าน '+f.name+' ...');
     try{ const p=await parseSource(f);
       if(!p.count){ toast('ไม่พบชีตพัสดุส่งออกใน '+f.name,true); continue; }
-      srcFiles.push({name:f.name, month:monthFromName(f.name), map:p.map, count:p.count});
+      srcFiles.push({name:f.name, month:monthFromName(f.name), map:p.map, recvDate:p.recvDate, claimDate:p.claimDate, returnDate:p.returnDate, count:p.count});
       renderFiles(); updateReady();
     }catch(err){ toast('อ่าน '+f.name+' ไม่ได้',true); console.error(err); }
   }
@@ -293,8 +300,9 @@ $('checkBtn').onclick=()=>{
   // เรียงไฟล์ต้นฉบับตามเดือน (มากก่อน = ล่าสุดชนะถ้าซ้ำ) — ค้นล่าสุดก่อน
   const order=[...srcFiles].sort((a,b)=>monthKey(b.month)-monthKey(a.month));
   const rows=tracks.map(trk=>{
-    for(const sf of order){ const hit=sf.map.get(trk); if(hit){ return {trk, month:sf.month, found:true, ...hit}; } }
-    return {trk, month:'ไม่พบ', found:false, jst:null,recv:null,diff:null,status:'ไม่พบ',noteDiff:'',note:'',shop:'',chan:''};
+    for(const sf of order){ const hit=sf.map.get(trk); if(hit){ return {trk, month:sf.month, found:true, ...hit,
+      recvDate: sf.recvDate.get(trk)||'', claimDate: sf.claimDate.get(trk)||'', returnDate: sf.returnDate.get(trk)||'' }; } }
+    return {trk, month:'ไม่พบ', found:false, jst:null,recv:null,diff:null,status:'ไม่พบ',noteDiff:'',note:'',shop:'',chan:'',outDate:'',recvDate:'',claimDate:'',returnDate:''};
   });
   const byMonth={}; rows.forEach(r=>{ byMonth[r.month]=(byMonth[r.month]||0)+1; });
   result={ rows, total:rows.length, byMonth, found:rows.filter(r=>r.found).length, notFound:rows.filter(r=>!r.found).length };
@@ -326,7 +334,7 @@ function render(){
     ${monthCards}
     <div class="stat r"><div class="k">ไม่พบในต้นฉบับ</div><div class="v">${fmtInt(result.notFound)}</div></div>`;
   const rows=filtered();
-  $('thead').innerHTML=`<tr><th>เลขพัสดุ</th><th>เดือนที่พบ</th><th class="num">ยอดที่ควรได้รับ</th><th class="num">ยอดที่ได้รับ</th><th class="num">ส่วนต่าง</th><th>สถานะเงิน</th><th>หมายเหตุไม่ตรงยอด</th><th>หมายเหตุ</th><th>ช่องทางรับเงิน</th><th>ร้านค้า</th><th>วันที่ออกจากคลัง</th></tr>`;
+  $('thead').innerHTML=`<tr><th>เลขพัสดุ</th><th>เดือนที่พบ</th><th class="num">ยอดที่ควรได้รับ</th><th class="num">ยอดที่ได้รับ</th><th class="num">ส่วนต่าง</th><th>สถานะเงิน</th><th>หมายเหตุไม่ตรงยอด</th><th>หมายเหตุ</th><th>ช่องทางรับเงิน</th><th>ร้านค้า</th><th>วันที่ออกจากคลัง</th><th>วันที่รับ</th><th>วันที่ส่ง</th><th>วันที่ตีกลับ</th></tr>`;
   $('tbody').innerHTML = rows.length ? rows.slice(0,3000).map(r=>`<tr>
     <td class="trk">${htmlesc(r.trk)}</td>
     <td>${htmlesc(r.month)}</td>
@@ -338,8 +346,11 @@ function render(){
     <td>${htmlesc(r.note)}</td>
     <td>${htmlesc(r.chan)}</td>
     <td>${htmlesc(r.shop)}</td>
-    <td>${htmlesc(r.outDate)}</td></tr>`).join('')
-    : `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
+    <td>${htmlesc(r.outDate)}</td>
+    <td>${htmlesc(r.recvDate)}</td>
+    <td>${htmlesc(r.claimDate)}</td>
+    <td>${htmlesc(r.returnDate)}</td></tr>`).join('')
+    : `<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
   $('resInfo').textContent=`แสดง ${fmtInt(Math.min(rows.length,3000))} / ${fmtInt(rows.length)} รายการ`+(rows.length>3000?' (จำกัดบนจอ 3,000 · ส่งออก Excel ได้ครบ)':'');
 }
 $('q').oninput=render; $('fltStatus').onchange=render; $('fltMonth').onchange=render;
@@ -349,13 +360,13 @@ $('exportBtn').onclick=async()=>{
   if(!result){ toast('ยังไม่มีผล',true); return; }
   toast('กำลังสร้างไฟล์...');
   try{
-    const HDR=['เลขพัสดุ','เดือนที่พบ','ยอดที่ควรได้รับ','ยอดที่ได้รับ','ส่วนต่าง','สถานะเงิน','หมายเหตุไม่ตรงยอด','หมายเหตุ','ช่องทางรับเงิน','ร้านค้า','วันที่ออกจากคลัง'];
+    const HDR=['เลขพัสดุ','เดือนที่พบ','ยอดที่ควรได้รับ','ยอดที่ได้รับ','ส่วนต่าง','สถานะเงิน','หมายเหตุไม่ตรงยอด','หมายเหตุ','ช่องทางรับเงิน','ร้านค้า','วันที่ออกจากคลัง','วันที่รับ','วันที่ส่ง','วันที่ตีกลับ'];
     const months=[...new Set(srcFiles.map(f=>f.month))];
     const monthList=Object.keys(result.byMonth).filter(m=>m!=='ไม่พบ').sort((a,b)=>monthKey(a)-monthKey(b));
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('สรุปตรวจสอบ');
     const NAVY='FF1F3864', RED='FFD81F2C', GREEN='FF0A7D33', ORANGE='FFC47F00', GREY='FF5A6577', PURPLE='FF7A3EA8';
     ws.getColumn(1).width=3;
-    [20,13,11,14,12,13,15,26,22,15,15].forEach((w,i)=>ws.getColumn(i+2).width=w);
+    [20,13,11,14,12,13,15,26,22,15,15,15,15,15].forEach((w,i)=>ws.getColumn(i+2).width=w);
     // หัวเรื่อง
     ws.getCell('B2').value='สรุปตรวจสอบสถานะพัสดุและยอดเงิน';
     ws.getCell('B2').font={bold:true,size:16,color:{argb:NAVY}};
@@ -377,7 +388,7 @@ $('exportBtn').onclick=async()=>{
     const stColor={'ตรงยอด':GREEN,'ไม่ตรงยอด':ORANGE,'ยังไม่ได้รับเงิน':RED,'พัสดุตีกลับ':GREY,'เคลมสินค้า':PURPLE,'ไม่พบ':RED};
     let ri=8;
     result.rows.forEach(r=>{
-      const vals=[r.trk,r.month,rnd(r.jst),rnd(r.recv),rnd(r.diff),r.status,r.noteDiff,r.note,r.chan,r.shop,r.outDate];
+      const vals=[r.trk,r.month,rnd(r.jst),rnd(r.recv),rnd(r.diff),r.status,r.noteDiff,r.note,r.chan,r.shop,r.outDate,r.recvDate,r.claimDate,r.returnDate];
       vals.forEach((v,i)=>{ const c=ws.getCell(ri,i+2); c.value=(v===''?null:v);
         if(i>=2&&i<=4){ c.numFmt='#,##0.00'; c.alignment={horizontal:'right'}; }
         if(i===0) c.font={color:{argb:NAVY},bold:true};
