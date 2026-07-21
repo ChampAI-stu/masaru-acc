@@ -178,7 +178,7 @@ let trkFiles=[];   // [{name, tracks:[...] }]
 let result=null;
 
 /* ---------- อ่านไฟล์ต้นฉบับ ---------- */
-const SRC_COLS={ track:['เลขพัสดุ'], jst:['ยอดเงินใน jst','ยอดเงินใน JST','ยอด jst'], recv:['รับรวมทั้งหมด'],
+const SRC_COLS={ track:['เลขพัสดุ'], order:['เลขคำสั่งซื้อออนไลน์','เลขคำสั่งซื้อ','order no'], jst:['ยอดเงินใน jst','ยอดเงินใน JST','ยอด jst'], recv:['รับรวมทั้งหมด'],
   diff:['ส่วนต่าง'], status:['สถานะรับเงิน'], noteDiff:['ไม่ตรงยอด'], note:['หมายเหตุ'], shop:['ชื่อร้านค้า'], outDate:['วันที่ออกจากคลัง'] };
 function findCol(H, cands){
   for(const c of cands){ const i=H.findIndex(h=>norm(h)===c); if(i>=0) return i; }        // exact
@@ -187,7 +187,7 @@ function findCol(H, cands){
 }
 async function parseSource(file){
   const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:false});
-  const map=new Map(), recvDate=new Map(), claimDate=new Map(), returnDate=new Map();
+  const map=new Map(), recvDate=new Map(), claimDate=new Map(), returnDate=new Map(), adminSub=new Map(), webSub=new Map();
   for(const sn of wb.SheetNames){
     const ws=wb.Sheets[sn]; fixRange(ws);
     const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,cellDates:false});
@@ -206,6 +206,7 @@ async function parseSource(file){
         const chans=[]; const seen=new Set();
         recvCols.forEach(rc=>{ const nv=norm(row[rc.i]); if(nv!=='' && nv!=='0' && toNum(nv)!==0){ if(!seen.has(rc.label)){ seen.add(rc.label); chans.push(rc.label); } } });
         map.set(trk, {
+          order: c.order>=0?keyTrk(row[c.order]):'',
           jst: c.jst>=0?toNum(row[c.jst]):null, recv: c.recv>=0?toNum(row[c.recv]):null,
           diff: c.diff>=0?toNum(row[c.diff]):null, status: c.status>=0?norm(row[c.status]):'',
           noteDiff: c.noteDiff>=0?norm(row[c.noteDiff]):'', note: c.note>=0?norm(row[c.note]):'',
@@ -215,20 +216,24 @@ async function parseSource(file){
       }
       continue;
     }
-    // ---- ชีตอื่น ๆ : ดึงวันที่ ----
+    // ---- ชีตอื่น ๆ : ดึงวันที่ + ช่องทางย่อย ----
     const H0=(aoa[0]||[]).map(norm);
-    if(/^รายรับ/.test(sn)){                         // วันที่รับ (ทั่วไป)
+    if(/^รายรับ/.test(sn)){
       const t=findCol(H0,['เลขพัสดุ']); const d=findCol(H0,['วันที่รับ']);
       if(t>=0 && d>=0) for(let r=1;r<aoa.length;r++){ const trk=keyTrk((aoa[r]||[])[t]); const dv=serialDate((aoa[r]||[])[d]); if(trk && dv && !recvDate.has(trk)) recvDate.set(trk,dv); }
-    } else if(/ตีกลับ/.test(sn)){                    // วันที่ตีกลับ
+      // ช่องทางย่อย: แอดมิน (match เลขคำสั่งซื้อ) · เว็บไซต์ (match เลขพัสดุ)
+      const ch=findCol(H0,['ช่องทางรับเงิน']);
+      if(/แอดมิน/.test(sn) && ch>=0){ const o=findCol(H0,['เลขคำสั่งซื้อออนไลน์','เลขคำสั่งซื้อ']); if(o>=0) for(let r=1;r<aoa.length;r++){ const k=keyTrk((aoa[r]||[])[o]); const v=norm((aoa[r]||[])[ch]); if(k&&v) adminSub.set(k,v); } }
+      if(/เว็บไซต์|เวปไซต์|website/i.test(sn) && ch>=0 && t>=0){ for(let r=1;r<aoa.length;r++){ const k=keyTrk((aoa[r]||[])[t]); const v=norm((aoa[r]||[])[ch]); if(k&&v) webSub.set(k,v); } }
+    } else if(/ตีกลับ/.test(sn)){
       const t=findCol(H0,['เลขพัสดุ']); const d=findCol(H0,['วันที่ตีกลับ']);
       if(t>=0 && d>=0) for(let r=1;r<aoa.length;r++){ const trk=keyTrk((aoa[r]||[])[t]); const dv=serialDate((aoa[r]||[])[d]); if(trk && dv) returnDate.set(trk,dv); }
-    } else if(/เคลม/.test(sn)){                      // วันที่ส่ง (เคลม) — match เลขพัสดุที่มีปัญหา/เดิม
+    } else if(/เคลม/.test(sn)){
       const d=findCol(H0,['วันที่ส่ง']); const t1=findCol(H0,['เลขพัสดุที่มีปัญหา','เลขพัสดุ']); const t2=findCol(H0,['เลขพัสดุเดิม']);
       if(d>=0) for(let r=1;r<aoa.length;r++){ const row=aoa[r]||[]; const dv=serialDate(row[d]); if(!dv)continue; [t1,t2].forEach(tc=>{ if(tc>=0){ const trk=keyTrk(row[tc]); if(trk) claimDate.set(trk,dv); } }); }
     }
   }
-  return { map, recvDate, claimDate, returnDate, count:map.size };
+  return { map, recvDate, claimDate, returnDate, adminSub, webSub, count:map.size };
 }
 $('srcDrop').onclick=()=>$('srcInput').click();
 $('srcDrop').ondragover=e=>{e.preventDefault();$('srcDrop').style.borderColor='var(--blue)';};
@@ -241,7 +246,7 @@ async function addSrc(files){
     toast('กำลังอ่าน '+f.name+' ...');
     try{ const p=await parseSource(f);
       if(!p.count){ toast('ไม่พบชีตพัสดุส่งออกใน '+f.name,true); continue; }
-      srcFiles.push({name:f.name, month:monthFromName(f.name), map:p.map, recvDate:p.recvDate, claimDate:p.claimDate, returnDate:p.returnDate, count:p.count});
+      srcFiles.push({name:f.name, month:monthFromName(f.name), map:p.map, recvDate:p.recvDate, claimDate:p.claimDate, returnDate:p.returnDate, adminSub:p.adminSub, webSub:p.webSub, count:p.count});
       renderFiles(); updateReady();
     }catch(err){ toast('อ่าน '+f.name+' ไม่ได้',true); console.error(err); }
   }
@@ -301,9 +306,17 @@ $('checkBtn').onclick=()=>{
   // เรียงไฟล์ต้นฉบับตามเดือน (มากก่อน = ล่าสุดชนะถ้าซ้ำ) — ค้นล่าสุดก่อน
   const order=[...srcFiles].sort((a,b)=>monthKey(b.month)-monthKey(a.month));
   const rows=tracks.map(trk=>{
-    for(const sf of order){ const hit=sf.map.get(trk); if(hit){ return {trk, month:sf.month, found:true, ...hit,
-      recvDate: sf.recvDate.get(trk)||'', claimDate: sf.claimDate.get(trk)||'', returnDate: sf.returnDate.get(trk)||'' }; } }
-    return {trk, month:'ไม่พบ', found:false, jst:null,recv:null,diff:null,status:'ไม่พบ',noteDiff:'',note:'',shop:'',chan:'',outDate:'',recvDate:'',claimDate:'',returnDate:''};
+    for(const sf of order){ const hit=sf.map.get(trk); if(hit){
+      // แทนช่องทางย่อย: แอดมิน→(match เลขคำสั่งซื้อ) · โฮมโปร/เว็บไซต์→(match เลขพัสดุ)
+      let chan=hit.chan;
+      if(chan){ chan=chan.split(' + ').map(p=>{
+        if(p==='แอดมิน'){ const s=sf.adminSub.get(hit.order); return s||p; }
+        if(p==='โฮมโปร'||p==='เว็บไซต์'){ const s=sf.webSub.get(trk); return s||p; }
+        return p;
+      }).join(' + '); }
+      return {trk, month:sf.month, found:true, ...hit, chan,
+        recvDate: sf.recvDate.get(trk)||'', claimDate: sf.claimDate.get(trk)||'', returnDate: sf.returnDate.get(trk)||'' }; } }
+    return {trk, month:'ไม่พบ', found:false, order:'', jst:null,recv:null,diff:null,status:'ไม่พบ',noteDiff:'',note:'',shop:'',chan:'',outDate:'',recvDate:'',claimDate:'',returnDate:''};
   });
   const byMonth={}; rows.forEach(r=>{ byMonth[r.month]=(byMonth[r.month]||0)+1; });
   result={ rows, total:rows.length, byMonth, found:rows.filter(r=>r.found).length, notFound:rows.filter(r=>!r.found).length };
