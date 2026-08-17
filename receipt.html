@@ -268,6 +268,7 @@
   
   
   <button class="tab active" data-page="doc">🧾 ออกใบเสร็จรับเงิน</button>
+  <button class="tab" data-page="cash">💵 บิลเงินสด (ไม่มีเลขออเดอร์)</button>
   <button class="tab" data-page="hist">📚 ประวัติใบเสร็จ</button>
 </div></div>
 
@@ -510,6 +511,52 @@
       <div class="pager"><span class="info" id="docInfo"></span></div>
     </div>
   </div><!-- /page-doc -->
+  <!-- ============ หน้า: บิลเงินสด (ไม่มีเลขออเดอร์) ============ -->
+  <div id="page-cash" class="page hidden">
+    <input type="file" id="cashInput" accept=".xlsx,.xls,.csv" class="hidden">
+    <div class="section-label"><span class="n">1</span> เพิ่มบิลเงินสด — อัปโหลดไฟล์ หรือสร้างเองทีละใบ</div>
+    <div class="uploaders">
+      <button class="up-card" id="cashUpCard" style="border-top-color:var(--red)">
+        <span class="up-plus">＋</span><span class="up-ico">📄</span>
+        <span class="up-t">อัพไฟล์บิลเงินสดทั่วไป</span>
+        <span class="up-s">ฟอร์แมตเดียวกับฟอร์ม แต่ไม่มีเลขออเดอร์ (ขึ้นบิลใหม่ที่ชื่อลูกค้า / ลำดับ 1)</span>
+      </button>
+      <button class="up-card" id="cashNewCard" style="border-top-color:var(--navy)">
+        <span class="up-plus">＋</span><span class="up-ico">✍️</span>
+        <span class="up-t">สร้างบิลใหม่ (กรอกเอง)</span>
+        <span class="up-s">กรอกลูกค้า + รายการสินค้า แล้วออกเลขได้ทันที</span>
+      </button>
+    </div>
+    <div class="files" id="cashFileList"></div>
+
+    <div class="section-label" style="margin-top:24px"><span class="n">2</span> ออกเลข → บันทึก → ใบเสร็จ (บิลที่บันทึกจะเข้า 📚 ประวัติใบเสร็จอัตโนมัติ)</div>
+    <div class="cost-actions">
+      <span class="db-info" id="cashYearInfo">ปีเอกสาร: —</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="cashIssueAllBtn">🏷️ ออกเลขทั้งหมด</button>
+      <button class="btn btn-gold btn-sm" id="cashSaveAllBtn">💾 บันทึกทั้งหมด</button>
+      <button class="btn btn-ghost btn-sm" id="cashSigBtn">✍️ ลายเซ็นของฉัน</button>
+    </div>
+
+    <div id="cashResults" class="hidden">
+      <div class="summary" id="cashSummary" style="margin-top:20px"></div>
+      <div class="toolbar">
+        <div class="search"><span class="si">🔍</span>
+          <input type="text" id="cashSearch" placeholder="ค้นหา ลูกค้า / ร้าน / รายการ / เลขเอกสาร ..."></div>
+        <select id="cashFilter">
+          <option value="all">ทั้งหมด</option>
+          <option value="noissue">ยังไม่ออกเลข</option>
+          <option value="draft">ออกเลขแล้ว ยังไม่บันทึก</option>
+          <option value="saved">บันทึกแล้ว</option>
+        </select>
+        <button class="btn btn-gold btn-sm" id="cashExportBtn">⬇️ ส่งออก Excel</button>
+      </div>
+      <div class="tbl-wrap" style="max-height:64vh;overflow-x:hidden">
+        <table id="cashTbl" class="doc-tbl"><thead id="cashHead"></thead><tbody id="cashBody"></tbody></table>
+      </div>
+      <div class="pager"><span class="info" id="cashInfo"></span></div>
+    </div>
+  </div><!-- /page-cash -->
   <!-- ============ หน้า: ประวัติใบเสร็จ ============ -->
   <div id="page-hist" class="page hidden">
     <div class="section-label"><span class="n">📚</span> ประวัติใบเสร็จที่บันทึกแล้ว</div>
@@ -1064,12 +1111,13 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     const pg = t.dataset.page;
-    ['acc','ship','cost','db','doc','hist'].forEach(p=>{
+    ['acc','ship','cost','db','doc','cash','hist'].forEach(p=>{
       document.getElementById('page-'+p).classList.toggle('hidden', p!==pg);
     });
     if(pg==='cost') refreshCostDbCount();
     if(pg==='db'){ refreshCostDbCount(); $('mSearch').value=''; loadManage(''); }
     if(pg==='doc') refreshDocYear();
+    if(pg==='cash') enterCashPage();
     if(pg==='hist') loadHistory();
   };
 });
@@ -1570,9 +1618,12 @@ let myRole='', isViewer=false;
 function applyRoleUI(){
   if(!isViewer) return;   // ฝ่าย Facebook/Shopee = ดูประวัติอย่างเดียว
   const docTab=document.querySelector('.tab[data-page="doc"]');
+  const cashTab=document.querySelector('.tab[data-page="cash"]');
   const histTab=document.querySelector('.tab[data-page="hist"]');
   if(docTab){ docTab.style.display='none'; docTab.classList.remove('active'); }
+  if(cashTab){ cashTab.style.display='none'; cashTab.classList.remove('active'); }
   document.getElementById('page-doc').classList.add('hidden');
+  document.getElementById('page-cash').classList.add('hidden');
   document.getElementById('page-hist').classList.remove('hidden');
   if(histTab) histTab.classList.add('active');
   loadHistory();
@@ -1836,17 +1887,20 @@ function openReason(key){
 }
 function closeReason(){ $('reasonBg').classList.remove('show'); }
 async function deleteBill(key){
-  const r=docRows.find(x=>x.key===key); if(!r) return;
+  const r=findRow(key); if(!r) return;
+  const isCash=r.status==='cash';
   const hasDoc=!!docIssued[key];
   const inDB = hasDoc && !docDraft.has(key);
-  if(!confirm(`ลบบิลนี้ออกจากรายการ?\n\nออเดอร์: ${key}\nลูกค้า: ${r.customer||'—'}`+(inDB?`\nเลขเอกสาร: ${docIssued[key]} (จะถูกลบออกจากฐานข้อมูลด้วย)`:(hasDoc?`\nเลขเอกสาร: ${docIssued[key]} (ยังไม่บันทึก — ลบในเครื่องเท่านั้น)`:'')))) return;
+  if(!confirm(`ลบบิลนี้ออกจากรายการ?\n\n${isCash?'บิลเงินสด':'ออเดอร์'}: ${isCash?(r.customer||key):key}\nลูกค้า: ${r.customer||'—'}`+(inDB?`\nเลขเอกสาร: ${docIssued[key]} (จะถูกลบออกจากฐานข้อมูลด้วย)`:(hasDoc?`\nเลขเอกสาร: ${docIssued[key]} (ยังไม่บันทึก — ลบในเครื่องเท่านั้น)`:'')))) return;
   if(inDB && sb){
     try{ const {error}=await sb.from('receipts').delete().eq('order_key',key).eq('year',new Date().getFullYear()); if(error) throw error; }
     catch(err){ toast('ลบใน DB ไม่สำเร็จ: '+(err.message||err),true); console.error(err); return; }
   }
   delete docIssued[key]; docSaved.delete(key); docDraft.delete(key);
-  docRows=docRows.filter(x=>x.key!==key); delete docForm[key]; delete docFormDup[key];
-  renderDoc(); toast('ลบบิลแล้ว');
+  docRows=docRows.filter(x=>x.key!==key); cashRows=cashRows.filter(x=>x.key!==key);
+  delete docForm[key]; delete docFormDup[key];
+  if(isCash) renderCash(); else renderDoc();
+  toast('ลบบิลแล้ว');
 }
 function billToF(r){
   const d=r.data||{};
@@ -1861,7 +1915,7 @@ function printSaved(r){
 async function saveReceiptData(key){
   const dn0=docIssued[key]; if(!dn0) throw new Error('ยังไม่ออกเลข');
   const f=docForm[key]; if(!f) throw new Error('ไม่พบข้อมูลบิล');
-  const row=docRows.find(x=>x.key===key)||{};
+  const row=findRow(key)||{};
   const year=new Date().getFullYear();
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
     total:f.total, key, internal:row.internal||'', signature: mySignature||null,
@@ -1891,7 +1945,7 @@ async function saveReceiptData(key){
 async function saveReceipt(key){
   if(!dbReady()) return;
   const dn=docIssued[key]; if(!dn){ toast('ออกเลขเอกสารก่อนจึงบันทึกได้',true); return; }
-  try{ await saveReceiptData(key); renderDoc(); toast('บันทึกใบเสร็จ '+dn+' แล้ว'); }
+  try{ await saveReceiptData(key); renderRowPage(key); toast('บันทึกใบเสร็จ '+dn+' แล้ว'); }
   catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
 async function saveAllIssued(){
@@ -2060,7 +2114,16 @@ function openHistEdit(docNo){
   billLines=(f.lines||[]).map(l=>({desc:l.desc,qty:l.qty,unit:l.unit}));
   renderBillLines(); $('billBg').classList.add('show');
 }
-function closeBill(){ $('billBg').classList.remove('show'); billKey=null; billLines=[]; histEditDoc=null; }
+function closeBill(){
+  // บิลเงินสดที่เพิ่งสร้างใหม่แล้วกดยกเลิกโดยไม่กรอกอะไร → ลบทิ้ง
+  if(billKey && cashRows.some(x=>x.key===billKey) && !docIssued[billKey]){
+    const f=docForm[billKey];
+    if(f && !norm(f.customer) && !(f.lines&&f.lines.length)){
+      cashRows=cashRows.filter(x=>x.key!==billKey); delete docForm[billKey]; renderCash();
+    }
+  }
+  $('billBg').classList.remove('show'); billKey=null; billLines=[]; histEditDoc=null;
+}
 function billTotal(){ return billLines.reduce((a,l)=>a+(Number(l.qty)||0)*(Number(l.unit)||0),0); }
 function renderBillLines(){
   $('bLines').innerHTML=billLines.map((l,i)=>`<tr>
@@ -2114,18 +2177,22 @@ async function saveBill(){
     const j=docJst[billKey]; r.jamt=j?j.amount:null; r.diff=j?(f.total-j.amount):null;
     r.status = docFormDup[billKey]?'dup' : !j?'nojst' : docJstAmbig.has(billKey)?'ambig' : (Math.abs(r.diff)<0.01?'match':'diff');
   }
+  const c=cashRows.find(x=>x.key===billKey);
+  if(c){ c.shop=f.shop; c.customer=f.customer; c.ftotal=f.total; c.date=f.date; }
   if(docIssued[billKey] && docSaved.has(billKey)){ try{ await saveReceiptData(billKey); }catch(e){ console.error(e); } }
-  renderDoc(); closeBill(); toast('แก้ไขบิลแล้ว');
+  if(c) renderCash(); else renderDoc();
+  closeBill(); toast('แก้ไขบิลแล้ว');
 }
 $('billClose').onclick=closeBill;
 $('billCancel').onclick=closeBill;
 $('billSave').onclick=saveBill;
 $('billBg').onclick=e=>{ if(e.target.id==='billBg') closeBill(); };
 
+function findRow(key){ return docRows.find(x=>x.key===key) || cashRows.find(x=>x.key===key); }
 function openDocEdit(key){
   if(!dbReady()) return;
-  const r=docRows.find(x=>x.key===key); if(!r) return;
-  if(r.status!=='match' && !docIssued[key]){ toast('ออกเลขได้เฉพาะออเดอร์ที่ตรง',true); return; }
+  const r=findRow(key); if(!r) return;
+  if(r.status!=='match' && r.status!=='cash' && !docIssued[key]){ toast('ออกเลขได้เฉพาะออเดอร์ที่ตรง',true); return; }
   docEditKey=key;
   $('docEditOrder').value=(r.internal||key)+(r.customer?' · '+r.customer:'');
   $('docEditNo').value = docIssued[key] || docNoStr(nextSeqLocal());
@@ -2148,10 +2215,10 @@ async function saveDocEdit(){
     if(inDB){
       const {error:e2}=await sb.from('receipts').update({doc_no:dn,seq}).eq('order_key',key).eq('year',year);
       if(e2) throw e2;
-      docIssued[key]=dn; renderDoc(); closeDocEdit(); toast('บันทึกเลข '+dn+' แล้ว');
+      docIssued[key]=dn; renderRowPage(key); closeDocEdit(); toast('บันทึกเลข '+dn+' แล้ว');
     } else {
       // draft หรือยังไม่ออกเลข → ตั้งเลขในเครื่อง (ยังไม่ลง DB จนกว่าจะกดบันทึก)
-      docIssued[key]=dn; docDraft.add(key); renderDoc(); closeDocEdit(); toast('ตั้งเลข '+dn+' แล้ว (ยังไม่บันทึก — กด 💾 เพื่อยืนยัน)');
+      docIssued[key]=dn; docDraft.add(key); renderRowPage(key); closeDocEdit(); toast('ตั้งเลข '+dn+' แล้ว (ยังไม่บันทึก — กด 💾 เพื่อยืนยัน)');
     }
   }catch(err){ docWarn('บันทึกไม่สำเร็จ: '+(err.message||err)); btn.disabled=false; btn.textContent=lb; console.error(err); return; }
   btn.disabled=false; btn.textContent=lb;
@@ -2301,6 +2368,207 @@ $('docExportBtn').onclick=()=>{
   XLSX.writeFile(wb,'MASARU_เทียบยอดใบเสร็จ.xlsx'); toast('ส่งออกแล้ว');
 };
 try{refreshDocYear();}catch(e){}
+
+/* ============ แท็บ: บิลเงินสด (ไม่มีเลขออเดอร์) ============ */
+let cashRows=[], cashName='', cashSeqLoaded=false;
+function renderRowPage(key){ if(cashRows.some(x=>x.key===key)) renderCash(); else renderDoc(); }
+function newCashKey(){ return 'CASH-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(); }
+function todayTH(){ const d=new Date(); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`; }
+async function enterCashPage(){
+  $('cashYearInfo').innerHTML=`ปีเอกสาร: <b>${new Date().getFullYear()}</b> · ใช้เลขรัน RE ชุดเดียวกับใบเสร็จปกติ`;
+  if(!cashSeqLoaded && sb){ await loadIssued(); cashSeqLoaded=true; }  // ซิงก์เลขรันล่าสุดจาก DB
+  renderCash();
+}
+function renderCashFiles(){
+  $('cashFileList').innerHTML = cashName
+    ? `<div class="fcard"><span class="status-dot" style="background:var(--red)"></span><div class="fname">${htmlesc(cashName)}<div class="fmeta">${fmtInt(cashRows.length)} บิล · บิลเงินสด</div></div><span class="badge" style="background:var(--red)">เงินสด</span><button class="fclear" id="cashClearBtn" title="ล้างบิลที่ยังไม่บันทึกทั้งหมด">✕</button></div>`
+    : '';
+  const cb=$('cashClearBtn'); if(cb) cb.onclick=clearCashUnsaved;
+}
+function clearCashUnsaved(){
+  const keep=cashRows.filter(r=>docSaved.has(r.key));
+  const removed=cashRows.length-keep.length;
+  cashRows.forEach(r=>{ if(!docSaved.has(r.key)){ delete docForm[r.key]; if(docDraft.has(r.key)){ delete docIssued[r.key]; docDraft.delete(r.key); } } });
+  cashRows=keep; cashName=keep.length?cashName:'';
+  renderCash(); toast('ล้างบิลที่ยังไม่บันทึกแล้ว '+fmtInt(removed)+' บิล'+(keep.length?` (คงไว้ ${fmtInt(keep.length)} บิลที่บันทึกแล้ว)`:''));
+}
+/* ---- อ่านไฟล์บิลเงินสดทั่วไป (ไม่มีเลขออเดอร์) ---- */
+async function handleCashFile(file){
+  try{
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'});
+    let H=null,aoa=null;
+    for(const sn of wb.SheetNames){
+      const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+      if(a.length && findColBy(a[0]||[],['ราคาต่อหน่วย'])!==-1 && findColBy(a[0]||[],['ชื่อลูกค้า'])!==-1){ H=a[0]; aoa=a; break; }
+    }
+    if(!aoa){ toast('ไม่พบคอลัมน์ ชื่อลูกค้า + ราคาต่อหน่วย ในไฟล์',true); return; }
+    const ci={ ord:findColBy(H,['เลขออเดอร์//เลขพัสดุ','เลขออเดอร์','เลขพัสดุ']),
+      shop:findColBy(H,['ชื่อร้าน']), date:findColBy(H,['วันที่']),
+      cust:findColBy(H,['ชื่อลูกค้า']), addr:findColBy(H,['ที่อยู่ลูกค้า','ที่อยู่']),
+      tax:findColBy(H,['เลขผู้เสียภาษีลูกค้า','ผู้เสียภาษี']), branch:findColBy(H,['สาขา']),
+      seq:findColBy(H,['ลำดับ']), desc:findColBy(H,['คำอธิบาย','รายการ']),
+      qty:findColBy(H,['จำนวน']), price:findColBy(H,['ราคาต่อหน่วย']) };
+    // เตือนถ้าไฟล์มีเลขออเดอร์ (ควรใช้แท็บ 🧾 ออกใบเสร็จรับเงิน แทน)
+    if(ci.ord!==-1){
+      const nOrd=aoa.slice(1).filter(r=>norm((r||[])[ci.ord])).length;
+      if(nOrd>0 && !confirm(`⚠️ ไฟล์นี้มีเลขออเดอร์ ${nOrd} แถว\n\nแท็บนี้สำหรับบิลที่ "ไม่มีเลขออเดอร์" (ไม่เทียบ JST)\nถ้าเป็นฟอร์มปกติ แนะนำใช้แท็บ 🧾 ออกใบเสร็จรับเงิน\n\nยืนยันโหลดเป็นบิลเงินสดต่อ?`)) return;
+    }
+    let cur=null, added=0;
+    for(let r=1;r<aoa.length;r++){
+      const row=aoa[r]||[];
+      const cust=norm(row[ci.cust]); const seqNo=toNum(row[ci.seq]);
+      const desc=norm(row[ci.desc]); const price=toNum(row[ci.price]);
+      const isEmpty = !cust && desc==='' && price==null && seqNo==null;
+      if(isEmpty){ continue; }
+      // ขึ้นบิลใหม่เมื่อมีชื่อลูกค้า หรือ ลำดับ = 1
+      if(cust || seqNo===1 || !cur){
+        const key=newCashKey();
+        docForm[key]={ key, shop:norm(row[ci.shop]), customer:cust,
+          addr:norm(row[ci.addr]), tax:norm(row[ci.tax]), branch:norm(row[ci.branch]),
+          date:fmtDocDate(row[ci.date])||todayTH(), lines:[], total:0 };
+        cashRows.push({ key, isCash:true, status:'cash', internal:'', shop:docForm[key].shop,
+          customer:cust, date:docForm[key].date, ftotal:0, jamt:null, diff:null });
+        cur=key; added++;
+      }
+      if(desc==='' && price==null) continue;
+      const q=toNum(row[ci.qty]); const qty=(q==null?1:q); const amount=(price||0)*qty;
+      const o=docForm[cur]; o.lines.push({no:o.lines.length+1, desc, qty, unit:price||0, amount}); o.total+=amount;
+      const cr=cashRows.find(x=>x.key===cur); if(cr) cr.ftotal=o.total;
+    }
+    cashName=file.name;
+    renderCash(); toast('โหลดบิลเงินสด '+fmtInt(added)+' บิล');
+  }catch(err){ toast('อ่านไฟล์บิลเงินสดไม่ได้',true); console.error(err); }
+}
+/* ---- สร้างบิลใหม่ด้วยมือ ---- */
+function newCashBill(){
+  const key=newCashKey();
+  docForm[key]={ key, shop:'', customer:'', addr:'', tax:'', branch:'', date:todayTH(), lines:[], total:0 };
+  cashRows.push({ key, isCash:true, status:'cash', internal:'', shop:'', customer:'', date:todayTH(), ftotal:0, jamt:null, diff:null });
+  renderCash(); openBill(key);
+}
+/* ---- ตารางบิลเงินสด ---- */
+function cashState(key){
+  if(!docIssued[key]) return 'noissue';
+  return docSaved.has(key) ? 'saved' : 'draft';
+}
+function renderCash(){
+  renderCashFiles();
+  if(!cashRows.length){ $('cashResults').classList.add('hidden'); $('cashSummary').innerHTML=''; return; }
+  $('cashResults').classList.remove('hidden');
+  const q=norm($('cashSearch').value).toLowerCase(); const filt=$('cashFilter').value;
+  let rows=cashRows.slice();
+  if(filt!=='all') rows=rows.filter(r=>cashState(r.key)===filt);
+  if(q) rows=rows.filter(r=>{
+    const f=docForm[r.key]||{}; const lineTxt=(f.lines||[]).map(l=>l.desc).join(' ');
+    return ((r.customer||'')+' '+(r.shop||'')+' '+(docIssued[r.key]||'')+' '+lineTxt).toLowerCase().includes(q);
+  });
+  const nIssued=cashRows.filter(r=>docIssued[r.key]).length;
+  const nSaved=cashRows.filter(r=>docSaved.has(r.key)).length;
+  const total=cashRows.reduce((a,r)=>a+(r.ftotal||0),0);
+  $('cashSummary').innerHTML=`
+    <div class="stat"><div class="k">บิลเงินสดทั้งหมด</div><div class="v">${fmtInt(cashRows.length)}</div></div>
+    <div class="stat"><div class="k">🏷️ ออกเลขแล้ว</div><div class="v">${fmtInt(nIssued)}</div></div>
+    <div class="stat g"><div class="k">💾 บันทึกลงระบบแล้ว</div><div class="v">${fmtInt(nSaved)}</div></div>
+    <div class="stat n"><div class="k">ยังไม่ออกเลข</div><div class="v">${fmtInt(cashRows.length-nIssued)}</div></div>
+    <div class="stat"><div class="k">ยอดรวมทุกบิล</div><div class="v">${money(total)}</div></div>`;
+  $('cashHead').innerHTML=`<tr><th style="width:4%">#</th><th style="width:18%">ลูกค้า</th><th style="width:13%">ร้าน (ผู้ออก)</th><th style="width:9%">วันที่</th><th style="width:22%">รายการ</th><th class="num" style="width:10%">ยอดรวม</th><th style="width:10%">เลขเอกสาร</th><th style="width:14%">จัดการ</th></tr>`;
+  $('cashBody').innerHTML = rows.length? rows.map((r,i)=>{
+    const f=docForm[r.key]||{lines:[]};
+    const dn=docIssued[r.key]||'';
+    const st=cashState(r.key);
+    const badge = dn ? (st==='draft'
+        ? ' <span style="font-size:10px;background:#eaf1fb;color:#1c4e87;border:1px solid #bcd4f0;padding:1px 6px;border-radius:6px;white-space:nowrap">ยังไม่บันทึก</span>'
+        : ' <span style="font-size:10px;background:#e7f6ec;color:#0a7d33;border:1px solid #b5e0c3;padding:1px 6px;border-radius:6px;white-space:nowrap">บันทึกแล้ว</span>') : '';
+    const lineTxt=(f.lines||[]).length
+      ? htmlesc(f.lines[0].desc)+((f.lines.length>1)?` <span style="color:var(--muted)">+อีก ${f.lines.length-1} รายการ</span>`:'')
+      : '<span style="color:var(--muted)">— ยังไม่มีรายการ —</span>';
+    const noCell = dn ? `${dn} <button class="icon-act" data-act="editno" data-key="${htmlesc(r.key)}" title="แก้ไขเลข">✏️</button>` : '—';
+    let act = dn
+      ? `<button class="icon-act" data-act="save" data-key="${htmlesc(r.key)}" title="${docSaved.has(r.key)?'บันทึกแล้ว (กดเพื่ออัปเดต)':'บันทึกใบเสร็จ'}">${docSaved.has(r.key)?'✅':'💾'}</button> <button class="icon-act" data-act="view" data-key="${htmlesc(r.key)}" title="ดูบิล / ดาวน์โหลด">👁️</button>`
+      : `<button class="btn btn-primary btn-sm" data-act="issue" data-key="${htmlesc(r.key)}">ออกเลข</button>`;
+    act += ` <button class="icon-act" data-act="editbill" data-key="${htmlesc(r.key)}" title="แก้ไขรายละเอียดบิล">📝</button>`;
+    act += ` <button class="icon-act" data-act="delbill" data-key="${htmlesc(r.key)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`;
+    return `<tr${dn?' style="background:#fffaf2"':''}>
+      <td class="c" style="text-align:center;color:var(--muted)">${i+1}</td>
+      <td title="${htmlesc(r.customer)}">${r.customer?htmlesc(r.customer):'<span style="color:var(--muted)">—</span>'}${badge}</td>
+      <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${htmlesc(r.date||'')}</td>
+      <td>${lineTxt}</td>
+      <td class="num">${money(r.ftotal)}</td>
+      <td class="ord">${noCell}</td>
+      <td>${act}</td></tr>`;
+  }).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">ไม่พบรายการ</td></tr>`;
+  $('cashInfo').textContent=`แสดง ${fmtInt(rows.length)} / ${fmtInt(cashRows.length)} บิล`;
+}
+/* ---- ออกเลข / บันทึก ทั้งหมด ---- */
+async function cashIssueAll(){
+  if(!dbReady()) return;
+  const pend=cashRows.filter(r=>!docIssued[r.key] && docForm[r.key] && docForm[r.key].lines.length);
+  if(!pend.length){ toast('ไม่มีบิลที่พร้อมออกเลข (ต้องมีรายการสินค้าอย่างน้อย 1 รายการ)'); return; }
+  if(!confirm(`ออกเลขเอกสารให้ ${pend.length} บิลเงินสด?\n(ยังไม่บันทึกลงระบบจนกว่าจะกดบันทึก)`)) return;
+  await loadIssuedKeepDraft();
+  for(const r of pend){ const dn=docNoStr(nextSeqLocal()); docIssued[r.key]=dn; docDraft.add(r.key); }
+  renderCash(); toast(`ออกเลขแล้ว ${pend.length} บิล (ยังไม่บันทึก) — กด 💾 บันทึกทั้งหมดเพื่อยืนยัน`);
+}
+async function loadIssuedKeepDraft(){
+  // ดึงเลขล่าสุดจาก DB โดยไม่ทิ้ง draft ในเครื่อง
+  if(!sb) return;
+  const draftKeys=[...docDraft]; const draftNos={}; draftKeys.forEach(k=>draftNos[k]=docIssued[k]);
+  await loadIssued();
+  draftKeys.forEach(k=>{ if(draftNos[k] && !docIssued[k]){ docIssued[k]=draftNos[k]; docDraft.add(k); } });
+}
+async function cashSaveAll(){
+  if(!dbReady()) return;
+  const pend=cashRows.filter(r=>docIssued[r.key] && !docSaved.has(r.key));
+  if(!pend.length){ toast('ไม่มีบิลที่ออกเลขแล้วและยังไม่บันทึก'); return; }
+  const btn=$('cashSaveAllBtn'); btn.disabled=true; const lb=btn.textContent;
+  let ok=0,fail=0;
+  for(const r of pend){
+    btn.textContent=`กำลังบันทึก ${ok+fail+1}/${pend.length}...`;
+    try{ await saveReceiptData(r.key); ok++; }
+    catch(err){ fail++; console.error(r.key,err); }
+  }
+  btn.disabled=false; btn.textContent=lb;
+  renderCash(); toast(`บันทึกแล้ว ${ok} บิล`+(fail?` · ล้มเหลว ${fail}`:''), !!fail);
+}
+/* ---- ส่งออก Excel ---- */
+function cashExport(){
+  if(!cashRows.length){ toast('ยังไม่มีข้อมูล',true); return; }
+  const aoa=[['เลขเอกสาร','วันที่','ชื่อร้าน','ชื่อลูกค้า','ที่อยู่ลูกค้า','เลขผู้เสียภาษี','สาขา','ลำดับ','คำอธิบาย','จำนวน','ราคาต่อหน่วย','จำนวนเงิน','ยอดรวมบิล','สถานะ']];
+  cashRows.forEach(r=>{
+    const f=docForm[r.key]||{lines:[]};
+    const st=cashState(r.key)==='saved'?'บันทึกแล้ว':cashState(r.key)==='draft'?'ออกเลข ยังไม่บันทึก':'ยังไม่ออกเลข';
+    if(!(f.lines||[]).length){ aoa.push([docIssued[r.key]||'',f.date,f.shop,f.customer,f.addr,f.tax,f.branch,'','','','','',r.ftotal,st]); return; }
+    f.lines.forEach((l,i)=>{
+      aoa.push(i===0
+        ? [docIssued[r.key]||'',f.date,f.shop,f.customer,f.addr,f.tax,f.branch,l.no,l.desc,l.qty,l.unit,l.amount,r.ftotal,st]
+        : ['','','','','','','',l.no,l.desc,l.qty,l.unit,l.amount,'','']);
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:11},{wch:11},{wch:16},{wch:32},{wch:44},{wch:15},{wch:10},{wch:6},{wch:30},{wch:8},{wch:12},{wch:12},{wch:12},{wch:18}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'บิลเงินสด');
+  XLSX.writeFile(wb,'MASARU_บิลเงินสด.xlsx'); toast('ส่งออกแล้ว');
+}
+/* ---- wiring ---- */
+$('cashUpCard').onclick=()=>$('cashInput').click();
+$('cashInput').onchange=e=>{ const f=e.target.files[0]; if(f) handleCashFile(f); e.target.value=''; };
+$('cashNewCard').onclick=newCashBill;
+$('cashIssueAllBtn').onclick=cashIssueAll;
+$('cashSaveAllBtn').onclick=cashSaveAll;
+$('cashSigBtn').onclick=()=>$('sigBtn').click();
+$('cashExportBtn').onclick=cashExport;
+$('cashSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderCash,200); };
+$('cashFilter').onchange=renderCash;
+$('cashBody').onclick=e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const key=b.dataset.key;
+  if(b.dataset.act==='issue' || b.dataset.act==='editno') openDocEdit(key);
+  else if(b.dataset.act==='save') saveReceipt(key);
+  else if(b.dataset.act==='view'){ const f=docForm[key]; if(f) openPreview(f, docIssued[key], 'ใบเสร็จ_'+docIssued[key]+'.pdf', mySignature); }
+  else if(b.dataset.act==='editbill') openBill(key);
+  else if(b.dataset.act==='delbill') deleteBill(key);
+};
 </script>
 </body>
 </html>
