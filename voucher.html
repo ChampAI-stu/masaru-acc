@@ -311,15 +311,32 @@ async function readFile(f){
       let hi=-1;
       for(let i=0;i<Math.min(aoa.length,15);i++){
         const cells=(aoa[i]||[]).map(norm);
-        if(cells.some(c=>HDR.no.test(c)) && cells.some(c=>HDR.amt.test(c)) && cells.some(c=>HDR.from.test(c))){ hi=i; break; }
+        if(cells.some(c=>HDR.no.test(c)) && cells.some(c=>HDR.from.test(c))){ hi=i; break; }
       }
       if(hi<0) continue;
       const H=(aoa[hi]||[]).map(norm);
-      const col=k=>H.findIndex(h=>HDR[k].test(h));
-      const cNo=col('no'),cDate=col('date'),cFrom=col('from'),cAcc=col('acc'),cAmt=col('amt'),cCr=col('cr');
+      const col=k=>H.findIndex(h=>h && HDR[k].test(h));
+      const cNo=col('no'),cDate=col('date'),cFrom=col('from'),cAcc=col('acc'),cCr=col('cr');
+      let cAmt=col('amt');
       const raw=wb.Sheets[name];
       const aoaD=XLSX.utils.sheet_to_json(raw,{header:1,defval:'',raw:true,cellDates:false});
-      // จับกลุ่มตามเลข RV — 1 ใบมีได้หลายบรรทัด DR (เงินฝาก + ค่าธรรมเนียมหักลบ)
+      // ถ้าหัวคอลัมน์ยอดเงินไม่มีชื่อ (เช่นไฟล์ที่หัวคอลัมน์ F ว่าง) → เดาจากข้อมูล: คอลัมน์ที่เป็นตัวเลขมากสุด
+      if(cAmt<0){
+        const known=new Set([cNo,cDate,cFrom,cAcc,cCr]);
+        const cnt={};
+        for(let i=hi+1;i<Math.min(aoaD.length,hi+60);i++){
+          const r=aoaD[i]||[];
+          for(let c=0;c<r.length;c++){
+            if(known.has(c)) continue;
+            if(toNum(r[c])!=null) cnt[c]=(cnt[c]||0)+1;
+          }
+        }
+        let bestC=-1,bestN=0;
+        for(const c in cnt){ if(cnt[c]>bestN){bestN=cnt[c];bestC=+c;} }
+        if(bestN>=2) cAmt=bestC;
+      }
+      if(cAmt<0) continue;
+      // จับกลุ่มตามเลขเอกสาร (RV/RT/เลขขึ้นต้นตัวอักษร+ตัวเลข) — 1 ใบมีได้หลายบรรทัด DR (เงินฝาก + ค่าธรรมเนียมหักลบ)
       const list=[]; let cur=null;
       for(let i=hi+1;i<aoaD.length;i++){
         const r=aoaD[i]||[]; const no=norm(r[cNo]);
@@ -327,7 +344,7 @@ async function readFile(f){
         const acc=norm(r[cAcc]);
         const from=norm(r[cFrom]); const date=excelDate(r[cDate]);
         const crAcc=cCr>=0?norm(r[cCr]):'';
-        if(/^RV/i.test(no)){
+        if(/^[A-Za-z]{1,4}\d{3,}/.test(no)){
           if(!cur || cur.no!==no){ cur={ no, date, from, crAcc:crAcc||'ลูกหนี้การค้า', lines:[] }; list.push(cur); }
           if(!cur.date && date) cur.date=date;
           if(!cur.from && from) cur.from=from;
