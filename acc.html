@@ -574,6 +574,22 @@ function toNum(v){
   const n = parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,''));
   return isNaN(n) ? null : n;
 }
+/* ซ่อมไฟล์ที่ประกาศขนาดตาราง (!ref) ผิด เช่นไฟล์ TikTok ที่บอกว่ามีแค่ 2 แถวทั้งที่ข้อมูลจริงมีมากกว่า */
+function fixWorkbookRanges(wb){
+  for(const sn of wb.SheetNames){
+    const ws = wb.Sheets[sn];
+    let maxR=0, maxC=0, found=false;
+    for(const k in ws){
+      if(k[0]==='!') continue;
+      const c = XLSX.utils.decode_cell(k);
+      if(c.r>maxR) maxR=c.r;
+      if(c.c>maxC) maxC=c.c;
+      found=true;
+    }
+    if(found) ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:maxR, c:maxC}});
+  }
+  return wb;
+}
 function fmtNum(n){
   if(n==null||n==='') return '';
   return Number(n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -657,7 +673,7 @@ function parseSheet(aoa, forcedPlatform){
 
 async function readFile(file){
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, {type:'array'});
+  const wb = fixWorkbookRanges(XLSX.read(buf, {type:'array'}));
   // ลองทุก sheet เลือก sheet ที่ parse ได้แถวมากสุด
   let best = {platform:null, rows:[]};
   for(const sn of wb.SheetNames){
@@ -732,7 +748,7 @@ async function handleFiles(fileArr, forcedPlatform){
   for(const file of fileArr){
     try{
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, {type:'array'});
+      const wb = fixWorkbookRanges(XLSX.read(buf, {type:'array'}));
       const sheets = wb.SheetNames.map(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:'', raw:true}));
       // ลองทุก sheet ด้วยแพลตฟอร์มที่บังคับ เลือก sheet ที่ได้แถวมากสุด
       let best={platform:null,rows:[],matched:false};
@@ -930,82 +946,36 @@ function findColBy(header, cands){
   for(const c of cands){ const i=header.findIndex(h=>norm(h).toLowerCase().includes(c)); if(i!==-1) return i; }
   return -1;
 }
-const TRACK_NAMES=['tracking number','tracking no.','tracking no','tracking id','tracking code','tracking','awb','waybill','consignment','barcode','pno','parcel no','parcel code','shipment id','เลขพัสดุ','เลขที่พัสดุ','หมายเลขพัสดุ','รหัสพัสดุ','เลขติดตาม','เลขติดตามพัสดุ','เลขแทรค','พัสดุ'];
-const ORDER_NAMES=['order no','order number','order id','order','เลขออเดอร์','รหัสคำสั่งซื้อ','หมายเลขคำสั่งซื้อ','เลขที่ออเดอร์'];
+const TRACK_NAMES=['tracking number','tracking no','tracking','เลขพัสดุ','เลขติดตาม','เลขแทรค'];
+const ORDER_NAMES=['order no','order number','order','เลขออเดอร์','รหัสคำสั่งซื้อ','หมายเลขคำสั่งซื้อ'];
 const PICKUP_NAMES=['pickup date','วันที่รับ','วันรับพัสดุ','วันที่'];
-/* ค่าที่ "หน้าตาเหมือนเลขพัสดุ" — ใช้เดาคอลัมน์เมื่อหาหัวตารางไม่เจอ */
-const TRACK_VAL_RE=/^(?=.*\d)[A-Z0-9][A-Z0-9\-]{7,24}$/i;
-
-/* ซ่อม !ref ที่ผิด — ไฟล์ Flash/COD Remittance บาง export ระบุช่วงตารางแค่แถวเดียว
-   ทำให้ sheet_to_json อ่านได้ไม่ครบ จนหาหัวคอลัมน์ Tracking number ไม่เจอ */
-function fixShipRange(ws){
-  try{
-    let minR=Infinity,minC=Infinity,maxR=-1,maxC=-1;
-    Object.keys(ws).forEach(k=>{ if(k[0]==='!') return; const c=XLSX.utils.decode_cell(k);
-      if(c.r<minR)minR=c.r; if(c.c<minC)minC=c.c; if(c.r>maxR)maxR=c.r; if(c.c>maxC)maxC=c.c; });
-    if(maxR>=0) ws['!ref']=XLSX.utils.encode_range({s:{r:minR,c:minC},e:{r:maxR,c:maxC}});
-  }catch(e){ console.warn('fixShipRange',e); }
-}
-
-/* เดาคอลัมน์เลขพัสดุจากค่าในตาราง (fallback เมื่อหัวคอลัมน์ชื่อแปลก) */
-function guessTrackCol(aoa){
-  const scan=Math.min(aoa.length,300);
-  let width=0;
-  for(let r=0;r<scan;r++) width=Math.max(width,(aoa[r]||[]).length);
-  let bestCol=-1,bestHit=0,bestStart=-1;
-  for(let c=0;c<width;c++){
-    let hit=0,start=-1;
-    for(let r=0;r<scan;r++){
-      const v=norm((aoa[r]||[])[c]);
-      if(TRACK_VAL_RE.test(v)){ hit++; if(start===-1) start=r; }
-    }
-    if(hit>bestHit){ bestHit=hit; bestCol=c; bestStart=start; }
-  }
-  return bestHit>=5 ? {col:bestCol,startRow:bestStart} : null;
-}
 
 async function handleShipFiles(fileArr){
   let all=[], names=[];
   for(const file of fileArr){
     try{
       const buf=await file.arrayBuffer();
-      const wb=XLSX.read(buf,{type:'array'});
-      let best=[], bestSrc='', heads=[];
+      const wb=fixWorkbookRanges(XLSX.read(buf,{type:'array'}));
+      let best=[];
       for(const sn of wb.SheetNames){
-        const ws=wb.Sheets[sn]; if(!ws) continue;
-        fixShipRange(ws);
-        const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
-        if(!aoa.length) continue;
-        let start=-1,ti=-1,oi=-1,pi=-1,mode='';
-        for(let r=0;r<Math.min(aoa.length,50);r++){
+        const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+        let hr=-1,ti=-1,oi=-1,pi=-1;
+        for(let r=0;r<Math.min(aoa.length,20);r++){
           const t=findColBy(aoa[r]||[],TRACK_NAMES);
-          if(t!==-1){ start=r+1; ti=t; oi=findColBy(aoa[r]||[],ORDER_NAMES); pi=findColBy(aoa[r]||[],PICKUP_NAMES); mode='หัวคอลัมน์'; break; }
+          if(t!==-1){ hr=r; ti=t; oi=findColBy(aoa[r]||[],ORDER_NAMES); pi=findColBy(aoa[r]||[],PICKUP_NAMES); break; }
         }
-        if(start===-1){
-          const g=guessTrackCol(aoa);
-          if(g){ start=g.startRow; ti=g.col; mode='เดาจากรูปแบบเลข'; }
-        }
-        if(start===-1){
-          const h=(aoa.find(r=>(r||[]).some(x=>norm(x)!==''))||[]).map(norm).filter(Boolean);
-          if(h.length) heads.push(sn+' → '+h.slice(0,8).join(' | '));
-          continue;
-        }
+        if(hr===-1) continue;
         const rows=[];
-        for(let r=start;r<aoa.length;r++){
+        for(let r=hr+1;r<aoa.length;r++){
           const row=aoa[r]||[];
           const tr=norm(row[ti]);
           if(!tr) continue;
-          if(mode==='หัวคอลัมน์'){ if(!/\d/.test(tr)) continue; }   // ตัดแถวสรุป เช่น Total / รวม
-          else if(!TRACK_VAL_RE.test(tr)) continue;
           rows.push({tracking:tr, order: oi>=0?norm(row[oi]):'', pickup: pi>=0?norm(row[pi]):''});
         }
-        if(rows.length>best.length){ best=rows; bestSrc=sn+' ('+mode+')'; }
+        if(rows.length>best.length) best=rows;
       }
-      if(best.length){ all=all.concat(best); names.push(file.name+' · ชีต '+bestSrc); }
-      else{
-        console.warn('ไม่พบคอลัมน์เลขพัสดุใน '+file.name, heads);
-        toast('ไฟล์ '+file.name+' ไม่พบคอลัมน์เลขพัสดุ'+(heads.length?' · หัวตารางที่เจอ: '+heads[0]:''), true);
-      }
+      if(best.length){ all=all.concat(best); names.push(file.name); }
+      else toast('ไฟล์ '+file.name+' ไม่พบคอลัมน์ Tracking number', true);
     }catch(err){ toast('อ่านไฟล์ '+file.name+' ไม่ได้',true); console.error(err); }
   }
   if(!all.length) return;
@@ -1013,7 +983,7 @@ async function handleShipFiles(fileArr){
   $('shipFileList').innerHTML = names.map(n=>`
     <div class="fcard">
       <span class="status-dot" style="background:var(--red)"></span>
-      <div class="fname">${n}<div class="fmeta">ดึงเลขพัสดุอัตโนมัติ (Tracking / พัสดุ / Barcode)</div></div>
+      <div class="fname">${n}<div class="fmeta">ดึงเลขพัสดุจากคอลัมน์ Tracking number</div></div>
       <span class="badge" style="background:var(--navy)">ขนส่ง</span>
     </div>`).join('');
   renderShip();
@@ -1153,7 +1123,7 @@ function parseSkuString(s){
 async function handleCostOrder(file){
   try{
     const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array'});
+    const wb=fixWorkbookRanges(XLSX.read(buf,{type:'array'}));
     let best=[];
     for(const sn of wb.SheetNames){
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
@@ -1183,7 +1153,7 @@ async function importCostToDB(file){
   if(!dbReady()) return;
   try{
     const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array'});
+    const wb=fixWorkbookRanges(XLSX.read(buf,{type:'array'}));
     let bestCand=null;
     for(const sn of wb.SheetNames){
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
