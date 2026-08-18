@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
@@ -590,6 +591,112 @@ function fixWorkbookRanges(wb){
   }
   return wb;
 }
+
+/* ============ อ่านไฟล์ ZIP64 (เช่น export จาก JST) ที่ XLSX อ่านไม่ได้ ============ */
+function _unzip64(u8){
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  let eocd=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-65558);i--){ if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;} }
+  if(eocd<0) throw new Error('no EOCD');
+  let cdOff=dv.getUint32(eocd+16,true), cnt=dv.getUint16(eocd+10,true);
+  if(cdOff===0xFFFFFFFF||cnt===0xFFFF){
+    for(let i=eocd-20;i>=0;i--){ if(dv.getUint32(i,true)===0x07064b50){ const z=Number(dv.getBigUint64(i+8,true)); cnt=Number(dv.getBigUint64(z+32,true)); cdOff=Number(dv.getBigUint64(z+48,true)); break; } }
+  }
+  const files={}; let p=cdOff;
+  for(let n=0;n<cnt;n++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true);
+    let csize=dv.getUint32(p+20,true), usize=dv.getUint32(p+24,true);
+    const nlen=dv.getUint16(p+28,true), elen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true);
+    let lho=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nlen));
+    let ep=p+46+nlen; const eend=ep+elen;
+    while(ep+4<=eend){
+      const id=dv.getUint16(ep,true), sz=dv.getUint16(ep+2,true);
+      if(id===0x0001){ let q=ep+4;
+        if(usize===0xFFFFFFFF){usize=Number(dv.getBigUint64(q,true));q+=8;}
+        if(csize===0xFFFFFFFF){csize=Number(dv.getBigUint64(q,true));q+=8;}
+        if(lho===0xFFFFFFFF){lho=Number(dv.getBigUint64(q,true));q+=8;}
+      }
+      ep+=4+sz;
+    }
+    const lnlen=dv.getUint16(lho+26,true), lelen=dv.getUint16(lho+28,true);
+    const dataOff=lho+30+lnlen+lelen;
+    const raw=u8.subarray(dataOff,dataOff+csize);
+    files[name]= method===0 ? raw.slice() : fflate.inflateSync(raw,{out:new Uint8Array(usize)});
+    p=p+46+nlen+elen+clen;
+  }
+  return files;
+}
+function _colToIdx(s){ let n=0; for(let i=0;i<s.length;i++) n=n*26+(s.charCodeAt(i)-64); return n-1; }
+function _decodeEnt(s){
+  if(s.indexOf('&')<0) return s;
+  return s.replace(/&#(\d+);/g,(_,d)=>String.fromCharCode(+d))
+          .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+}
+function _parseSst(xml){
+  const out=[]; const re=/<si>([\s\S]*?)<\/si>/g; let m;
+  while((m=re.exec(xml))!==null){
+    let t=''; const tre=/<t[^>]*>([\s\S]*?)<\/t>/g; let tm;
+    while((tm=tre.exec(m[1]))!==null) t+=_decodeEnt(tm[1]);
+    out.push(t);
+  }
+  return out;
+}
+function _sheetXmlToAoa(xml, sst){
+  const aoa=[];
+  let i=xml.indexOf('<sheetData'); if(i<0) return aoa;
+  const cellRe=/<c r="([A-Z]+)(\d+)"(?:[^>]*?t="([^"]*)")?[^>]*?(?:\/>|>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<is\/>|<v>([\s\S]*?)<\/v>)?<\/c>)/g;
+  cellRe.lastIndex=i;
+  let m;
+  while((m=cellRe.exec(xml))!==null){
+    const c=_colToIdx(m[1]), r=+m[2]-1, t=m[3];
+    let v='';
+    if(m[4]!=null) v=_decodeEnt(m[4]);
+    else if(m[5]!=null){ v = t==='s' && sst ? (sst[+m[5]]||'') : _decodeEnt(m[5]); }
+    else continue;
+    (aoa[r]||(aoa[r]=[]))[c]=v;
+  }
+  let maxC=0;
+  for(let r=0;r<aoa.length;r++){ if(!aoa[r]) aoa[r]=[]; if(aoa[r].length>maxC) maxC=aoa[r].length; }
+  for(let r=0;r<aoa.length;r++){ const row=aoa[r]; for(let c=0;c<maxC;c++) if(row[c]===undefined) row[c]=''; }
+  return aoa;
+}
+function _readZip64Workbook(u8){
+  const files=_unzip64(u8);
+  const dec=b=>new TextDecoder().decode(b);
+  const sst = files['xl/sharedStrings.xml'] ? _parseSst(dec(files['xl/sharedStrings.xml'])) : null;
+  // ชื่อชีทจาก workbook.xml (เรียงตามลำดับ) จับคู่กับ sheetN.xml เรียงตามเลข
+  let names=[];
+  if(files['xl/workbook.xml']){
+    const wx=dec(files['xl/workbook.xml']); const re=/<sheet [^>]*name="([^"]*)"/g; let m;
+    while((m=re.exec(wx))!==null) names.push(_decodeEnt(m[1]));
+  }
+  const sheetFiles=Object.keys(files).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k))
+    .sort((a,b)=>+a.match(/\d+/)[0]-+b.match(/\d+/)[0]);
+  const wb={SheetNames:[], __aoa:{}, Sheets:{}};
+  sheetFiles.forEach((f,i)=>{
+    const nm=names[i]||('Sheet'+(i+1));
+    wb.SheetNames.push(nm);
+    wb.__aoa[nm]=_sheetXmlToAoa(dec(files[f]), sst);
+  });
+  return wb;
+}
+/* อ่าน workbook แบบกันพัง: XLSX ปกติก่อน → ถ้าพัง (ไฟล์ ZIP64 จาก JST) ใช้ตัวอ่านสำรอง */
+async function readWorkbookSafe(buf){
+  try{ return fixWorkbookRanges(XLSX.read(buf,{type:'array'})); }
+  catch(err){
+    console.warn('XLSX.read ล้มเหลว → ใช้ตัวอ่าน ZIP64 สำรอง', err);
+    toast('ไฟล์รูปแบบพิเศษ (เช่น export จาก JST) — กำลังแตกไฟล์ อาจใช้เวลา 20–60 วินาที กรุณารอ...');
+    await new Promise(r=>setTimeout(r,80));
+    return _readZip64Workbook(new Uint8Array(buf));
+  }
+}
+/* ดึง AOA จาก workbook ไม่ว่ามาจากทางไหน */
+function getAoa(wb, sn, raw){
+  if(wb.__aoa) return wb.__aoa[sn]||[];
+  return XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:raw!==false});
+}
 function fmtNum(n){
   if(n==null||n==='') return '';
   return Number(n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -673,11 +780,11 @@ function parseSheet(aoa, forcedPlatform){
 
 async function readFile(file){
   const buf = await file.arrayBuffer();
-  const wb = fixWorkbookRanges(XLSX.read(buf, {type:'array'}));
+  const wb = await readWorkbookSafe(buf);
   // ลองทุก sheet เลือก sheet ที่ parse ได้แถวมากสุด
   let best = {platform:null, rows:[]};
   for(const sn of wb.SheetNames){
-    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:'', raw:true});
+    const aoa = getAoa(wb, sn, true);
     const res = parseSheet(aoa);
     if(!res.platform) continue;
     res._score = (res.matched?1e9:0) + res.rows.filter(r=>r.amount!=null).length*1000 + res.rows.length;
@@ -750,8 +857,8 @@ async function handleFiles(fileArr, forcedPlatform){
   for(const file of fileArr){
     try{
       const buf = await file.arrayBuffer();
-      const wb = fixWorkbookRanges(XLSX.read(buf, {type:'array'}));
-      const sheets = wb.SheetNames.map(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:'', raw:true}));
+      const wb = await readWorkbookSafe(buf);
+      const sheets = wb.SheetNames.map(sn => getAoa(wb, sn, true));
       // ลองทุก sheet ด้วยแพลตฟอร์มที่บังคับ เลือก sheet ที่ได้แถวมากสุด
       let best={platform:null,rows:[],matched:false};
       for(const aoa of sheets){
@@ -960,10 +1067,10 @@ async function handleShipFiles(fileArr){
   for(const file of fileArr){
     try{
       const buf=await file.arrayBuffer();
-      const wb=fixWorkbookRanges(XLSX.read(buf,{type:'array'}));
+      const wb=await readWorkbookSafe(buf);
       let best=[];
       for(const sn of wb.SheetNames){
-        const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+        const aoa=getAoa(wb, sn, false);
         let hr=-1,ti=-1,oi=-1,pi=-1;
         for(let r=0;r<Math.min(aoa.length,20);r++){
           const t=findColBy(aoa[r]||[],TRACK_NAMES);
@@ -1128,10 +1235,10 @@ function parseSkuString(s){
 async function handleCostOrder(file){
   try{
     const buf=await file.arrayBuffer();
-    const wb=fixWorkbookRanges(XLSX.read(buf,{type:'array'}));
+    const wb=await readWorkbookSafe(buf);
     let best=[];
     for(const sn of wb.SheetNames){
-      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+      const aoa=getAoa(wb, sn, false);
       let hr=-1,pi=-1,oi=-1,pri=-1;
       for(let r=0;r<Math.min(aoa.length,20);r++){
         const p=findColBy(aoa[r]||[],PRODUCT_NAMES);
@@ -1158,10 +1265,10 @@ async function importCostToDB(file){
   if(!dbReady()) return;
   try{
     const buf=await file.arrayBuffer();
-    const wb=fixWorkbookRanges(XLSX.read(buf,{type:'array'}));
+    const wb=await readWorkbookSafe(buf);
     let bestCand=null;
     for(const sn of wb.SheetNames){
-      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+      const aoa=getAoa(wb, sn, false);
       let hr=-1,si=-1,ci=-1;
       for(let r=0;r<Math.min(aoa.length,20);r++){
         const s=findColBy(aoa[r]||[],COST_SKU_NAMES), c=findCostCol(aoa[r]||[]);
