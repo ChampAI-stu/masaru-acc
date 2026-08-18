@@ -679,7 +679,9 @@ async function readFile(file){
   for(const sn of wb.SheetNames){
     const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:'', raw:true});
     const res = parseSheet(aoa);
-    if(res.platform && res.rows.length > best.rows.length) best = res;
+    if(!res.platform) continue;
+    res._score = (res.matched?1e9:0) + res.rows.filter(r=>r.amount!=null).length*1000 + res.rows.length;
+    if(best._score===undefined || res._score>best._score) best = res;
   }
   return best;
 }
@@ -754,7 +756,10 @@ async function handleFiles(fileArr, forcedPlatform){
       let best={platform:null,rows:[],matched:false};
       for(const aoa of sheets){
         const res = parseSheet(aoa, forcedPlatform);
-        if(res.platform && res.rows.length>best.rows.length) best=res;
+        if(!res.platform) continue;
+        // คะแนนชีท: ชีทที่ detect หัวตารางเจอจริงชนะชีทที่เดาเสมอ → แล้วค่อยดูจำนวนแถวที่มียอดเงิน → แล้วจำนวนแถวรวม
+        res._score = (res.matched?1e9:0) + res.rows.filter(r=>r.amount!=null).length*1000 + res.rows.length;
+        if(best._score===undefined || res._score>best._score) best=res;
       }
       if(!best.platform){ toast('ไฟล์ '+file.name+' อ่านไม่ได้ หรือไม่ใช่รูปแบบ '+forcedPlatform, true); continue; }
       if(!best.matched) warnMismatch++;
