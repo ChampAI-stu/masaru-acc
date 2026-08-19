@@ -344,7 +344,7 @@ async function readFile(f){
         const acc=norm(r[cAcc]);
         const from=norm(r[cFrom]); const date=excelDate(r[cDate]);
         const crAcc=cCr>=0?norm(r[cCr]):'';
-        if(/^[A-Za-z]{1,4}\d{3,}/.test(no)){
+        if(/^[A-Za-z][A-Za-z\-\/\.]{0,9}\d{3,}/.test(no)){
           if(!cur || cur.no!==no){ cur={ no, date, from, crAcc:crAcc||'ลูกหนี้การค้า', lines:[] }; list.push(cur); }
           if(!cur.date && date) cur.date=date;
           if(!cur.from && from) cur.from=from;
