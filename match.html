@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · จับคู่ยอดถอนเงิน ↔ ใบสำคัญรับ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--navy-deep:#16233F;--navy:#1F3864;--blue:#2E75B6;--red:#D81F2C;--red-dk:#AE1420;
+    --ink:#1a2233;--muted:#667085;--line:#e4e8ef;--bg:#f3f5f9;--card:#fff;--shadow:0 2px 10px rgba(20,40,80,.06);--gold:#C8A24B;--green:#0a7d33;--flash:#FFD400;--amber:#b06d00}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 20px}
+  header{background:#161616;color:#fff;padding:16px 0;border-bottom:4px solid var(--flash)}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px;color:#fff}.brand span{color:var(--flash)}
+  .tool-title{font-size:13px;color:#cfcfcf;border-left:1px solid #444;padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:24px 0 70px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}.btn:disabled{opacity:.45;cursor:default}
+  .btn-primary{background:#161616;color:var(--flash)}
+  .btn-gold{background:var(--flash);color:#161616}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.spacer{flex:1}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:#161616;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:var(--red-dk)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:.15s;background:#fffdf3}
+  .drop:hover{border-color:var(--flash);background:#fffbe6}
+  .drop.ok{border-color:#bfe6cb;background:#f2fbf5}
+  .drop .ic{font-size:30px}.drop .t{font-weight:700;margin-top:6px;font-size:15px}.drop .s{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .sec-label{font-weight:700;color:var(--navy);margin:0 0 10px;font-size:15px}
+  .filelist{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .fileitem{display:flex;align-items:center;gap:10px;background:#faf9f4;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;flex-wrap:wrap}
+  .fileitem.warn{background:#fff7e6;border-color:#f0d79a}
+  .fileitem .fn{font-weight:600;flex:1;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fileitem .meta{color:var(--muted);font-size:12px;white-space:nowrap}
+  .fileitem .rm{color:var(--red);cursor:pointer;font-weight:700;border:none;background:none;font-size:16px;line-height:1}
+  select,input[type=number]{font-family:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink)}
+  select.need{border-color:var(--red);background:#fdecec;font-weight:700}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:4px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:13px}
+  .stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:21px;font-weight:800;margin-top:3px;color:var(--navy)}
+  .stat.good{background:#f2fbf5;border-color:#bfe6cb}.stat.good .v{color:var(--green)}
+  .stat.bad{background:#fdecec;border-color:#f3b4b4}.stat.bad .v{color:var(--red)}
+  .stat.warn{background:#fff7e6;border-color:#f0d79a}.stat.warn .v{color:var(--amber)}
+  .stat.flash{background:#fffbe6;border-color:#f0e08a}.stat.flash .v{color:#161616}
+  .infobox{background:#eef4fb;border:1px solid #cfe0f2;border-radius:10px;padding:11px 14px;font-size:12.8px;line-height:1.65;margin-top:12px}
+  .warnbox{background:#fff7e6;border:1px solid #f0d79a;border-radius:10px;padding:11px 14px;font-size:12.8px;line-height:1.65;margin-top:12px}
+  .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 11px;text-align:left;font-weight:600;z-index:2}
+  tbody td{padding:6px 11px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  tr.grp td{background:#161616!important;color:var(--flash);font-weight:700;font-size:13px}
+  td.mono{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
+  td.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
+  .pill.ok{background:#dff3e4;color:var(--green)}
+  .pill.near{background:#fff2d6;color:var(--amber)}
+  .pill.no{background:#fdecec;color:var(--red-dk)}
+  .swatch{display:inline-block;width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.18);vertical-align:-2px;margin-right:6px}
+  .lbl{font-size:12.5px;color:var(--muted);font-weight:600}
+  .chk{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="brand">///MA<span>SA</span>RU</span>
+    <span class="tool-title">จับคู่ยอดถอนเงิน ↔ ใบสำคัญรับ · หาช่วงแถวที่ยอดรวมตรงกัน</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="grid2">
+    <!-- ===== ใบสำคัญรับ ===== -->
+    <div class="card">
+      <div class="sec-label">1️⃣ ไฟล์ใบสำคัญรับ (ยอดเป้าหมาย) · 1 ไฟล์</div>
+      <div class="drop" id="dropV">
+        <div class="ic">🧾</div>
+        <div class="t">ลากไฟล์ใบสำคัญรับมาวาง</div>
+        <div class="s">ต้องมีหัวคอลัมน์ <b>ชื่อร้าน</b> และ <b>จำนวนเงิน</b> (ช่อง H)<br>อ่าน: ชื่อร้าน · รอบบิล · เลขที่ · วันที่โอนเงิน · จำนวนเงิน</div>
+      </div>
+      <input type="file" id="fileV" accept=".xlsx,.xls" class="hidden">
+      <div id="vInfo" class="filelist"></div>
+    </div>
+
+    <!-- ===== รายการถอนเงิน ===== -->
+    <div class="card">
+      <div class="sec-label">2️⃣ ไฟล์รายการถอนเงิน (Transaction Overview) · หลายไฟล์ = หลายร้าน</div>
+      <div class="drop" id="dropW">
+        <div class="ic">📥</div>
+        <div class="t">ลากไฟล์รายการถอนเงินมาวาง (เลือกหลายไฟล์ได้)</div>
+        <div class="s">ระบบจับ<b>ชื่อร้านจากชื่อไฟล์</b> · ถ้าจับไม่ได้จะเดาจากยอดให้ แล้วให้เลือกเองได้<br>ยอดที่ใช้คำนวณ = ช่อง <b>H (Amount)</b></div>
+      </div>
+      <input type="file" id="fileW" accept=".xlsx,.xls" multiple class="hidden">
+      <div id="wList" class="filelist"></div>
+    </div>
+  </div>
+
+  <!-- ===== ตั้งค่า + ปุ่มรัน ===== -->
+  <div class="card" style="margin-top:16px">
+    <div class="row">
+      <span class="lbl">โหมดเทียบยอด:</span>
+      <select id="mode">
+        <option value="near">ตรงเป๊ะก่อน · ไม่เจอให้หาใกล้สุด (โชว์ส่วนต่าง)</option>
+        <option value="exact">ตรงเป๊ะเท่านั้น (ไม่ตรง = ข้าม)</option>
+      </select>
+      <span class="lbl" style="margin-left:8px">ไฮไลท์:</span>
+      <select id="hlMode">
+        <option value="h">เฉพาะช่อง H (เหมือนที่ทำมือ)</option>
+        <option value="row">ทั้งแถว (เห็นชัดกว่า)</option>
+      </select>
+      <span class="lbl" style="margin-left:8px">ทิศทางไฟล์:</span>
+      <select id="dir">
+        <option value="auto">ตรวจอัตโนมัติ</option>
+        <option value="desc">ใหม่ → เก่า (บนลงล่าง)</option>
+        <option value="asc">เก่า → ใหม่</option>
+      </select>
+      <label class="chk" style="margin-left:8px"><input type="checkbox" id="addSum"> เพิ่มชีต "สรุปจับคู่" ในไฟล์ที่ส่งออก</label>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="runBtn" disabled>🔍 จับคู่ยอด</button>
+      <button class="btn btn-sm" id="clearBtn">ล้างทั้งหมด</button>
+    </div>
+    <div class="infobox">
+      <b>วิธีทำงาน</b> — เรียงใบสำคัญรับของร้านนั้นตามวันที่โอนเงิน (ใหม่→เก่า ตามลำดับแถวในไฟล์ถอนเงิน)
+      แล้วไล่หา<b>ช่วงแถวติดกัน</b> (contiguous) ที่ผลรวมช่อง H = ยอดในใบสำคัญรับ ด้วย prefix-sum เทียบหน่วยสตางค์
+      · เจอแล้วเลื่อนตัวชี้ลงไปหาใบถัดไป ทำให้แต่ละบล็อคไม่ทับกัน
+      <br><b>หมายเหตุ</b> — ตัดกลุ่มด้วย<u>ลำดับแถว</u> ไม่ใช่ช่วงวันที่ เพราะ Lazada มีวันคาบเกี่ยวระหว่างรอบจ่ายเงิน
+    </div>
+    <div id="runWarn"></div>
+  </div>
+
+  <!-- ===== ผลลัพธ์ ===== -->
+  <div id="resultCard" class="card hidden" style="margin-top:16px">
+    <div class="row">
+      <div class="sec-label" style="margin:0">📊 ผลการจับคู่</div>
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-sm" id="expAllBtn">⬇️ ดาวน์โหลดทั้งหมด (ZIP)</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div id="legend" style="margin-top:12px;font-size:12.5px;color:var(--muted)"></div>
+    <div id="unmatched"></div>
+    <div class="tbl-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+    <div style="margin-top:10px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════ AUTH ═══════════════════════════ */
+const SUPABASE_URL='https://lcimzrwawxdagfpayoit.supabase.co';
+const SUPABASE_KEY='sb_publishable_T0zZ7zROtjwqS-M14I0xfw_OaQb51Hh';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+
+sb.auth.getSession().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata&&data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(e==='SIGNED_OUT'||!s) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+/* ═══════════════════════════ UTIL ═══════════════════════════ */
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),3200); }
+function toNum(v){ if(v==null||v==='')return null; if(typeof v==='number')return v;
+  const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmt(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtI(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* normalise ชื่อร้าน สำหรับเทียบ: ตัดช่องว่าง/._- ทั้งหมด + ตัวเล็ก */
+function keyStore(s){ return String(s==null?'':s).toLowerCase().replace(/[\s_\-.·]/g,''); }
+
+const MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+/* รองรับ 30-Aug-2026 / 2026-08-05 / Date object / serial ของ Excel */
+function parseDate(v){
+  if(v==null||v==='')return null;
+  if(v instanceof Date) return v;
+  if(typeof v==='number'){ const d=XLSX.SSF.parse_date_code(v); return d?new Date(d.y,d.m-1,d.d):null; }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3})[A-Za-z]*[-\/\s](\d{4})$/);
+  if(m){ const mo=MONTHS[m[2].toLowerCase()]; if(mo!=null) return new Date(+m[3],mo,+m[1]); }
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function dstr(d){ return d? d.toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
+
+/* สีไฮไลท์สลับต่อบล็อค (อ่านง่าย + พิมพ์ออกมาชัด) */
+const COLORS=[
+  {argb:'FFFFF29A', css:'#FFF29A', name:'เหลือง'},
+  {argb:'FFBFE3C4', css:'#BFE3C4', name:'เขียว'},
+  {argb:'FFB9DCF2', css:'#B9DCF2', name:'ฟ้า'},
+  {argb:'FFF7C9DD', css:'#F7C9DD', name:'ชมพู'},
+  {argb:'FFDCCCF2', css:'#DCCCF2', name:'ม่วง'},
+  {argb:'FFFFD3A8', css:'#FFD3A8', name:'ส้ม'},
+  {argb:'FFCFE8C0', css:'#CFE8C0', name:'เขียวอ่อน'},
+  {argb:'FFF2E1A8', css:'#F2E1A8', name:'ทอง'}
+];
+
+/* ═══════════════════════════ STATE ═══════════════════════════ */
+let voucher=null;   // {name, rows:[{store,cycle,docno,paydate,amount,rowNo}], stores:[]}
+let wfiles=[];      // {name, store, storeAuto, headers, rows(AOA), amounts[], hIdx, dateIdx, dir}
+let results=null;
+
+/* ═══════════════════════════ อ่านไฟล์ใบสำคัญรับ ═══════════════════════════ */
+const RE_STORE=/ชื่อร้าน|ร้าน|shop|store|seller/i;
+const RE_AMT  =/จำนวนเงิน|ยอดเงิน|ยอด|amount|จำนวน/i;
+const RE_DOC  =/เลขที่|เลขเอกสาร|doc|voucher|no\.?$/i;
+const RE_PAY  =/วันที่.*โอน|โอนเงิน|วันโอน|pay.*date|วันที่/i;
+const RE_CYCLE=/รอบบิล|รอบ|cycle|statement|period/i;
+
+function findHeader(aoa){
+  for(let i=0;i<Math.min(aoa.length,15);i++){
+    const cells=(aoa[i]||[]).map(norm);
+    if(cells.some(c=>RE_STORE.test(c)) && cells.some(c=>RE_AMT.test(c))) return i;
+  }
+  return -1;
+}
+async function readVoucher(f){
+  const buf=await f.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array',cellDates:true});
+  for(const sn of wb.SheetNames){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+    const hi=findHeader(aoa); if(hi<0) continue;
+    const H=(aoa[hi]||[]).map(norm);
+    const iStore=H.findIndex(h=>RE_STORE.test(h));
+    /* จำนวนเงิน: เอาช่อง H (index 7) ถ้าหัวตรง ไม่งั้นหาจากชื่อ — เลือกตัวขวาสุดที่ match กันปัญหา "จำนวน" ชนกับ "จำนวนเงิน" */
+    let iAmt=-1;
+    for(let c=H.length-1;c>=0;c--){ if(RE_AMT.test(H[c])){ iAmt=c; break; } }
+    if(H[7]&&RE_AMT.test(H[7])) iAmt=7;
+    if(iStore<0||iAmt<0) continue;
+    const iDoc=H.findIndex(h=>RE_DOC.test(h));
+    const iPay=H.findIndex((h,c)=>c!==iDoc&&RE_PAY.test(h));
+    const iCyc=H.findIndex(h=>RE_CYCLE.test(h));
+    const rows=[];
+    for(let r=hi+1;r<aoa.length;r++){
+      const R=aoa[r]||[]; const st=norm(R[iStore]); const am=toNum(R[iAmt]);
+      if(!st||am==null) continue;
+      rows.push({ store:st, amount:am, rowNo:r+1,
+        docno: iDoc>=0?norm(R[iDoc]):'', cycle: iCyc>=0?norm(R[iCyc]):'',
+        paydate: iPay>=0?parseDate(R[iPay]):null });
+    }
+    if(!rows.length) continue;
+    const stores=[...new Set(rows.map(r=>r.store))].sort((a,b)=>a.localeCompare(b,'th'));
+    return { name:f.name, sheet:sn, rows, stores, cols:{iStore,iAmt,iDoc,iPay,iCyc} };
+  }
+  return null;
+}
+
+/* ═══════════════════════════ อ่านไฟล์รายการถอนเงิน ═══════════════════════════ */
+const RE_TXDATE=/transaction\s*date|วันที่/i;
+const RE_TXAMT =/^amount$|^amount|จำนวนเงิน/i;
+
+async function readWithdraw(f){
+  const buf=await f.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array',cellDates:false});
+  for(const sn of wb.SheetNames){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+    /* หาแถวหัว: ต้องมี Amount */
+    let hi=-1;
+    for(let i=0;i<Math.min(aoa.length,15);i++){
+      const cells=(aoa[i]||[]).map(norm);
+      if(cells.some(c=>RE_TXAMT.test(c))){ hi=i; break; }
+    }
+    if(hi<0) continue;
+    const H=(aoa[hi]||[]).map(norm);
+    let hIdx = (H[7]&&RE_TXAMT.test(H[7])) ? 7 : H.findIndex(h=>RE_TXAMT.test(h));
+    if(hIdx<0) continue;
+    const dateIdx=H.findIndex(h=>RE_TXDATE.test(h));
+    const width=Math.max(H.length, ...aoa.slice(hi+1,hi+60).map(r=>(r||[]).length));
+    /* เก็บเฉพาะแถวที่มีข้อมูลจริง (ตัดแถวว่างที่อาจถูกแทรกไว้ก่อนหน้า) */
+    const rows=[];
+    for(let r=hi+1;r<aoa.length;r++){
+      const R=aoa[r]||[];
+      if(!R.some(x=>norm(x)!=='')) continue;
+      const am=toNum(R[hIdx]); if(am==null) continue;
+      const arr=new Array(width); for(let c=0;c<width;c++) arr[c]=R[c]==null?'':R[c];
+      rows.push(arr);
+    }
+    if(!rows.length) continue;
+    return { name:f.name, sheet:sn, headers:H.slice(0,width), rows, hIdx, dateIdx, width,
+             amounts:rows.map(r=>toNum(r[hIdx])||0) };
+  }
+  return null;
+}
+
+/* จับชื่อร้านจากชื่อไฟล์ */
+const NOISE=/(รายการถอนเงิน|รายการ_?ถอนเงิน|ถอนเงิน|transaction[\s_-]*overview|transaction|overview|statement|payout|report|export|final|copy|ล่าสุด|ใหม่)/gi;
+function storeFromName(fname, stores){
+  let base=fname.replace(/\.(xlsx|xls|csv)$/i,'');
+  const bk=keyStore(base);
+  /* 1) ชื่อร้านโผล่ในชื่อไฟล์ตรง ๆ — เลือกชื่อที่ยาวสุดที่ match (กัน "Original Mall.1" ชน "Original Mall") */
+  let hits=stores.filter(s=>bk.includes(keyStore(s)));
+  if(hits.length){ hits.sort((a,b)=>keyStore(b).length-keyStore(a).length); return {store:hits[0], how:'ชื่อไฟล์'}; }
+  /* 2) ตัดคำ noise แล้วลองเทียบแบบหลวม */
+  const cleaned=keyStore(base.replace(NOISE,'').replace(/\d+/g,''));
+  if(cleaned.length>=3){
+    hits=stores.filter(s=>{ const k=keyStore(s); return k.includes(cleaned)||cleaned.includes(k); });
+    if(hits.length===1) return {store:hits[0], how:'ชื่อไฟล์ (หลวม)'};
+  }
+  return {store:'', how:''};
+}
+/* เดาร้านจากยอด: ลองหาว่ายอดใบสำคัญรับของร้านไหน match ช่วงแถวติดกันในไฟล์นี้ได้มากที่สุด */
+function guessStoreByAmount(wf, voucher){
+  const cents=wf.amounts.map(a=>Math.round(a*100));
+  const pre=[0]; for(let i=0;i<cents.length;i++) pre.push(pre[i]+cents[i]);
+  const seen=new Map(); for(let i=0;i<=cents.length;i++) if(!seen.has(pre[i])) seen.set(pre[i],i);
+  const score=new Map();
+  for(const st of voucher.stores){
+    const tg=voucher.rows.filter(r=>r.store===st);
+    let hit=0;
+    for(const t of tg){
+      const tc=Math.round(t.amount*100);
+      for(let j=1;j<=cents.length;j++){ if(seen.has(pre[j]-tc) && seen.get(pre[j]-tc)<j){ hit++; break; } }
+    }
+    if(hit) score.set(st, hit/tg.length + hit*0.001);
+  }
+  if(!score.size) return {store:'',how:''};
+  const best=[...score.entries()].sort((a,b)=>b[1]-a[1]);
+  if(best.length>1 && Math.abs(best[0][1]-best[1][1])<1e-9) return {store:'',how:''}; // เสมอ = ไม่เดา
+  return {store:best[0][0], how:'เดาจากยอด'};
+}
+
+/* ═══════════════════════════ CORE: จับคู่ ═══════════════════════════ */
+/* หา contiguous window [i,j) ที่ i>=start และ sum == target (สตางค์) — เอา j เล็กสุด แล้ว i เล็กสุด */
+function findExact(pre, start, n, tc){
+  const seen=new Map();
+  for(let i=start;i<=n;i++){
+    const need=pre[i]-tc;
+    if(seen.has(need)) return {i:seen.get(need), j:i};
+    if(!seen.has(pre[i])) seen.set(pre[i],i);
+  }
+  return null;
+}
+/* หาใกล้สุดใน [start,end) — ผลต่างน้อยสุด, window สั้นสุดเมื่อผลต่างเท่ากัน */
+function findNear(cents, start, end, tc, maxWin){
+  let best=null, bd=Infinity;
+  for(let i=start;i<end;i++){
+    let s=0; const lim=Math.min(end, i+maxWin);
+    for(let j=i;j<lim;j++){
+      s+=cents[j];
+      const d=Math.abs(s-tc);
+      if(d<bd){ bd=d; best={i,j:j+1,diff:s-tc}; if(d===0) return best; }
+    }
+  }
+  return best;
+}
+/* 2 รอบ:
+   รอบ 1 — จับ "ตรงเป๊ะ" แบบไล่ลำดับ (เชื่อถือได้ ใช้ปักหมุดตำแหน่ง)
+   รอบ 2 — ใบที่ยังไม่เจอ ค้นหาใกล้สุด "เฉพาะในช่องว่างระหว่างหมุด" เท่านั้น
+   ⇒ ใบที่ยอดเพี้ยน 1 ใบ จะไม่ทำให้ใบอื่นเลื่อนตามผิดทั้งแถว */
+function matchOne(wf, targets, mode){
+  const n=wf.amounts.length;
+  const cents=wf.amounts.map(a=>Math.round(a*100));
+  const pre=[0]; for(let i=0;i<n;i++) pre.push(pre[i]+cents[i]);
+  const maxWin=Math.min(n, 4000);
+  const res=targets.map(t=>({...t, kind:'none'}));
+
+  /* ── รอบ 1: ตรงเป๊ะ ── */
+  let start=0;
+  for(let k=0;k<targets.length;k++){
+    const hit=findExact(pre,start,n,Math.round(targets[k].amount*100));
+    if(!hit) continue;
+    res[k]={ ...targets[k], kind:'exact', from:hit.i, to:hit.j, diff:0,
+             sum:(pre[hit.j]-pre[hit.i])/100, count:hit.j-hit.i };
+    start=hit.j;
+  }
+  if(mode!=='near') return res;
+
+  /* ── รอบ 2: ใกล้สุด ในช่องว่างระหว่างบล็อคที่ปักหมุดแล้ว ── */
+  for(let k=0;k<res.length;k++){
+    if(res[k].kind!=='none') continue;
+    let lo=0, hi=n;
+    for(let j=k-1;j>=0;j--) if(res[j].kind!=='none'){ lo=res[j].to; break; }
+    for(let j=k+1;j<res.length;j++) if(res[j].kind!=='none'){ hi=res[j].from; break; }
+    if(hi<=lo) continue;                       // ไม่มีที่ว่างเหลือให้จับ
+    const nr=findNear(cents,lo,hi,Math.round(res[k].amount*100),maxWin);
+    if(!nr) continue;
+    res[k]={ ...res[k], kind:'near', from:nr.i, to:nr.j, diff:nr.diff/100,
+             sum:(pre[nr.j]-pre[nr.i])/100, count:nr.j-nr.i };
+  }
+  return res;
+}
+/* ทิศทางไฟล์: ใหม่→เก่า (desc) หรือ เก่า→ใหม่ (asc) */
+function detectDir(wf){
+  if(wf.dateIdx<0) return 'desc';
+  const R=wf.rows;
+  let first=null,last=null;
+  for(let i=0;i<R.length;i++){ const d=parseDate(R[i][wf.dateIdx]); if(d){first=d;break;} }
+  for(let i=R.length-1;i>=0;i--){ const d=parseDate(R[i][wf.dateIdx]); if(d){last=d;break;} }
+  if(!first||!last) return 'desc';
+  return first>=last ? 'desc' : 'asc';
+}
+
+/* ═══════════════════════════ UI: อัปโหลด ═══════════════════════════ */
+function bindDrop(dropId,inputId,handler){
+  const d=$(dropId);
+  d.onclick=()=>$(inputId).click();
+  d.ondragover=e=>{ e.preventDefault(); d.style.borderColor='var(--flash)'; };
+  d.ondragleave=()=>{ d.style.borderColor=''; };
+  d.ondrop=e=>{ e.preventDefault(); d.style.borderColor=''; if(e.dataTransfer.files.length) handler(e.dataTransfer.files); };
+  $(inputId).onchange=e=>{ if(e.target.files.length) handler(e.target.files); e.target.value=''; };
+}
+bindDrop('dropV','fileV', async fl=>{
+  const f=fl[0];
+  try{
+    const v=await readVoucher(f);
+    if(!v){ toast('อ่านไฟล์ใบสำคัญรับไม่ได้ — ไม่พบหัวคอลัมน์ "ชื่อร้าน" + "จำนวนเงิน"',true); return; }
+    voucher=v; $('dropV').classList.add('ok');
+    wfiles.forEach(w=>{ if(!w.store) autoStore(w); });
+    renderV(); renderW(); sync();
+    toast('อ่านใบสำคัญรับได้ '+v.rows.length+' รายการ · '+v.stores.length+' ร้าน');
+  }catch(err){ console.error(err); toast('อ่านไฟล์ไม่ได้: '+f.name,true); }
+});
+bindDrop('dropW','fileW', async fl=>{
+  for(const f of fl){
+    if(wfiles.some(x=>x.name===f.name)){ toast('มีไฟล์ '+f.name+' อยู่แล้ว',true); continue; }
+    try{
+      const w=await readWithdraw(f);
+      if(!w){ toast('ข้าม '+f.name+' — ไม่พบคอลัมน์ Amount',true); continue; }
+      w.dir=detectDir(w); autoStore(w); wfiles.push(w);
+    }catch(err){ console.error(err); toast('อ่าน '+f.name+' ไม่ได้',true); }
+  }
+  if(wfiles.length) $('dropW').classList.add('ok');
+  renderW(); sync();
+});
+function autoStore(w){
+  w.store=''; w.how='';
+  if(!voucher) return;
+  let r=storeFromName(w.name, voucher.stores);
+  if(!r.store) r=guessStoreByAmount(w, voucher);
+  w.store=r.store; w.how=r.how;
+}
+
+function renderV(){
+  if(!voucher){ $('vInfo').innerHTML=''; return; }
+  const byStore={}; voucher.rows.forEach(r=>{ byStore[r.store]=(byStore[r.store]||0)+1; });
+  const tot=voucher.rows.reduce((a,r)=>a+r.amount,0);
+  $('vInfo').innerHTML=`<div class="fileitem">
+    <span style="color:var(--flash);font-size:16px">🧾</span>
+    <span class="fn">${esc(voucher.name)}</span>
+    <span class="meta">${voucher.rows.length} รายการ · ${voucher.stores.length} ร้าน · รวม ${fmt(tot)} ฿</span>
+    <button class="rm" title="ลบ" onclick="rmV()">✕</button></div>
+    <div style="font-size:12.3px;color:var(--muted);line-height:1.7;padding:2px 4px">
+    ${voucher.stores.map(s=>`<span style="display:inline-block;background:#f0f3f8;border-radius:6px;padding:1px 8px;margin:2px 3px 0 0">${esc(s)} <b>×${byStore[s]}</b></span>`).join('')}</div>`;
+}
+window.rmV=()=>{ voucher=null; $('dropV').classList.remove('ok'); wfiles.forEach(w=>{w.store='';w.how='';}); renderV(); renderW(); sync(); };
+window.rmW=i=>{ wfiles.splice(i,1); if(!wfiles.length) $('dropW').classList.remove('ok'); renderW(); sync(); };
+window.setStore=(i,v)=>{ wfiles[i].store=v; wfiles[i].how=v?'เลือกเอง':''; renderW(); sync(); };
+
+function renderW(){
+  $('wList').innerHTML=wfiles.map((w,i)=>{
+    const opts=voucher
+      ? `<option value="">— เลือกร้าน —</option>`+voucher.stores.map(s=>`<option value="${esc(s)}"${s===w.store?' selected':''}>${esc(s)}</option>`).join('')
+      : `<option value="">(ยังไม่มีไฟล์ใบสำคัญรับ)</option>`;
+    const nT = voucher&&w.store ? voucher.rows.filter(r=>r.store===w.store).length : 0;
+    const tot=w.amounts.reduce((a,b)=>a+b,0);
+    return `<div class="fileitem${w.store?'':' warn'}">
+      <span style="font-size:16px">${w.store?'📥':'⚠️'}</span>
+      <span class="fn" title="${esc(w.name)}">${esc(w.name)}</span>
+      <select onchange="setStore(${i},this.value)" class="${w.store?'':'need'}" style="max-width:210px">${opts}</select>
+      <span class="meta">${w.how?'('+w.how+') ':''}${fmtI(w.rows.length)} แถว · รวม H ${fmt(tot)} ฿ · ${w.dir==='desc'?'ใหม่→เก่า':'เก่า→ใหม่'}${w.store?' · เป้าหมาย '+nT+' ใบ':''}</span>
+      <div class="spacer"></div>
+      <button class="rm" title="ลบ" onclick="rmW(${i})">✕</button></div>`;
+  }).join('');
+}
+function sync(){
+  const ready = voucher && wfiles.length>0 && wfiles.every(w=>w.store);
+  $('runBtn').disabled=!ready;
+  const noStore=wfiles.filter(w=>!w.store);
+  $('runWarn').innerHTML = (voucher&&noStore.length)
+    ? `<div class="warnbox">⚠️ ยังไม่ได้ระบุร้านของ <b>${noStore.length}</b> ไฟล์ — เลือกร้านจาก dropdown ให้ครบก่อนกดจับคู่<br>${noStore.map(w=>'• '+esc(w.name)).join('<br>')}</div>`
+    : (!voucher && wfiles.length ? `<div class="warnbox">⚠️ ยังไม่ได้อัปโหลด<b>ไฟล์ใบสำคัญรับ</b> (ยอดเป้าหมาย)</div>` : '');
+}
+$('clearBtn').onclick=()=>{ voucher=null; wfiles=[]; results=null;
+  $('dropV').classList.remove('ok'); $('dropW').classList.remove('ok');
+  $('resultCard').classList.add('hidden'); renderV(); renderW(); sync(); };
+
+/* ═══════════════════════════ RUN ═══════════════════════════ */
+$('runBtn').onclick=()=>{
+  const mode=$('mode').value, dirSel=$('dir').value;
+  results=wfiles.map(w=>{
+    const dir = dirSel==='auto' ? w.dir : dirSel;
+    let tg=voucher.rows.filter(r=>r.store===w.store).slice();
+    /* ไฟล์เรียงใหม่→เก่า ⇒ ไล่เป้าหมายจากใบใหม่สุดลงไป */
+    tg.sort((a,b)=>{
+      const da=a.paydate?a.paydate.getTime():0, db=b.paydate?b.paydate.getTime():0;
+      if(da!==db) return dir==='desc' ? db-da : da-db;
+      return dir==='desc' ? String(b.docno).localeCompare(String(a.docno)) : String(a.docno).localeCompare(String(b.docno));
+    });
+    const blocks=matchOne(w,tg,mode);
+    /* กำหนดสีตามลำดับตำแหน่งในไฟล์ (บนลงล่าง) ให้ตารางบนหน้าเว็บกับไฟล์ Excel ใช้สีเดียวกัน */
+    blocks.filter(b=>b.kind!=='none').slice().sort((a,b)=>a.from-b.from)
+      .forEach((b,i)=>{ b.colorIdx=i; });
+    return { file:w, dir, blocks };
+  });
+  renderResult();
+  const ok=results.reduce((a,r)=>a+r.blocks.filter(b=>b.kind==='exact').length,0);
+  const nr=results.reduce((a,r)=>a+r.blocks.filter(b=>b.kind==='near').length,0);
+  toast(`จับคู่เสร็จ · ตรงเป๊ะ ${ok} ใบ${nr?' · ใกล้เคียง '+nr+' ใบ':''}`);
+};
+
+function renderResult(){
+  $('resultCard').classList.remove('hidden');
+  const all=results.flatMap(r=>r.blocks);
+  const ex=all.filter(b=>b.kind==='exact'), nr=all.filter(b=>b.kind==='near'), no=all.filter(b=>b.kind==='none');
+  const tTarget=all.reduce((a,b)=>a+b.amount,0);
+  const tGot=all.filter(b=>b.kind!=='none').reduce((a,b)=>a+b.sum,0);
+  $('stats').innerHTML=`
+    <div class="stat flash"><div class="k">ไฟล์ / ร้าน</div><div class="v">${results.length}</div></div>
+    <div class="stat good"><div class="k">ตรงเป๊ะ</div><div class="v">${ex.length}</div></div>
+    <div class="stat warn"><div class="k">ใกล้เคียง (มีส่วนต่าง)</div><div class="v">${nr.length}</div></div>
+    <div class="stat bad"><div class="k">ไม่เจอ</div><div class="v">${no.length}</div></div>
+    <div class="stat"><div class="k">ยอดเป้าหมายรวม</div><div class="v" style="font-size:17px">${fmt(tTarget)}</div></div>
+    <div class="stat"><div class="k">ยอดที่จับได้รวม</div><div class="v" style="font-size:17px">${fmt(tGot)}</div></div>`;
+  $('legend').innerHTML='<b>สีในไฟล์ที่ส่งออก</b> (สลับต่อบล็อค): '+COLORS.slice(0,6).map(c=>`<span class="swatch" style="background:${c.css}"></span>${c.name}`).join(' &nbsp; ');
+
+  const leftover=results.map(r=>{
+    const used=r.blocks.filter(b=>b.kind!=='none').reduce((a,b)=>a+b.count,0);
+    const tot=r.file.amounts.reduce((a,b)=>a+b,0);
+    const got=r.blocks.filter(b=>b.kind!=='none').reduce((a,b)=>a+b.sum,0);
+    return {name:r.file.store, rows:r.file.rows.length-used, amt:tot-got};
+  }).filter(x=>x.rows>0);
+  $('unmatched').innerHTML = leftover.length
+    ? `<div class="infobox">📌 <b>แถวที่ไม่ถูกจับคู่</b> (ปกติคือรอบที่ยังไม่จ่าย / รอบเก่าที่ไม่มีใบสำคัญ):<br>${
+        leftover.map(x=>`• <b>${esc(x.name)}</b> — ${fmtI(x.rows)} แถว · ยอดคงเหลือ ${fmt(x.amt)} ฿`).join('<br>')}</div>` : '';
+
+  $('thead').innerHTML=`<tr><th>#</th><th>ร้าน</th><th>เลขที่</th><th>รอบบิล</th><th>วันที่โอน</th>
+    <th style="text-align:right">ยอดใบสำคัญ</th><th style="text-align:right">ยอดที่จับได้</th><th style="text-align:right">ส่วนต่าง</th>
+    <th>แถวในไฟล์</th><th style="text-align:right">จำนวนแถว</th><th>สถานะ</th></tr>`;
+  let html='', k=0;
+  results.forEach(r=>{
+    html+=`<tr class="grp"><td colspan="11">📥 ${esc(r.file.name)} → ร้าน <b>${esc(r.file.store)}</b> · ${fmtI(r.file.rows.length)} แถว · ${r.dir==='desc'?'ใหม่→เก่า':'เก่า→ใหม่'}</td></tr>`;
+    r.blocks.forEach(b=>{
+      k++;
+      const c=COLORS[(b.colorIdx||0)%COLORS.length];
+      const pill = b.kind==='exact'?'<span class="pill ok">ตรงเป๊ะ</span>'
+                 : b.kind==='near'?'<span class="pill near">ใกล้เคียง</span>'
+                 : '<span class="pill no">ไม่เจอ</span>';
+      const rowRange = b.kind==='none' ? '—'
+        : `${b.from+2} – ${b.to+1}`;
+      const dcol = b.kind==='none' ? '—' : (Math.abs(b.diff)<0.005 ? '0.00'
+        : `<span style="color:var(--red);font-weight:700">${b.diff>0?'+':''}${fmt(b.diff)}</span>`);
+      html+=`<tr><td>${k}</td>
+        <td>${b.kind==='none'?'':`<span class="swatch" style="background:${c.css}"></span>`}${esc(b.store)}</td>
+        <td class="mono">${esc(b.docno||'—')}</td><td style="font-size:12.3px">${esc(b.cycle||'—')}</td>
+        <td style="font-size:12.3px">${dstr(b.paydate)}</td>
+        <td class="num">${fmt(b.amount)}</td>
+        <td class="num">${b.kind==='none'?'—':fmt(b.sum)}</td>
+        <td class="num">${dcol}</td>
+        <td class="mono" style="font-weight:500">${rowRange}</td>
+        <td class="num">${b.kind==='none'?'—':fmtI(b.count)}</td>
+        <td>${pill}</td></tr>`;
+    });
+  });
+  $('tbody').innerHTML=html;
+  $('resInfo').innerHTML='คอลัมน์ "แถวในไฟล์" = เลขแถวจริงในไฟล์ Excel ต้นฉบับ (นับหัวตารางเป็นแถว 1) · ไฟล์ที่ส่งออกจะแทรกแถวว่างคั่นแต่ละบล็อค ทำให้เลขแถวขยับลง';
+}
+
+/* ═══════════════════════════ EXPORT ═══════════════════════════ */
+async function buildWorkbook(r){
+  const w=r.file;
+  const wb=new ExcelJS.Workbook();
+  wb.creator='MASARU · ระบบจับคู่ยอดถอนเงิน';
+  const ws=wb.addWorksheet(w.sheet||'Transaction Overview');
+
+  /* หัวตาราง */
+  ws.addRow(w.headers);
+  ws.getRow(1).eachCell({includeEmpty:true},c=>{
+    c.font={bold:true,color:{argb:'FFFFFFFF'},size:11};
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}};
+    c.alignment={vertical:'middle'};
+  });
+
+  /* map: data index → บล็อคที่ครอบ  +  ชุด index ที่ต้องแทรกแถวว่างข้างหน้า */
+  const live=r.blocks.filter(b=>b.kind!=='none').slice().sort((a,b)=>a.from-b.from);
+  const blank=new Set();
+  const owner=new Map();
+  live.forEach(b=>{
+    blank.add(b.from); if(b.to<w.rows.length) blank.add(b.to);
+    for(let i=b.from;i<b.to;i++) owner.set(i,b.colorIdx);
+  });
+
+  const wholeRow = $('hlMode').value==='row';
+  for(let i=0;i<w.rows.length;i++){
+    if(blank.has(i)) ws.addRow([]);                 // แถวว่างคั่น (เหมือนที่ทำมือ)
+    const src=w.rows[i];
+    const vals=src.map((v,c)=> c===w.hIdx ? (toNum(v)||0) : (v===''?null:v));
+    const row=ws.addRow(vals);
+    row.getCell(w.hIdx+1).numFmt='#,##0.00';
+    const ci=owner.get(i);
+    if(ci!=null){
+      const fill={type:'pattern',pattern:'solid',fgColor:{argb:COLORS[ci%COLORS.length].argb}};
+      if(wholeRow){ for(let c=1;c<=w.headers.length;c++) row.getCell(c).fill=fill; }
+      else { row.getCell(w.hIdx+1).fill=fill; }     // ไฮไลท์เฉพาะช่อง H เหมือนไฟล์ที่ทำมือ
+    }
+  }
+  /* ปิดท้ายด้วยแถวว่าง ถ้าบล็อคสุดท้ายชนท้ายไฟล์พอดี */
+  const last=live[live.length-1];
+  if(last && last.to>=w.rows.length) ws.addRow([]);
+
+  ws.views=[{state:'frozen',ySplit:1}];
+  ws.columns.forEach((c,i)=>{ c.width = i===4 ? 34 : (i===w.hIdx ? 13 : Math.min(22, Math.max(11,(w.headers[i]||'').length+3))); });
+
+  /* ชีตสรุป (ถ้าติ๊ก) */
+  if($('addSum').checked){
+    const s=wb.addWorksheet('สรุปจับคู่');
+    s.addRow(['#','ร้าน','เลขที่','รอบบิล','วันที่โอนเงิน','ยอดใบสำคัญ','ยอดที่จับได้','ส่วนต่าง','แถวเริ่ม','แถวจบ','จำนวนแถว','สถานะ','สี']);
+    s.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:'FFFFFFFF'}}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F3864'}}; });
+    /* offset เลขแถวหลังแทรกแถวว่าง */
+    let ins=0; const off=[];
+    for(let i=0;i<w.rows.length;i++){ if(blank.has(i)) ins++; off[i]=2+i+ins; }
+    r.blocks.forEach((b,bi)=>{
+      const kindTxt=b.kind==='exact'?'ตรงเป๊ะ':b.kind==='near'?'ใกล้เคียง':'ไม่เจอ';
+      const ci=(b.colorIdx||0)%COLORS.length;
+      const row=s.addRow([bi+1,b.store,b.docno||'',b.cycle||'',
+        b.paydate?b.paydate.toISOString().slice(0,10):'',
+        b.amount, b.kind==='none'?null:b.sum, b.kind==='none'?null:b.diff,
+        b.kind==='none'?null:off[b.from], b.kind==='none'?null:off[b.to-1],
+        b.kind==='none'?null:b.count, kindTxt, b.kind==='none'?'':COLORS[ci].name]);
+      [6,7,8].forEach(c=>row.getCell(c).numFmt='#,##0.00');
+      if(b.kind==='near') row.getCell(8).font={bold:true,color:{argb:'FFAE1420'}};
+      if(b.kind!=='none') row.getCell(13).fill={type:'pattern',pattern:'solid',fgColor:{argb:COLORS[ci].argb}};
+      if(b.kind==='none') row.eachCell(c=>c.font={color:{argb:'FF999999'}});
+    });
+    const used=live.reduce((a,b)=>a+b.count,0);
+    const tot=w.amounts.reduce((a,b)=>a+b,0);
+    const got=live.reduce((a,b)=>a+b.sum,0);
+    s.addRow([]);
+    const t=s.addRow(['','คงเหลือ (ไม่ถูกจับคู่)','','','','','','','','',w.rows.length-used,'',fmt(tot-got)+' ฿']);
+    t.eachCell(c=>{ c.font={bold:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFD400'}}; });
+    s.columns.forEach((c,i)=>c.width=[5,24,16,26,14,14,14,12,10,10,11,12,12][i]||12);
+    s.views=[{state:'frozen',ySplit:1}];
+  }
+  return wb;
+}
+function outName(r){
+  const base=r.file.name.replace(/\.(xlsx|xls|csv)$/i,'');
+  return `${base}_จับคู่แล้ว.xlsx`;
+}
+function dl(blob,name){
+  const u=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500);
+}
+$('expAllBtn').onclick=async()=>{
+  if(!results||!results.length) return;
+  $('expAllBtn').disabled=true; $('expAllBtn').textContent='⏳ กำลังสร้างไฟล์...';
+  try{
+    if(results.length===1){
+      const wb=await buildWorkbook(results[0]);
+      const buf=await wb.xlsx.writeBuffer();
+      dl(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName(results[0]));
+    }else{
+      const zip=new JSZip();
+      for(const r of results){
+        const wb=await buildWorkbook(r);
+        zip.file(outName(r), await wb.xlsx.writeBuffer());
+      }
+      dl(await zip.generateAsync({type:'blob'}), `จับคู่ยอดถอนเงิน_${new Date().toISOString().slice(0,10)}.zip`);
+    }
+    toast('ดาวน์โหลดเรียบร้อย');
+  }catch(err){ console.error(err); toast('สร้างไฟล์ไม่สำเร็จ: '+err.message,true); }
+  $('expAllBtn').disabled=false; $('expAllBtn').textContent='⬇️ ดาวน์โหลดทั้งหมด (ZIP)';
+};
+</script>
+</body>
+</html>
