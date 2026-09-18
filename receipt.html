@@ -566,6 +566,15 @@
       <button class="btn btn-ghost btn-sm" id="histRefreshBtn">🔄 รีเฟรช</button>
       <button class="btn btn-gold btn-sm" id="histExportBtn">⬇️ ส่งออก Excel</button>
     </div>
+    <div class="cost-actions" style="margin-top:10px">
+      <span class="db-info" id="offInfo">—</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="offBackupBtn">💾 สำรองไฟล์ใบออฟไลน์</button>
+      <button class="btn btn-ghost btn-sm" id="offRestoreBtn">📥 กู้คืนจากไฟล์สำรอง</button>
+      <button class="btn btn-gold btn-sm hidden" id="offSyncBtn">📤 ส่งใบออฟไลน์เข้าระบบกลาง</button>
+      <input type="file" id="offRestoreFile" accept=".json,application/json" style="display:none">
+    </div>
+    <div id="offWarn"></div>
     <div class="toolbar" style="margin-top:14px">
       <div class="search"><span class="si">🔍</span>
         <input type="text" id="histSearch" placeholder="ค้นหา เลขเอกสาร / ลูกค้า / ร้าน ..."></div>
@@ -704,12 +713,87 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
   try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
   catch (e) { console.error('Supabase init error', e); }
 }
+/* ═══════════ โหมดออฟไลน์ — ใช้งานต่อได้เมื่อต่อระบบกลางไม่ได้ ═══════════
+   ปกติทุกหน้าจะเด้งกลับหน้าล็อกอินถ้าอ่านสิทธิ์ไม่ได้
+   ส่วนนี้ทำให้ถ้า "เคยเข้าระบบในเครื่องนี้มาแล้ว" จะใช้งานต่อได้ พร้อมขึ้นแถบแจ้งเตือน */
+var OFFLINE = false;
+function offlineBanner(msg){
+  if(document.getElementById('offBar')) return;
+  var d=document.createElement('div');
+  d.id='offBar';
+  d.style.cssText='position:sticky;top:0;z-index:99999;background:#B7791F;color:#fff;'
+    +'padding:9px 14px;font-size:13.5px;font-weight:700;text-align:center;font-family:inherit;'
+    +'box-shadow:0 2px 8px rgba(0,0,0,.18)';
+  d.textContent='🔌 โหมดออฟไลน์ — '+msg;
+  document.body.insertBefore(d, document.body.firstChild);
+}
+function sessionOrOffline(){
+  return new Promise(function(resolve){
+    var done=false, to=null;
+    function fallback(why){
+      if(done) return; done=true; clearTimeout(to);
+      var role=null, uid=null;
+      try{ role=localStorage.getItem('masaru_last_role'); uid=localStorage.getItem('masaru_last_uid'); }catch(_){}
+      if(!role){ resolve({data:{session:null}}); return; }   /* ไม่เคยเข้าระบบในเครื่องนี้ → ให้ไปล็อกอินตามเดิม */
+      OFFLINE=true;
+      offlineBanner(why+' · ข้อมูลที่บันทึกจะเก็บไว้ในเครื่องนี้ก่อน');
+      resolve({data:{session:{user:{id:uid||'offline-user',user_metadata:{role:role}}}}});
+    }
+    to=setTimeout(function(){ fallback('ต่อระบบกลางไม่ได้ (หมดเวลารอ)'); }, 8000);
+    try{
+      sb.auth.getSession.call(sb.auth).then(function(res){
+        if(done) return;
+        var s = res && res.data && res.data.session;
+        if(s){
+          done=true; clearTimeout(to);
+          try{
+            localStorage.setItem('masaru_last_role',(s.user.user_metadata&&s.user.user_metadata.role)||'');
+            localStorage.setItem('masaru_last_uid', s.user.id);
+          }catch(_){}
+          resolve(res); return;
+        }
+        fallback('ใช้สิทธิ์ที่เคยเข้าระบบไว้ในเครื่องนี้');
+      }).catch(function(){ fallback('ต่อระบบกลางไม่ได้'); });
+    }catch(e){ fallback('ต่อระบบกลางไม่ได้'); }
+  });
+}
+
 /* ===== ต้องล็อกอินก่อนใช้งาน (เช็ค session จาก Portal) ===== */
 if(sb){
-  sb.auth.getSession().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; myRole=(data.session.user.user_metadata && data.session.user.user_metadata.role)||''; isViewer=(myRole!=='บัญชี'); loadSignature(); applyRoleUI(); });
-  sb.auth.onAuthStateChange((e,ss)=>{ if(e==='SIGNED_OUT'||!ss) location.replace('index.html'); });
+  sessionOrOffline().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; myRole=(data.session.user.user_metadata && data.session.user.user_metadata.role)||''; isViewer=(myRole!=='บัญชี'); loadSignature(); applyRoleUI(); });
+  sb.auth.onAuthStateChange((e,ss)=>{ if(!OFFLINE && (e==='SIGNED_OUT'||!ss)) location.replace('index.html'); });
   const _lo=document.getElementById('logoutBtn');
   if(_lo) _lo.onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+}
+/* ═══════════ ที่เก็บใบเสร็จในเครื่อง (ใช้ตอนโหมดออฟไลน์) ═══════════ */
+const OFF_DB='masaru-offline', OFF_ST='receipts';
+function offOpen(){
+  return new Promise(function(res,rej){
+    var r=indexedDB.open(OFF_DB,1);
+    r.onupgradeneeded=function(){ var d=r.result; if(!d.objectStoreNames.contains(OFF_ST)) d.createObjectStore(OFF_ST,{keyPath:'doc_no'}); };
+    r.onsuccess=function(){ res(r.result); };
+    r.onerror=function(){ rej(r.error); };
+  });
+}
+function offTx(mode,fn){
+  return offOpen().then(function(d){
+    return new Promise(function(res,rej){
+      var t=d.transaction(OFF_ST,mode), rq=fn(t.objectStore(OFF_ST));
+      t.oncomplete=function(){ res(rq?rq.result:undefined); };
+      t.onerror=function(){ rej(t.error); };
+      t.onabort=function(){ rej(t.error); };
+    });
+  });
+}
+function offAll(){ return offTx('readonly',function(st){ return st.getAll(); }); }
+function offPut(row){ return offTx('readwrite',function(st){ return st.put(row); }); }
+function offDelete(dn){ return offTx('readwrite',function(st){ return st.delete(dn); }); }
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){ } }
+function bumpSeq(year,seq){
+  if(typeof seq!=='number'||!isFinite(seq)) return;
+  dbMaxSeq=Math.max(dbMaxSeq||0,seq);
+  lsSet('masaru_maxseq_'+year,String(dbMaxSeq));
 }
 function dbReady(){
   if(!sb){ toast('ยังไม่ได้ตั้งค่า Supabase — ใส่ URL + anon key ในไฟล์ (บรรทัดบนสุดของ script)', true); return false; }
@@ -1718,8 +1802,20 @@ async function handleDocForm(file){
   }catch(err){ toast('อ่านไฟล์ฟอร์มไม่ได้',true); console.error(err); }
 }
 async function loadIssued(){
-  docIssued={}; docSaved=new Set(); docDraft=new Set(); dbMaxSeq=0; if(!sb) return;
-  const year=new Date().getFullYear(); let from=0; const page=1000;
+  docIssued={}; docSaved=new Set(); docDraft=new Set(); dbMaxSeq=0;
+  const year=new Date().getFullYear();
+  if(OFFLINE){
+    dbMaxSeq=parseInt(lsGet('masaru_maxseq_'+year)||'0',10)||0;   // เลขล่าสุดที่จำไว้ตอนออนไลน์
+    let rows=[]; try{ rows=await offAll(); }catch(err){ console.error('offline store',err); }
+    rows.forEach(function(r){
+      if(r.year!==year) return;
+      if(typeof r.seq==='number') dbMaxSeq=Math.max(dbMaxSeq,r.seq);
+      if(r.saved){ docIssued[r.order_key]=r.doc_no; docSaved.add(r.order_key); }
+    });
+    return;
+  }
+  if(!sb) return;
+  let from=0; const page=1000;
   while(true){
     const {data,error}=await sb.from('receipts').select('order_key,doc_no,saved,seq').eq('year',year).range(from,from+page-1);
     if(error){ console.error(error); break; }
@@ -1730,6 +1826,7 @@ async function loadIssued(){
     });
     if(!data||data.length<page) break; from+=page;
   }
+  lsSet('masaru_maxseq_'+year,String(dbMaxSeq));   // จำไว้เผื่อใช้ตอนออฟไลน์
 }
 async function compareDoc(){
   if(!docJstCount){ toast('อัพไฟล์ JST ก่อน',true); return; }
@@ -1892,7 +1989,10 @@ async function deleteBill(key){
   const hasDoc=!!docIssued[key];
   const inDB = hasDoc && !docDraft.has(key);
   if(!confirm(`ลบบิลนี้ออกจากรายการ?\n\n${isCash?'บิลเงินสด':'ออเดอร์'}: ${isCash?(r.customer||key):key}\nลูกค้า: ${r.customer||'—'}`+(inDB?`\nเลขเอกสาร: ${docIssued[key]} (จะถูกลบออกจากฐานข้อมูลด้วย)`:(hasDoc?`\nเลขเอกสาร: ${docIssued[key]} (ยังไม่บันทึก — ลบในเครื่องเท่านั้น)`:'')))) return;
-  if(inDB && sb){
+  if(inDB && OFFLINE){
+    try{ await offDelete(docIssued[key]); }
+    catch(err){ toast('ลบในเครื่องไม่สำเร็จ: '+(err.message||err),true); console.error(err); return; }
+  } else if(inDB && sb){
     try{ const {error}=await sb.from('receipts').delete().eq('order_key',key).eq('year',new Date().getFullYear()); if(error) throw error; }
     catch(err){ toast('ลบใน DB ไม่สำเร็จ: '+(err.message||err),true); console.error(err); return; }
   }
@@ -1907,6 +2007,7 @@ async function deleteBill(key){
 const sigCache={};
 async function fetchSigs(ids){
   const need=[...new Set(ids.filter(x=>x && !(x in sigCache)))];
+  if(OFFLINE){ need.forEach(u=>{ sigCache[u]=mySignature||null; }); return; }
   for(let i=0;i<need.length;i+=100){
     const part=need.slice(i,i+100);
     try{
@@ -1945,6 +2046,15 @@ async function saveReceiptData(key){
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
     total:f.total, key, internal:row.internal||'', signer_id: currentUserId||null,
     lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
+  if(OFFLINE){
+    // โหมดออฟไลน์ → บันทึกลงเครื่องนี้ (เครื่องเดียวคนเดียว จึงไม่มีปัญหาเลขชน)
+    const dn=dn0, seq=seqFromDn(dn);
+    await offPut({ doc_no:dn, seq, year, order_key:key, shop:f.shop, customer:f.customer,
+      amount:f.total, saved:true, saved_at:new Date().toISOString(), data, _offline:true });
+    docIssued[key]=dn; docDraft.delete(key); docSaved.add(key);
+    bumpSeq(year,seq);
+    return;
+  }
   if(docDraft.has(key)){
     // ยังไม่เคยลง DB → insert ตอนนี้ (จองเลข + บันทึกพร้อมกัน) พร้อม retry ถ้าเลขชน
     let dn=dn0;
@@ -2031,12 +2141,14 @@ async function ensureBillData(docNo){
   const r=histRows.find(x=>x.doc_no===docNo);
   if(!r) return null;
   if(r.data) return r;
+  if(OFFLINE){ r.data={}; return r; }
   const {data,error}=await sb.from('receipts').select('data').eq('doc_no',docNo).maybeSingle();
   if(error) throw error;
   r.data=(data&&data.data)||{};
   return r;
 }
 async function ensureMonthData(mk){
+  if(OFFLINE) return;          // ออฟไลน์เก็บรายละเอียดไว้ในเครื่องอยู่แล้ว
   const bills=monthBills[mk]||[];
   const need=bills.filter(b=>!b.data).map(b=>b.doc_no);
   for(let i=0;i<need.length;i+=200){
@@ -2054,6 +2166,18 @@ function monthKey(r){
 }
 function monthLabel(mk){ const [y,m]=mk.split('-'); const mi=parseInt(m,10); return (TH_MONTHS[mi]||'ไม่ระบุเดือน')+' '+y; }
 async function loadHistory(){
+  if(OFFLINE){
+    $('histInfo').textContent='กำลังโหลด...';
+    let rows=[];
+    try{ rows=await offAll(); }
+    catch(err){ $('histInfo').textContent='โหลดไม่สำเร็จ'; toast('อ่านข้อมูลในเครื่องไม่สำเร็จ: '+(err.message||err),true); return; }
+    histRows=rows.filter(r=>r.saved)
+      .map(r=>Object.assign({},r,{doc_date:(r.data&&r.data.date)||''}))
+      .sort((a,b)=>(b.year-a.year)||((b.seq||0)-(a.seq||0)));
+    renderHist();
+    $('histInfo').innerHTML='บันทึกในเครื่องนี้ <b>'+fmtInt(histRows.length)+'</b> ใบ · ยังไม่ได้ส่งเข้าระบบกลาง';
+    return;
+  }
   if(!sb){ $('histInfo').textContent='ยังไม่ได้ตั้งค่า Supabase'; return; }
   $('histInfo').textContent='กำลังโหลด...';
   try{
@@ -2105,6 +2229,7 @@ function renderHist(){
     </div>`;
   }).join('') : `<div style="text-align:center;color:var(--muted);padding:34px">ยังไม่มีใบเสร็จที่บันทึก</div>`;
   $('histCount').textContent = rows.length ? `ทั้งหมด ${fmtInt(rows.length)} ใบ · ${fmtInt(order.length)} เดือน` : '';
+  if(typeof offStatus==='function') offStatus();
 }
 async function printMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
@@ -2123,7 +2248,8 @@ async function deleteMonth(mk){
   if(!confirm(`ลบใบเสร็จของ "${monthLabel(mk)}" ทั้งหมด ${bills.length} ใบออกจากระบบ?\n\n⚠️ ลบถาวร กู้คืนไม่ได้ และเลขเอกสารเดือนนี้จะถูกปล่อยคืน (อาจถูกออกซ้ำภายหลัง)`)) return;
   const docNos=bills.map(b=>b.doc_no);
   try{
-    for(let i=0;i<docNos.length;i+=200){
+    if(OFFLINE){ for(const dn of docNos) await offDelete(dn); }
+    else for(let i=0;i<docNos.length;i+=200){
       const {error}=await sb.from('receipts').delete().in('doc_no',docNos.slice(i,i+200));
       if(error) throw error;
     }
@@ -2209,8 +2335,12 @@ async function saveBill(){
       total, lines });
     const btn=$('billSave'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังบันทึก...';
     try{
-      const {error}=await sb.from('receipts').update({customer:data.customer, shop:data.shop, amount:total, data, saved_at:new Date().toISOString()}).eq('doc_no',histEditDoc);
-      if(error) throw error;
+      if(OFFLINE){
+        await offPut(Object.assign({},r,{customer:data.customer, shop:data.shop, amount:total, data, saved_at:new Date().toISOString()}));
+      } else {
+        const {error}=await sb.from('receipts').update({customer:data.customer, shop:data.shop, amount:total, data, saved_at:new Date().toISOString()}).eq('doc_no',histEditDoc);
+        if(error) throw error;
+      }
       Object.assign(r,{customer:data.customer, shop:data.shop, amount:total, data});
       renderHist(); closeBill(); toast('แก้ไขบิล '+histEditDoc+' แล้ว');
     }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
@@ -2258,14 +2388,27 @@ async function saveDocEdit(){
   const year=new Date().getFullYear(); const cur=docIssued[key]; const f=docForm[key];
   const btn=$('docEditSave'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังบันทึก...';
   try{
-    // ตรวจซ้ำกับ DB (กันชนกับที่คนอื่นเพิ่งบันทึก)
-    const {data,error}=await sb.from('receipts').select('order_key').eq('doc_no',dn).limit(1);
+    // ตรวจซ้ำกับ DB (กันชนกับที่คนอื่นเพิ่งบันทึก) — ออฟไลน์ตรวจจากข้อมูลในเครื่อง
+    let data=null, error=null;
+    if(OFFLINE){
+      const all=await offAll();
+      data=all.filter(x=>x.doc_no===dn).map(x=>({order_key:x.order_key}));
+    } else {
+      const res=await sb.from('receipts').select('order_key').eq('doc_no',dn).limit(1);
+      data=res.data; error=res.error;
+    }
     if(error) throw error;
     if(data&&data.length && data[0].order_key!==key){ docWarn(`⚠️ เลข ${dn} ถูกใช้ไปแล้ว (ในฐานข้อมูล)`); btn.disabled=false; btn.textContent=lb; return; }
     const inDB = cur && !docDraft.has(key);
     if(inDB){
-      const {error:e2}=await sb.from('receipts').update({doc_no:dn,seq}).eq('order_key',key).eq('year',year);
-      if(e2) throw e2;
+      if(OFFLINE){
+        const all=await offAll(); const old=all.find(x=>x.order_key===key&&x.year===year);
+        if(old){ await offDelete(old.doc_no); await offPut(Object.assign({},old,{doc_no:dn,seq})); }
+        bumpSeq(year,seq);
+      } else {
+        const {error:e2}=await sb.from('receipts').update({doc_no:dn,seq}).eq('order_key',key).eq('year',year);
+        if(e2) throw e2;
+      }
       docIssued[key]=dn; renderRowPage(key); closeDocEdit(); toast('บันทึกเลข '+dn+' แล้ว');
     } else {
       // draft หรือยังไม่ออกเลข → ตั้งเลขในเครื่อง (ยังไม่ลง DB จนกว่าจะกดบันทึก)
@@ -2286,6 +2429,82 @@ $('docEditBg').onclick=e=>{ if(e.target.id==='docEditBg') closeDocEdit(); };
 $('reasonClose').onclick=closeReason;
 $('reasonOk').onclick=closeReason;
 $('reasonBg').onclick=e=>{ if(e.target.id==='reasonBg') closeReason(); };
+/* ═══════════ สำรองไฟล์ · กู้คืน · ส่งเข้าระบบกลาง ═══════════ */
+function offStamp(){ const d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+async function offStatus(){
+  let rows=[];
+  try{ rows=await offAll(); }catch(_){ }
+  const pending=rows.filter(r=>!r._synced);
+  const lastBk=lsGet('masaru_last_backup')||'';
+  $('offInfo').innerHTML = rows.length
+    ? `ใบที่เก็บในเครื่องนี้ <b>${fmtInt(rows.length)}</b> ใบ · ยังไม่ส่งเข้าระบบกลาง <b>${fmtInt(pending.length)}</b> ใบ`
+      + (lastBk?` · สำรองล่าสุด ${lastBk}`:' · <b style="color:var(--red)">ยังไม่เคยสำรอง</b>')
+    : 'ยังไม่มีใบเสร็จที่บันทึกในเครื่องนี้';
+  $('offSyncBtn').classList.toggle('hidden', OFFLINE || !sb || pending.length===0);
+  const needBk = pending.length>0 && lastBk!==todayKey();
+  $('offWarn').innerHTML = needBk
+    ? `<div class="warnbox" style="margin-top:10px">⚠️ มีใบเสร็จ <b>${fmtInt(pending.length)}</b> ใบเก็บอยู่ในเครื่องนี้เท่านั้น และ<b>ยังไม่ได้สำรองไฟล์วันนี้</b><br>
+       ถ้าเบราว์เซอร์ถูกล้างข้อมูลหรือเครื่องมีปัญหา ใบเหล่านี้จะหายถาวร — กด <b>💾 สำรองไฟล์ใบออฟไลน์</b> เก็บไว้ทุกวัน</div>`
+    : '';
+  return rows;
+}
+$('offBackupBtn').onclick=async ()=>{
+  let rows=[];
+  try{ rows=await offAll(); }catch(err){ toast('อ่านข้อมูลในเครื่องไม่สำเร็จ',true); return; }
+  if(!rows.length){ toast('ยังไม่มีใบเสร็จในเครื่องนี้',true); return; }
+  const blob=new Blob([JSON.stringify({type:'masaru-offline-receipts',exported_at:new Date().toISOString(),count:rows.length,rows},null,1)],{type:'application/json'});
+  const u=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=u; a.download='สำรองใบเสร็จออฟไลน์_'+offStamp()+'.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(u),1500);
+  lsSet('masaru_last_backup',todayKey());
+  toast('สำรอง '+fmtInt(rows.length)+' ใบแล้ว — เก็บไฟล์นี้ไว้ให้ดี'); offStatus();
+};
+$('offRestoreBtn').onclick=()=>$('offRestoreFile').click();
+$('offRestoreFile').onchange=async e=>{
+  const file=e.target.files[0]; e.target.value=''; if(!file) return;
+  try{
+    const obj=JSON.parse(await file.text());
+    const rows=(obj&&obj.rows)||[];
+    if(!Array.isArray(rows)||!rows.length){ toast('ไฟล์นี้ไม่มีข้อมูลใบเสร็จ',true); return; }
+    if(!confirm(`กู้คืน ${rows.length} ใบจากไฟล์สำรอง?\nใบที่เลขเดียวกันจะถูกทับด้วยข้อมูลในไฟล์`)) return;
+    for(const r of rows){ if(r&&r.doc_no) await offPut(r); }
+    toast('กู้คืน '+fmtInt(rows.length)+' ใบแล้ว'); loadHistory();
+  }catch(err){ toast('อ่านไฟล์สำรองไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+};
+$('offSyncBtn').onclick=async ()=>{
+  if(OFFLINE||!sb){ toast('ต้องต่อระบบกลางได้ก่อนจึงส่งเข้าระบบได้',true); return; }
+  let rows=[];
+  try{ rows=await offAll(); }catch(err){ toast('อ่านข้อมูลในเครื่องไม่สำเร็จ',true); return; }
+  const pending=rows.filter(r=>!r._synced);
+  if(!pending.length){ toast('ไม่มีใบที่ต้องส่ง'); return; }
+  if(!confirm(`ส่งใบเสร็จ ${pending.length} ใบที่ออกช่วงออฟไลน์ เข้าระบบกลาง?`)) return;
+  const btn=$('offSyncBtn'); btn.disabled=true; const lb=btn.textContent; btn.textContent='กำลังส่ง...';
+  let okN=0; const conflict=[], failed=[];
+  for(const r of pending){
+    const rec={ doc_no:r.doc_no, seq:r.seq, year:r.year, order_key:r.order_key, shop:r.shop,
+      customer:r.customer, amount:r.amount, saved:true, saved_at:r.saved_at, data:r.data };
+    try{
+      const {error}=await sb.from('receipts').insert(rec);
+      if(error){
+        if(error.code==='23505'){ conflict.push(r.doc_no); continue; }   // เลขซ้ำ — ไม่เขียนทับ ให้คนตัดสินใจ
+        failed.push(r.doc_no+' ('+(error.message||'')+')'); continue;
+      }
+      await offPut(Object.assign({},r,{_synced:true, synced_at:new Date().toISOString()})); okN++;
+    }catch(err){ failed.push(r.doc_no+' ('+(err.message||err)+')'); }
+  }
+  btn.disabled=false; btn.textContent=lb;
+  let msg='ส่งเข้าระบบสำเร็จ '+fmtInt(okN)+' ใบ';
+  if(conflict.length) msg+=' · เลขซ้ำในระบบ '+conflict.length+' ใบ';
+  if(failed.length) msg+=' · ส่งไม่สำเร็จ '+failed.length+' ใบ';
+  toast(msg, (conflict.length||failed.length)?true:false);
+  if(conflict.length||failed.length){
+    $('offWarn').innerHTML=`<div class="warnbox" style="margin-top:10px">
+      ${conflict.length?`<b>⚠️ เลขเอกสารซ้ำกับที่มีในระบบแล้ว ${conflict.length} ใบ</b> — ระบบไม่เขียนทับให้ ต้องตรวจเองว่าจะใช้ใบไหน:<br>${conflict.slice(0,30).join(', ')}${conflict.length>30?' …':''}<br><br>`:''}
+      ${failed.length?`<b>ส่งไม่สำเร็จ ${failed.length} ใบ</b><br>${failed.slice(0,10).join('<br>')}`:''}</div>`;
+  }
+  loadHistory();
+};
 $('histRefreshBtn').onclick=loadHistory;
 $('histSearch').oninput=()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderHist,200); };
 $('histBody').onclick=e=>{
@@ -2306,8 +2525,8 @@ async function deleteBillHist(docNo){
   const r=histRows.find(x=>x.doc_no===docNo)||{};
   if(!confirm(`ลบใบเสร็จ ${docNo} ออกจากระบบ?\nลูกค้า: ${r.customer||'—'}\n\n⚠️ ลบถาวร กู้คืนไม่ได้`)) return;
   try{
-    const {error}=await sb.from('receipts').delete().eq('doc_no',docNo);
-    if(error) throw error;
+    if(OFFLINE){ await offDelete(docNo); }
+    else { const {error}=await sb.from('receipts').delete().eq('doc_no',docNo); if(error) throw error; }
     toast('ลบ '+docNo+' แล้ว'); loadHistory();
   }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 }
@@ -2326,11 +2545,13 @@ $('docFileList').onclick=e=>{ const b=e.target.closest('[data-clear]'); if(b) cl
 
 /* ---- ลายเซ็นผู้รับเงิน (ต่อผู้ใช้) ---- */
 async function loadSignature(){
+  if(OFFLINE){ mySignature=lsGet('masaru_sig')||null; return; }
   if(!sb||!currentUserId) return;
   try{
     const {data,error}=await sb.from('user_signatures').select('signature').eq('user_id',currentUserId).maybeSingle();
     if(error) throw error;
     mySignature=(data&&data.signature)||null;
+    if(mySignature) lsSet('masaru_sig',mySignature);   // เก็บไว้ใช้ตอนออฟไลน์
   }catch(err){ console.error('load signature',err); }
 }
 function renderSigPreview(sig){
@@ -2373,9 +2594,13 @@ $('sigSave').onclick=async ()=>{
   if(!sig){ toast('ยังไม่ได้เลือกรูปลายเซ็น',true); return; }
   const btn=$('sigSave'); btn.disabled=true; btn.textContent='กำลังบันทึก...';
   try{
-    const {error}=await sb.from('user_signatures').upsert({user_id:currentUserId, signature:sig, updated_at:new Date().toISOString()});
-    if(error) throw error;
-    mySignature=sig; sigPending=null; closeSig(); toast('บันทึกลายเซ็นแล้ว');
+    if(OFFLINE){ lsSet('masaru_sig',sig); }
+    else {
+      const {error}=await sb.from('user_signatures').upsert({user_id:currentUserId, signature:sig, updated_at:new Date().toISOString()});
+      if(error) throw error;
+      lsSet('masaru_sig',sig);
+    }
+    mySignature=sig; sigPending=null; closeSig(); toast('บันทึกลายเซ็นแล้ว'+(OFFLINE?' (ในเครื่อง)':''));
   }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
   btn.disabled=false; btn.textContent='บันทึกลายเซ็น';
 };
@@ -2383,8 +2608,8 @@ $('sigRemove').onclick=async ()=>{
   if(!dbReady()||!currentUserId) return;
   if(!confirm('ลบลายเซ็นของฉัน?')) return;
   try{
-    const {error}=await sb.from('user_signatures').delete().eq('user_id',currentUserId);
-    if(error) throw error;
+    if(!OFFLINE){ const {error}=await sb.from('user_signatures').delete().eq('user_id',currentUserId); if(error) throw error; }
+    try{ localStorage.removeItem('masaru_sig'); }catch(_){}
     mySignature=null; sigPending=null; renderSigPreview(null); toast('ลบลายเซ็นแล้ว');
   }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 };
