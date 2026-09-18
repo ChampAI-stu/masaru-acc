@@ -1902,15 +1902,40 @@ async function deleteBill(key){
   if(isCash) renderCash(); else renderDoc();
   toast('ลบบิลแล้ว');
 }
+/* ลายเซ็น: ใบเก่าเก็บรูปไว้ในตัวเอง → ใช้ของเดิม (เอกสารไม่เปลี่ยน)
+   ใบใหม่เก็บแค่ signer_id → ไปดึงรูปจากโปรไฟล์ผู้เซ็น แล้วจำไว้ใช้ซ้ำ */
+const sigCache={};
+async function fetchSigs(ids){
+  const need=[...new Set(ids.filter(x=>x && !(x in sigCache)))];
+  for(let i=0;i<need.length;i+=100){
+    const part=need.slice(i,i+100);
+    try{
+      const {data}=await sb.from('user_signatures').select('user_id,signature').in('user_id',part);
+      (data||[]).forEach(row=>{ sigCache[row.user_id]=row.signature||null; });
+    }catch(err){ console.error('load signatures',err); }
+    part.forEach(u=>{ if(!(u in sigCache)) sigCache[u]=null; });
+  }
+}
+async function sigForBill(r){
+  const d=(r&&r.data)||{};
+  if(d.signature) return d.signature;              // ใบเก่า
+  if(!d.signer_id) return null;
+  await fetchSigs([d.signer_id]); return sigCache[d.signer_id]||null;
+}
+async function sigForBills(list){
+  await fetchSigs(list.map(r=>((r.data||{}).signer_id)));
+  return list.map(r=>{ const d=r.data||{}; return d.signature || sigCache[d.signer_id] || null; });
+}
 function billToF(r){
   const d=r.data||{};
   return { customer:d.customer!=null?d.customer:r.customer, tax:d.tax||'', branch:d.branch||'',
     date:d.date||'', addr:d.addr||'', shop:d.shop!==undefined?d.shop:r.shop,
     lines:d.lines||[], total:d.total!=null?d.total:r.amount };
 }
-function printSaved(r){
+async function printSaved(r){
   if(!r) return;
-  $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature); window.print();
+  const sig=await sigForBill(r);
+  $('receiptPrint').innerHTML=buildReceiptHTML(billToF(r), r.doc_no, sig); window.print();
 }
 async function saveReceiptData(key){
   const dn0=docIssued[key]; if(!dn0) throw new Error('ยังไม่ออกเลข');
@@ -1918,7 +1943,7 @@ async function saveReceiptData(key){
   const row=findRow(key)||{};
   const year=new Date().getFullYear();
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
-    total:f.total, key, internal:row.internal||'', signature: mySignature||null,
+    total:f.total, key, internal:row.internal||'', signer_id: currentUserId||null,
     lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
   if(docDraft.has(key)){
     // ยังไม่เคยลง DB → insert ตอนนี้ (จองเลข + บันทึกพร้อมกัน) พร้อม retry ถ้าเลขชน
@@ -1994,7 +2019,8 @@ async function downloadMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
   toast('กำลังเตรียมไฟล์...');
   try{ await ensureMonthData(mk); }catch(err){ toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true); return; }
-  const htmlList=bills.map(r=>buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature));
+  const sigs=await sigForBills(bills);
+  const htmlList=bills.map((r,i)=>buildReceiptHTML(billToF(r), r.doc_no, sigs[i]));
   await receiptToPdf(htmlList, 'ใบเสร็จ_'+monthLabel(mk).replace(/\s+/g,'_')+'.pdf');
 }
 /* ---- ประวัติใบเสร็จ (รายเดือน) ---- */
@@ -2083,8 +2109,9 @@ function renderHist(){
 async function printMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
   try{ await ensureMonthData(mk); }catch(err){ toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true); return; }
+  const sigs=await sigForBills(bills);
   const html=bills.map((r,i)=>{
-    const inner=buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature);
+    const inner=buildReceiptHTML(billToF(r), r.doc_no, sigs[i]);
     return i>0 ? inner.replace('<div class="rcpt">','<div class="rcpt" style="page-break-before:always">') : inner;
   }).join('');
   $('receiptPrint').innerHTML=html; window.print();
@@ -2270,7 +2297,7 @@ $('histBody').onclick=e=>{
   if(ed){ openHistEdit(ed.dataset.edit); return; }
   const b=e.target.closest('[data-doc]');
   if(b){ ensureBillData(b.dataset.doc)
-    .then(r=>{ if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', r.data&&r.data.signature); })
+    .then(async r=>{ if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', await sigForBill(r)); })
     .catch(err=>toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true)); }
 };
 async function deleteBillHist(docNo){
