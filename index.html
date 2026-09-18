@@ -66,6 +66,18 @@
   .empty-apps{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px;
     background:#fff;border:1px dashed var(--line);border-radius:14px}
   .boot{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+
+  /* ===== ลิงก์ไปคู่มือการใช้งาน (guide.html) ===== */
+  .guide-btn{background:#fff;border:none;color:var(--navy);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;text-decoration:none;display:inline-block}
+  .guide-btn:hover{background:#F1F5F9}
+  .guide-banner{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);
+    border-left:5px solid var(--gold);border-radius:14px;padding:16px 20px;margin-bottom:22px;
+    text-decoration:none;color:inherit;transition:.12s}
+  .guide-banner:hover{box-shadow:0 10px 26px rgba(31,56,100,.11);transform:translateY(-2px)}
+  .guide-banner .gb-ic{font-size:30px}
+  .guide-banner .gb-t{font-weight:700;color:var(--navy);font-size:16px}
+  .guide-banner .gb-d{font-size:13.5px;color:var(--muted);margin-top:2px}
+  .guide-banner .gb-go{margin-left:auto;color:var(--gold);font-weight:700;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -107,13 +119,22 @@
     <span class="masaru-logo"></span>
     <span style="font-weight:600">ศูนย์รวมระบบ MASARU</span>
     <div class="spacer"></div>
+    <a class="guide-btn" href="guide.html">📖 คู่มือการใช้งาน</a>
     <span class="role-pill" id="rolePill">—</span>
     <button class="logout" id="logoutBtn">ออกจากระบบ</button>
   </header>
   <main>
     <div class="hub-title">เลือกระบบที่ต้องการใช้งาน</div>
     <div class="hub-sub" id="hubSub">แตะการ์ดเพื่อเข้าใช้งาน</div>
-    <div class="app-grid" id="appGrid"></div>
+        <a class="guide-banner" href="guide.html">
+      <span class="gb-ic">📖</span>
+      <div>
+        <div class="gb-t">คู่มือการใช้งานระบบ</div>
+        <div class="gb-d">ทุกระบบใช้ยังไง เตรียมไฟล์อะไร กดปุ่มไหน พร้อมภาพประกอบทีละขั้นตอน</div>
+      </div>
+      <span class="gb-go">เปิดคู่มือ →</span>
+    </a>
+<div class="app-grid" id="appGrid"></div>
   </main>
 </div>
 
