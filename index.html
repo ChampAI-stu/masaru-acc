@@ -169,8 +169,43 @@ const APPS = [
 ];
 function getRole(session){ return (session && session.user && session.user.user_metadata && session.user.user_metadata.role) || ''; }
 
-sb.auth.onAuthStateChange((e,session)=>{ if(e==='SIGNED_OUT'||!session) showAuth(); });
-(async function(){ const {data:{session}} = await sb.auth.getSession(); session ? showHub(session) : showAuth(); })();
+sb.auth.onAuthStateChange((e,session)=>{ if(!OFFLINE && (e==='SIGNED_OUT'||!session)) showAuth(); });
+/* ===== โหมดออฟไลน์ — ถ้าต่อระบบกลางไม่ได้ ให้เข้าหน้าหลักด้วยสิทธิ์ที่เคยเข้าไว้ในเครื่องนี้ ===== */
+var OFFLINE=false;
+function offlineBanner(msg){
+  if(document.getElementById('offBar')) return;
+  var d=document.createElement('div'); d.id='offBar';
+  d.style.cssText='position:sticky;top:0;z-index:99999;background:#B7791F;color:#fff;padding:9px 14px;'
+    +'font-size:13.5px;font-weight:700;text-align:center;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.18)';
+  d.textContent='🔌 โหมดออฟไลน์ — '+msg;
+  document.body.insertBefore(d, document.body.firstChild);
+}
+(async function(){
+  var done=false;
+  function fallback(why){
+    if(done) return; done=true;
+    var role=null, uid=null;
+    try{ role=localStorage.getItem('masaru_last_role'); uid=localStorage.getItem('masaru_last_uid'); }catch(_){}
+    if(!role){ showAuth(); return; }              /* ไม่เคยเข้าระบบในเครื่องนี้ → ต้องล็อกอินตามปกติ */
+    OFFLINE=true;
+    showHub({user:{id:uid||'offline-user',user_metadata:{role:role}}});
+    offlineBanner(why+' · เข้าใช้ด้วยสิทธิ์ที่เคยเข้าไว้ในเครื่องนี้');
+  }
+  var to=setTimeout(function(){ fallback('ต่อระบบกลางไม่ได้ (หมดเวลารอ)'); }, 8000);
+  try{
+    const {data:{session}} = await sb.auth.getSession();
+    if(done) return;
+    clearTimeout(to);
+    if(session){
+      done=true;
+      try{
+        localStorage.setItem('masaru_last_role', getRole(session));
+        localStorage.setItem('masaru_last_uid', session.user.id);
+      }catch(_){}
+      showHub(session);
+    } else { fallback('ใช้สิทธิ์ที่เคยเข้าระบบไว้ในเครื่องนี้'); }
+  }catch(e){ clearTimeout(to); fallback('ต่อระบบกลางไม่ได้'); }
+})();
 
 function showAuth(){ $('bootScreen').classList.add('hide'); $('hubScreen').classList.add('hide'); $('authScreen').classList.remove('hide'); }
 function showHub(session){
