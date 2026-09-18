@@ -258,7 +258,7 @@
         <div class="tt-sub">เทียบยอด JST ↔ ฟอร์ม · ออกเลขเอกสาร</div>
       </div>
     </div>
-    <div class="head-right"><a href="index.html" class="home-btn">← กลับหน้าหลัก</a><button class="home-btn" id="logoutBtn">ออกจากระบบ</button><span class="head-badge">ประมวลผลในเครื่องคุณ · ข้อมูลไม่ออกนอก</span></div>
+    <div class="head-right"><a href="index.html" class="home-btn">← กลับหน้าหลัก</a><button class="home-btn" id="logoutBtn">ออกจากระบบ</button><span class="head-badge">ไฟล์ประมวลผลในเครื่อง · ใบที่บันทึกเก็บบนระบบกลาง</span></div>
   </div>
 </header>
 
@@ -689,7 +689,7 @@
 
 <div id="receiptPrint"></div>
 
-<div class="foot">MASARU Internal Tools · ทำงานฝั่งเบราว์เซอร์ทั้งหมด ข้อมูลไม่ถูกส่งออกที่ใด</div>
+<div class="foot">MASARU Internal Tools · ไฟล์ที่อัปโหลดประมวลผลในเบราว์เซอร์ · เฉพาะใบที่กด "บันทึก" จะเก็บบนระบบกลางของบริษัท</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1992,14 +1992,36 @@ async function receiptToPdf(htmlList, filename){
 }
 async function downloadMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
+  toast('กำลังเตรียมไฟล์...');
+  try{ await ensureMonthData(mk); }catch(err){ toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true); return; }
   const htmlList=bills.map(r=>buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature));
   await receiptToPdf(htmlList, 'ใบเสร็จ_'+monthLabel(mk).replace(/\s+/g,'_')+'.pdf');
 }
 /* ---- ประวัติใบเสร็จ (รายเดือน) ---- */
 let histRows=[], monthBills={};
+/* โหลดรายละเอียดบิล (รวมรูปลายเซ็น) เฉพาะใบที่กำลังจะใช้จริง แล้วเก็บไว้ใช้ซ้ำ
+   — รายการประวัติไม่ดึงส่วนนี้ เพื่อไม่ให้กินแบนด์วิดท์ฐานข้อมูล */
+async function ensureBillData(docNo){
+  const r=histRows.find(x=>x.doc_no===docNo);
+  if(!r) return null;
+  if(r.data) return r;
+  const {data,error}=await sb.from('receipts').select('data').eq('doc_no',docNo).maybeSingle();
+  if(error) throw error;
+  r.data=(data&&data.data)||{};
+  return r;
+}
+async function ensureMonthData(mk){
+  const bills=monthBills[mk]||[];
+  const need=bills.filter(b=>!b.data).map(b=>b.doc_no);
+  for(let i=0;i<need.length;i+=200){
+    const {data,error}=await sb.from('receipts').select('doc_no,data').in('doc_no',need.slice(i,i+200));
+    if(error) throw error;
+    (data||[]).forEach(row=>{ const t=histRows.find(x=>x.doc_no===row.doc_no); if(t) t.data=row.data||{}; });
+  }
+}
 const TH_MONTHS=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 function monthKey(r){
-  const d=r.data&&r.data.date;
+  const d=r.doc_date || (r.data&&r.data.date);
   if(d){ const p=String(d).split('/'); if(p.length===3){ const mm=parseInt(p[1],10),yy=parseInt(p[2],10); if(mm>=1&&mm<=12&&yy>1900) return yy+'-'+String(mm).padStart(2,'0'); } }
   if(r.saved_at){ const dt=new Date(r.saved_at); if(!isNaN(dt)) return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); }
   return (r.year||'0000')+'-00';
@@ -2012,7 +2034,7 @@ async function loadHistory(){
     let all=[], from=0; const page=1000;
     while(true){
       const {data,error}=await sb.from('receipts')
-        .select('doc_no,seq,year,order_key,shop,customer,amount,saved_at,data')
+        .select('doc_no,seq,year,order_key,shop,customer,amount,saved_at,doc_date:data->>date')
         .eq('saved',true).order('year',{ascending:false}).order('seq',{ascending:false})
         .range(from,from+page-1);
       if(error) throw error;
@@ -2049,7 +2071,7 @@ function renderHist(){
             <td title="${htmlesc(r.customer)}">${htmlesc(r.customer)}</td>
             <td title="${htmlesc(r.shop)}">${r.shop?htmlesc(r.shop):'<span style="color:var(--muted)">—</span>'}</td>
             <td class="num">${money(r.amount)}</td>
-            <td>${htmlesc((r.data&&r.data.date)||'—')}</td>
+            <td>${htmlesc(r.doc_date||(r.data&&r.data.date)||'—')}</td>
             <td><button class="icon-act" data-doc="${htmlesc(r.doc_no)}" title="ดูบิล / ดาวน์โหลด">👁️ ดูบิล</button>${isViewer?'':` <button class="icon-act" data-edit="${htmlesc(r.doc_no)}" title="แก้ไขข้อมูลบิล" style="color:var(--blue)">✏️</button> <button class="icon-act" data-del="${htmlesc(r.doc_no)}" title="ลบบิลนี้" style="color:var(--red)">🗑️</button>`}</td>
           </tr>`).join('')}</tbody>
         </table>
@@ -2058,8 +2080,9 @@ function renderHist(){
   }).join('') : `<div style="text-align:center;color:var(--muted);padding:34px">ยังไม่มีใบเสร็จที่บันทึก</div>`;
   $('histCount').textContent = rows.length ? `ทั้งหมด ${fmtInt(rows.length)} ใบ · ${fmtInt(order.length)} เดือน` : '';
 }
-function printMonth(mk){
+async function printMonth(mk){
   const bills=monthBills[mk]; if(!bills||!bills.length) return;
+  try{ await ensureMonthData(mk); }catch(err){ toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true); return; }
   const html=bills.map((r,i)=>{
     const inner=buildReceiptHTML(billToF(r), r.doc_no, r.data&&r.data.signature);
     return i>0 ? inner.replace('<div class="rcpt">','<div class="rcpt" style="page-break-before:always">') : inner;
@@ -2104,9 +2127,10 @@ function openBill(key){
   renderBillLines(); $('billBg').classList.add('show');
 }
 // แก้ไขข้อมูลบิลจากหน้าประวัติ (ใช้ modal เดียวกัน)
-function openHistEdit(docNo){
+async function openHistEdit(docNo){
   if(isViewer) return;
-  const r=histRows.find(x=>x.doc_no===docNo); if(!r){ toast('ไม่พบบิล',true); return; }
+  let r=histRows.find(x=>x.doc_no===docNo); if(!r){ toast('ไม่พบบิล',true); return; }
+  try{ r=await ensureBillData(docNo); }catch(err){ toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true); return; }
   const f=billToF(r);
   billKey=null; histEditDoc=docNo;
   $('bCustomer').value=f.customer||''; $('bTax').value=f.tax||''; $('bBranch').value=f.branch||'';
@@ -2245,7 +2269,9 @@ $('histBody').onclick=e=>{
   const ed=e.target.closest('[data-edit]');
   if(ed){ openHistEdit(ed.dataset.edit); return; }
   const b=e.target.closest('[data-doc]');
-  if(b){ const r=histRows.find(x=>x.doc_no===b.dataset.doc); if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', r.data&&r.data.signature); }
+  if(b){ ensureBillData(b.dataset.doc)
+    .then(r=>{ if(r) openPreview(billToF(r), r.doc_no, 'ใบเสร็จ_'+r.doc_no+'.pdf', r.data&&r.data.signature); })
+    .catch(err=>toast('โหลดรายละเอียดบิลไม่สำเร็จ: '+(err.message||err),true)); }
 };
 async function deleteBillHist(docNo){
   if(isViewer) return;
