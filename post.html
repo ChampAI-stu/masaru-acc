@@ -103,9 +103,44 @@
   .feebox .k{color:var(--muted);font-size:12px}
   .feebox .v{font-weight:700;font-size:17px}
   .sec-label{font-weight:700;color:var(--navy);margin:18px 0 6px;font-size:15px}
+
+  /* ═══════════ CAT CAFÉ · POSTAL STUDIO ═══════════ */
+  :root{--ink:#4d3c4c;--muted:#8c7587;--line:#eadbe5;--bg:#fff8f5;--card:rgba(255,255,255,.92);--shadow:0 16px 40px rgba(116,75,103,.12);--navy:#725269;--navy-deep:#563c52}
+  html{scroll-behavior:smooth}
+  body{min-height:100vh;background:radial-gradient(circle at 8% 17%,rgba(255,205,217,.52),transparent 25%),radial-gradient(circle at 88% 14%,rgba(221,211,255,.54),transparent 27%),radial-gradient(circle at 82% 82%,rgba(255,225,171,.42),transparent 24%),linear-gradient(145deg,#fffaf5,#fff2f7 52%,#f8f5ff);overflow-x:hidden}
+  body:before{content:"";position:fixed;inset:0;z-index:-2;opacity:.24;background-image:radial-gradient(ellipse 8px 10px at 20px 20px,#e8b6c7 45%,transparent 48%),radial-gradient(circle 3px at 12px 11px,#e8b6c7 48%,transparent 52%),radial-gradient(circle 3px at 20px 8px,#e8b6c7 48%,transparent 52%),radial-gradient(circle 3px at 28px 11px,#e8b6c7 48%,transparent 52%);background-size:96px 96px;transform:rotate(-7deg)}
+  .postal-ambient{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.postal-blob{position:absolute;border-radius:50%;animation:blobFloat 8s ease-in-out infinite}.postal-blob.one{width:260px;height:260px;background:#ffd7df;left:-100px;top:30%;opacity:.4}.postal-blob.two{width:320px;height:320px;background:#e0d8ff;right:-150px;top:44%;opacity:.36;animation-delay:-3s}.postal-blob.three{width:190px;height:190px;background:#ffe4b5;left:44%;bottom:-110px;opacity:.35;animation-delay:-5s}@keyframes blobFloat{50%{transform:translate(12px,-18px) scale(1.05)}}
+  .mail-charm{position:absolute;font-style:normal;font-size:25px;opacity:.48;filter:drop-shadow(0 6px 5px rgba(92,56,80,.12));animation:mailFloat 6s ease-in-out infinite}.mail-charm.c1{left:5%;top:20%}.mail-charm.c2{right:6%;top:28%;animation-delay:-2s}.mail-charm.c3{left:8%;bottom:10%;animation-delay:-4s}.mail-charm.c4{right:9%;bottom:8%;animation-delay:-1s}@keyframes mailFloat{50%{transform:translateY(-15px) rotate(9deg)}}
+  .wrap{max-width:1240px;padding:0 24px}
+  header{background:linear-gradient(110deg,#674963,#8f607b 54%,#bc7b91);padding:14px 0;overflow:visible;box-shadow:0 8px 25px rgba(78,45,69,.17);z-index:10}
+  header:after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:16px;background:radial-gradient(circle at 8px 0,#fff8f5 8px,transparent 9px);background-size:22px 16px;opacity:.95}
+  .brand{font-style:normal;display:flex;align-items:center;gap:8px}.brand:before{content:"🐾";font-size:21px}.brand span{color:#ffe18c}.tool-title{color:#f9e7f0}.home-btn{border-radius:999px;background:rgba(255,255,255,.16);transition:.25s}.home-btn:hover{background:#fff;color:#7a526e;transform:translateY(-2px);box-shadow:0 8px 17px rgba(55,31,47,.18)}
+  main{padding:34px 0 72px}
+  .postal-hero{position:relative;min-height:220px;margin-bottom:19px;border:1px solid rgba(232,196,210,.75);border-radius:29px;overflow:hidden;background:linear-gradient(120deg,rgba(255,255,255,.97),rgba(255,240,246,.93) 53%,rgba(242,238,255,.95));box-shadow:0 22px 50px rgba(119,76,105,.13);display:flex;align-items:center;padding:31px 390px 31px 38px}
+  .postal-hero:before{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:70px;top:-2px;background:linear-gradient(145deg,#ffe8b8,#ffc7d7);box-shadow:inset 0 0 0 17px rgba(255,255,255,.25)}
+  .postal-copy{position:relative;z-index:3}.postal-tag{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid #f0cada;border-radius:999px;background:#fff1f6;color:#a55e7d;font-size:12px;font-weight:800;letter-spacing:.45px}.postal-hero h1{margin:12px 0 7px;color:#62455d;font-size:clamp(25px,3vw,39px);line-height:1.2;letter-spacing:-.7px}.postal-hero h1 em{font-style:normal;color:#d06e8f}.postal-hero p{margin:0;max-width:670px;color:#887081;font-size:14px;line-height:1.7}
+  .post-cat{position:absolute;right:65px;bottom:15px;width:235px;height:175px;z-index:3;animation:postCat 3.1s ease-in-out infinite;transform-origin:bottom center}@keyframes postCat{50%{transform:translateY(-7px) rotate(1deg)}}
+  .parcel{position:absolute;left:5px;bottom:0;width:78px;height:67px;background:#d9a36f;border-radius:7px;box-shadow:inset -8px -6px 0 rgba(123,77,50,.09),0 9px 15px rgba(92,55,68,.12)}.parcel:before{content:"";position:absolute;left:31px;top:0;width:15px;height:67px;background:#f2d2a6}.parcel:after{content:"♡";position:absolute;left:11px;top:22px;color:#fff3df;font-size:20px;font-weight:800}
+  .post-body{position:absolute;width:113px;height:91px;background:#d68d99;border-radius:51% 51% 42% 42%;right:22px;bottom:0;box-shadow:inset -11px -7px 0 rgba(131,70,85,.1)}
+  .post-head{position:absolute;width:126px;height:103px;background:#e49aa6;border-radius:48%;right:15px;top:14px}.post-head:before,.post-head:after{content:"";position:absolute;top:-24px;border-left:27px solid transparent;border-right:27px solid transparent;border-bottom:49px solid #e49aa6}.post-head:before{left:0;transform:rotate(-17deg)}.post-head:after{right:0;transform:rotate(17deg)}
+  .post-cap{position:absolute;z-index:4;width:104px;height:31px;background:var(--brand);right:25px;top:3px;border-radius:50% 50% 14px 14px;transform:rotate(2deg);transition:background .3s}.post-cap:after{content:"✦";position:absolute;color:var(--brand-txt);left:45px;top:5px;font-size:16px}.post-face{position:absolute;z-index:5;right:42px;top:61px;color:#604552;font-size:28px;letter-spacing:8px;white-space:nowrap}.post-face:after{content:"ᴗ";position:absolute;left:30px;top:12px;font-size:21px}.post-cheek{position:absolute;z-index:5;top:89px;width:17px;height:8px;background:#f27691;border-radius:50%;opacity:.55}.post-cheek.l{right:100px}.post-cheek.r{right:35px}
+  .post-tail{position:absolute;width:75px;height:52px;border:16px solid #c87e8d;border-left-color:transparent;border-radius:50%;right:-30px;bottom:24px;transform:rotate(20deg);animation:postTail 2s ease-in-out infinite;transform-origin:left center}@keyframes postTail{50%{transform:rotate(7deg)}}
+  .speech-mail{position:absolute;z-index:8;right:0;top:0;padding:8px 12px;background:#fff;color:#986078;border:1px solid #efc8d7;border-radius:15px 15px 15px 4px;font-size:11.5px;font-weight:700;box-shadow:0 8px 19px rgba(101,60,87,.13);animation:speechMail 3s ease-in-out infinite}.speech-mail:after{content:"";position:absolute;left:20px;bottom:-8px;border:8px solid transparent;border-left-color:#fff;transform:rotate(18deg)}@keyframes speechMail{50%{transform:translateY(-4px)}}
+  .post-spark{position:absolute;z-index:3;color:#fff2a8;font-size:22px;animation:postSpark 1.8s ease-in-out infinite}.post-spark.a{right:293px;top:36px}.post-spark.b{right:31px;bottom:31px;animation-delay:-.8s}@keyframes postSpark{50%{transform:scale(1.35) rotate(18deg);opacity:.45}}
+  .carrier-tabs{position:relative;z-index:3;gap:12px;margin-bottom:17px;background:rgba(255,255,255,.62);border:1px solid rgba(231,211,224,.8);padding:7px;border-radius:999px;width:max-content;backdrop-filter:blur(8px);box-shadow:0 8px 22px rgba(105,68,94,.08)}.carrier-tab{border:0;border-radius:999px;padding:10px 23px;background:transparent;transition:.25s}.carrier-tab:hover{border-color:transparent;color:#9a607c;transform:translateY(-1px)}.carrier-tab.active{box-shadow:0 7px 16px rgba(95,54,78,.18)}
+  .card{border-color:rgba(233,215,227,.92);border-radius:22px;box-shadow:var(--shadow);padding:20px;backdrop-filter:blur(10px);transition:transform .25s,box-shadow .25s}.card:hover{transform:translateY(-2px);box-shadow:0 20px 45px rgba(116,75,103,.16)}
+  .btn{border-radius:999px;transition:.23s;box-shadow:0 5px 13px rgba(103,67,91,.08)}.btn:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 9px 19px rgba(103,67,91,.15)}.btn-primary{background:linear-gradient(115deg,var(--brand),color-mix(in srgb,var(--brand) 70%,#ef9bb7));}.btn-red{background:linear-gradient(115deg,#d9617d,#ed8a9c)}.btn-gold{border-color:#e6a867;color:#835a47;background:#fff9ed}.btn-gold:hover{background:linear-gradient(115deg,#ffd477,#ffb87b);color:#664656;border-color:transparent}
+  input[type=date],select,input[type=text]{border-color:#e5d3df;border-radius:11px;transition:.2s}input:focus,select:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 18%,transparent)}
+  .cal-top{background:linear-gradient(110deg,#fffafc,#fff8ef);border:1px solid #f0e0e8;border-radius:17px;padding:12px}.cal-title{color:#765168}.month-sum{background:linear-gradient(110deg,#faf6ff,#fff6f9);border-color:#e5d8ee;border-radius:15px}.month-sum b{color:#ba6485}
+  .cal-grid{gap:9px}.cal-cell{border-color:#ecdee7;border-radius:15px;min-height:88px;background:linear-gradient(145deg,#fff,#fffafd);transition:.25s;overflow:hidden}.cal-cell:not(.empty):before{content:"🐾";position:absolute;right:6px;bottom:2px;font-size:18px;opacity:.06}.cal-cell:hover{border-color:#d893af;transform:translateY(-3px);box-shadow:0 11px 21px rgba(106,68,94,.12)}.cal-cell:hover:before{opacity:.3}.cal-cell.today{border-color:#d67598;box-shadow:0 0 0 3px rgba(214,117,152,.15)}.cal-badge{background:#f4ecff;color:#785c8c;border-radius:999px}.cal-cell.bad{background:#fff0f3}.cal-cell.warnday{background:#fff9e9}.today-dot{color:#c26083}
+  .tbl-wrap{border-color:#e7d7e2;border-radius:16px}thead th{background:linear-gradient(110deg,#76536d,#9d6681);padding:11px}tbody tr:nth-child(even){background:#fffafd}tbody tr:hover{background:#fff0f5}.warnbox,.okbox{border-radius:14px}.sec-label{color:#735068;font-size:16px}.toast{background:#6d4b64;border-radius:999px;border:1px solid rgba(255,255,255,.34)}
+  @media(max-width:900px){.postal-hero{padding:28px 255px 28px 25px}.post-cat{right:25px;transform:scale(.82);transform-origin:bottom right}.postal-hero:before{right:8px}.post-spark{display:none}}
+  @media(max-width:650px){.wrap{padding:0 14px}.tool-title{width:100%;border-left:0;padding-left:0}.head-right{margin-left:0}.postal-hero{padding:25px 19px 185px;text-align:center}.postal-hero p{font-size:13px}.post-cat{right:50%;transform:translateX(50%) scale(.78);bottom:1px}.postal-hero:before{right:50%;transform:translateX(50%);top:auto;bottom:-7px}.speech-mail{right:-9px}.carrier-tabs{width:100%;justify-content:center}.carrier-tab{flex:1;padding:10px 12px}.card{padding:15px}.cal-grid{gap:4px}.cal-cell{min-height:72px;padding:5px}.cal-badge,.cal-fee,.cal-sum{font-size:9px}.row{align-items:flex-start}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
+<div class="postal-ambient" aria-hidden="true"><i class="postal-blob one"></i><i class="postal-blob two"></i><i class="postal-blob three"></i><i class="mail-charm c1">💌</i><i class="mail-charm c2">✦</i><i class="mail-charm c3">📦</i><i class="mail-charm c4">🐾</i></div>
 <header>
   <div class="wrap">
     <span class="brand">///MA<span>SA</span>RU</span>
@@ -119,6 +154,15 @@
 </header>
 
 <main class="wrap">
+  <section class="postal-hero">
+    <div class="postal-copy">
+      <span class="postal-tag">✦ CAT CAFÉ POSTAL STUDIO</span>
+      <h1>ให้น้องแมวช่วยดูแล <em>ทุกพัสดุ</em></h1>
+      <p>รวมไฟล์ ตรวจเลขพัสดุซ้ำ เช็กค่าบริการ และดูยอดรายวันผ่านปฏิทินแสนสะดวก—งานขนส่งที่เคยวุ่นวายจะเป็นระเบียบและน่ารักขึ้นในทุกวัน</p>
+    </div>
+    <span class="post-spark a">✦</span><span class="post-spark b">✧</span>
+    <div class="post-cat" aria-hidden="true"><div class="speech-mail">พัสดุวันนี้<br>ให้หนูดูแลนะเมี้ยว ♡</div><div class="parcel"></div><div class="post-tail"></div><div class="post-body"></div><div class="post-head"></div><div class="post-cap"></div><div class="post-face">• •</div><i class="post-cheek l"></i><i class="post-cheek r"></i></div>
+  </section>
   <!-- ===== แท็บเลือกเจ้าขนส่ง ===== -->
   <div class="carrier-tabs">
     <button class="carrier-tab active" data-carrier="thaipost">🇹🇭 ไปรษณีย์ไทย</button>
@@ -844,6 +888,20 @@ async function exportRange(from,to,fname){
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   $('expInfo').textContent=`ส่งออก ${fmtInt(rows.length)} รายการแล้ว`;
   toast('ส่งออกแล้ว');
+}
+
+/* กิมมิค Cat Café: ฉากและสายตาน้องแมวขยับตามเมาส์ */
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const postalHero=document.querySelector('.postal-hero');
+  const postalFace=document.querySelector('.post-face');
+  document.addEventListener('pointermove',e=>{
+    const x=e.clientX/window.innerWidth-.5, y=e.clientY/window.innerHeight-.5;
+    document.querySelectorAll('.postal-blob').forEach((b,i)=>{ const d=(i+1)*5; b.style.translate=`${x*d}px ${y*d}px`; });
+    if(postalHero&&postalFace){
+      const r=postalHero.getBoundingClientRect();
+      if(e.clientY>r.top-80&&e.clientY<r.bottom+80) postalFace.style.transform=`translate(${x*5}px,${y*3}px)`;
+    }
+  },{passive:true});
 }
 </script>
 </body>
