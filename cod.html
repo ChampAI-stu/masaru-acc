@@ -57,9 +57,27 @@
   td.trk{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
   td.cod{font-weight:700;text-align:right}
   tr.dup td{background:#fdecec}
+
+  /* ===== CAT CAFE COD THEME ===== */
+  :root{--pink:#d95b78;--pink-soft:#fff0f4;--lav:#eeeafb;--mint:#e8f6f3;--peach:#fff0e8}
+  body{min-height:100vh;background:linear-gradient(145deg,#fff9f3 0%,#fff1f5 38%,#f0ecfb 72%,#e9f7f5 100%);background-attachment:fixed;overflow-x:hidden}body>header,body>main,.toast{position:relative;z-index:3}
+  .cod-cafe-bg{position:fixed;z-index:0;inset:0;overflow:hidden;pointer-events:none}.cod-cafe-bg:before{content:"";position:absolute;inset:-8%;opacity:.18;background-image:radial-gradient(circle at 19px 20px,rgba(211,100,130,.42) 0 3px,transparent 4px),radial-gradient(circle at 29px 13px,rgba(211,100,130,.28) 0 2px,transparent 3px),radial-gradient(circle at 11px 12px,rgba(211,100,130,.28) 0 2px,transparent 3px);background-size:118px 118px;transform:rotate(-7deg)}
+  .cod-blob{position:absolute;border-radius:50%;filter:blur(2px);transition:translate .22s ease-out}.db1{width:430px;height:430px;left:-205px;top:12%;background:radial-gradient(circle,#ffdbe5,transparent 68%)}.db2{width:520px;height:520px;right:-240px;top:25%;background:radial-gradient(circle,#ded7f5,transparent 68%)}.db3{width:430px;height:430px;left:35%;bottom:-250px;background:radial-gradient(circle,#dcf1ed,transparent 68%)}
+  .cod-float{position:absolute;font-style:normal;opacity:.25;filter:saturate(.75);animation:codFloat 5s ease-in-out infinite}.df1{left:3%;top:36%;font-size:38px}.df2{right:4%;top:47%;font-size:40px;animation-delay:1s}.df3{left:8%;bottom:9%;font-size:34px;animation-delay:2s}.df4{right:10%;bottom:14%;font-size:30px;animation-delay:3s}.df5{left:47%;top:12%;font-size:24px;animation-delay:.6s}
+  header{position:relative;overflow:hidden;background:linear-gradient(100deg,#202d4c 0%,#3c4e78 62%,#75566f 100%);border-bottom-color:#df5e79;box-shadow:0 10px 34px rgba(42,44,72,.17)}header:after{content:"";position:absolute;right:-70px;top:-80px;width:260px;height:260px;border:35px solid rgba(255,213,224,.06);border-radius:50%}.brand span{color:#ff9bb0}.tool-title{color:#efd2db}.home-btn{border-color:rgba(255,255,255,.22);border-radius:12px;transition:.24s}.home-btn:hover{background:#fff;color:#34415f;transform:translateY(-2px)}
+  main{padding-top:22px}.cod-hero{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:22px;margin-bottom:20px;padding:24px 28px;border:1px solid rgba(234,219,227,.92);border-radius:24px;background:linear-gradient(115deg,rgba(255,255,255,.94),rgba(255,244,248,.9));box-shadow:0 16px 44px rgba(70,52,72,.08);backdrop-filter:blur(14px)}.cod-hero:before{content:"";position:absolute;width:190px;height:190px;right:-70px;bottom:-120px;border:28px solid rgba(218,91,120,.07);border-radius:50%}.dh-kicker{font-size:11px;letter-spacing:2px;color:#c34b66;font-weight:800}.cod-hero h1{font-size:24px;color:#273653;margin:4px 0}.cod-hero p{color:var(--muted);font-size:13px;margin:0}.dh-chips{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}.dh-chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:#fff0f4;color:#ae4059}.dh-chip:nth-child(2){background:#f0edfb;color:#65569a}.dh-chip:nth-child(3){background:#eaf7f4;color:#397a70}
+  .cod-cat{position:relative;flex:none;width:94px;height:76px;border-radius:43px 43px 17px 17px;background:#f2d47f;box-shadow:inset 0 -8px 0 rgba(59,55,79,.05),0 8px 20px rgba(59,45,63,.08);animation:codCat 3.2s ease-in-out infinite}.cod-cat:before,.cod-cat:after{content:"";position:absolute;top:-15px;width:35px;height:35px;background:#f2d47f;border-radius:6px 80% 7px 80%;z-index:-1}.cod-cat:before{left:9px;transform:rotate(-14deg)}.cod-cat:after{right:9px;transform:scaleX(-1) rotate(-14deg)}.cod-cat .eye{position:absolute;top:28px;width:7px;height:8px;border-radius:50%;background:#34415f;animation:codBlink 4s infinite}.cod-cat .eye.l{left:26px}.cod-cat .eye.r{right:26px}.cod-cat .nose{position:absolute;left:50%;top:39px;width:8px;height:6px;border-radius:50%;background:#d36e85;transform:translateX(-50%)}.cod-cat .coin{position:absolute;left:-18px;top:-22px;font-size:28px;animation:coinSpin 3s ease-in-out infinite}.cod-cat .money{position:absolute;right:-18px;bottom:-7px;font-size:29px;filter:drop-shadow(0 4px 4px rgba(54,48,64,.12))}
+  .card{background:rgba(255,255,255,.88);border-color:#eadfe6;border-radius:21px;box-shadow:0 13px 35px rgba(62,49,69,.07);backdrop-filter:blur(14px)}.sec-label{color:#774e68}.drop{position:relative;overflow:hidden;min-height:170px;border-radius:19px;border-color:#dfced8;background:linear-gradient(145deg,rgba(255,255,255,.86),rgba(255,248,232,.84));transition:.25s}.drop:after{content:"🐱";position:absolute;right:24px;bottom:-55px;font-size:61px;filter:drop-shadow(0 5px 5px rgba(47,44,61,.1));transition:bottom .4s cubic-bezier(.2,.9,.2,1.2),transform .35s}.drop:before{content:"💰";position:absolute;left:22px;bottom:-43px;font-size:43px;transition:bottom .35s .08s,transform .35s}.drop:hover{border-color:#d96b84;background:#fff8f0;transform:translateY(-5px);box-shadow:0 16px 30px rgba(74,53,70,.1)}.drop:hover:after{bottom:-9px;transform:rotate(-6deg)}.drop:hover:before{bottom:10px;transform:rotate(10deg)}.drop:hover .ic{animation:codIcon .7s ease}
+  .btn{border-radius:12px;transition:.22s}.btn:hover:not(:disabled){transform:translateY(-2px)}.btn-primary{background:linear-gradient(135deg,#4a608f,#2d4068);color:#fff;box-shadow:0 7px 16px rgba(42,60,101,.13)}.btn-gold{background:linear-gradient(135deg,#df617c,#bd3f5c);color:#fff;box-shadow:0 7px 16px rgba(191,59,87,.15)}
+  .fileitem{border-radius:13px;background:rgba(255,250,252,.9);border-color:#eadfe6;transition:.2s}.fileitem:hover{transform:translateX(3px);background:#fff}.stat{background:rgba(255,255,255,.9)!important;border-radius:17px!important;border-color:#eadfe6!important;border-top:4px solid #7b6eaf!important;box-shadow:0 8px 22px rgba(61,48,68,.05);transition:.24s}.stat:nth-child(2n){border-top-color:#dc6981!important}.stat:nth-child(3n){border-top-color:#58a192!important}.stat:hover{transform:translateY(-3px);box-shadow:0 15px 29px rgba(61,48,68,.09)}.warnbox{border-radius:14px}.tbl-wrap{border-color:#e6dce4;border-radius:14px;background:rgba(255,255,255,.91)}thead th{background:linear-gradient(180deg,#35486f,#293a5e)}tbody tr{transition:.15s}tbody tr:hover{background:#fff3f7}.toast{border-radius:14px;background:linear-gradient(135deg,#35476e,#6b5069);box-shadow:0 14px 34px rgba(51,42,59,.2)}
+  @keyframes codFloat{50%{transform:translateY(-10px) rotate(8deg)}}@keyframes codCat{50%{transform:translateY(-5px) rotate(1deg)}}@keyframes codBlink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.12)}}@keyframes codIcon{35%{transform:translateY(-5px) rotate(-6deg)}70%{transform:translateY(1px) rotate(5deg)}}@keyframes coinSpin{50%{transform:translateY(-6px) rotate(18deg)}}
+  @media(max-width:700px){.cod-hero{padding:20px}.cod-cat{transform:scale(.8);transform-origin:right center}.tool-title{display:none}.cod-float{opacity:.15}.drop{min-height:150px}}
+  @media(max-width:480px){.cod-cat{display:none}.cod-hero h1{font-size:20px}.cod-cafe-bg:before{opacity:.1}.wrap{padding-left:13px;padding-right:13px}}
+  @media(prefers-reduced-motion:reduce){.cod-cafe-bg *,.cod-cat{animation:none!important}.drop,.btn,.stat{transition:none!important}}
 </style>
 </head>
 <body>
+<div class="cod-cafe-bg" aria-hidden="true"><i class="cod-blob db1" data-depth="8"></i><i class="cod-blob db2" data-depth="14"></i><i class="cod-blob db3" data-depth="6"></i><i class="cod-float df1" data-depth="10">🌸</i><i class="cod-float df2" data-depth="12">💵</i><i class="cod-float df3" data-depth="7">🎀</i><i class="cod-float df4" data-depth="9">🧶</i><i class="cod-float df5" data-depth="5">✦</i></div>
 <header>
   <div class="wrap">
     <span class="brand">///MA<span>SA</span>RU</span>
@@ -72,6 +90,7 @@
 </header>
 
 <main class="wrap">
+  <section class="cod-hero"><div><div class="dh-kicker">MASARU COD WORKSPACE ✦</div><h1>รวมยอด COD ให้ครบในครั้งเดียว</h1><p>น้องแมวการเงินพร้อมรวมหลายวัน ตรวจเลขซ้ำ และสรุปยอดสุทธิให้เป็นระเบียบ</p><div class="dh-chips"><span class="dh-chip">รวมหลายไฟล์</span><span class="dh-chip">ตรวจรายการซ้ำ</span><span class="dh-chip">สรุปยอดอัตโนมัติ</span></div></div><div class="cod-cat" aria-hidden="true"><i class="eye l"></i><i class="eye r"></i><i class="nose"></i><i class="coin">🪙</i><i class="money">💵</i></div></section>
   <div class="card">
     <div class="sec-label" style="margin-top:0">1️⃣ อัปโหลดไฟล์ COD Remittance (เลือกหลายไฟล์พร้อมกันได้)</div>
     <div class="drop" id="drop">
@@ -422,6 +441,17 @@ async function exportResult(){
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='COD_รวม_'+r.fileCount+'ไฟล์.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   toast('ส่งออกแล้ว');
+}
+
+// ฉากหลัง Cat Café ขยับตามเมาส์แบบเบา ๆ
+if(window.matchMedia('(pointer:fine)').matches){
+  document.addEventListener('pointermove',e=>{
+    const nx=e.clientX/window.innerWidth-.5, ny=e.clientY/window.innerHeight-.5;
+    document.querySelectorAll('.cod-cafe-bg [data-depth]').forEach(el=>{
+      const d=Number(el.dataset.depth)||6;
+      el.style.translate=`${nx*d}px ${ny*d}px`;
+    });
+  },{passive:true});
 }
 </script>
 </body>
