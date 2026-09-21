@@ -73,9 +73,76 @@
   .swatch{display:inline-block;width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.18);vertical-align:-2px;margin-right:6px}
   .lbl{font-size:12.5px;color:var(--muted);font-weight:600}
   .chk{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+
+  /* ═══════════ CAT CAFÉ · MATCHING STUDIO ═══════════ */
+  :root{--navy-deep:#49344f;--navy:#6f4f70;--blue:#bd79a0;--red:#d9667f;--red-dk:#b94d68;
+    --ink:#4c3b4e;--muted:#8b7588;--line:#ead9e5;--bg:#fff8f4;--card:rgba(255,255,255,.91);
+    --shadow:0 16px 40px rgba(121,77,110,.12);--gold:#e9ab70;--green:#559b7c;--flash:#ffd56b;--amber:#b2763f}
+  html{scroll-behavior:smooth}
+  body{min-height:100vh;background:
+    radial-gradient(circle at 10% 16%,rgba(255,201,214,.56),transparent 24%),
+    radial-gradient(circle at 88% 12%,rgba(211,202,255,.58),transparent 27%),
+    radial-gradient(circle at 78% 80%,rgba(255,220,159,.42),transparent 25%),
+    linear-gradient(145deg,#fff9f4 0%,#fff2f6 48%,#f8f4ff 100%);overflow-x:hidden}
+  body:before{content:"";position:fixed;inset:0;z-index:-2;opacity:.32;background-image:
+    radial-gradient(ellipse 8px 10px at 20px 20px,#e8b5c4 45%,transparent 48%),
+    radial-gradient(circle 3px at 12px 11px,#e8b5c4 48%,transparent 52%),
+    radial-gradient(circle 3px at 20px 8px,#e8b5c4 48%,transparent 52%),
+    radial-gradient(circle 3px at 28px 11px,#e8b5c4 48%,transparent 52%);background-size:92px 92px;transform:rotate(-8deg)}
+  .ambient{position:fixed;inset:0;pointer-events:none;z-index:-1;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(1px);animation:floatBlob 8s ease-in-out infinite}
+  .blob.b1{width:240px;height:240px;background:#ffd7df;left:-90px;top:28%;opacity:.42}
+  .blob.b2{width:300px;height:300px;background:#ded6ff;right:-130px;top:42%;opacity:.4;animation-delay:-3s}
+  .blob.b3{width:190px;height:190px;background:#ffe2ad;left:45%;bottom:-100px;opacity:.35;animation-delay:-5s}
+  @keyframes floatBlob{50%{transform:translate3d(12px,-18px,0) scale(1.05)}}
+  .float-charm{position:absolute;font-size:22px;opacity:.55;animation:charm 6s ease-in-out infinite;filter:drop-shadow(0 5px 5px rgba(100,60,90,.12))}
+  .float-charm:nth-child(4){left:5%;top:18%}.float-charm:nth-child(5){right:7%;top:25%;animation-delay:-2s}.float-charm:nth-child(6){left:8%;bottom:12%;animation-delay:-4s}.float-charm:nth-child(7){right:10%;bottom:8%;animation-delay:-1s}
+  @keyframes charm{50%{transform:translateY(-14px) rotate(10deg)}}
+  .wrap{max-width:1360px;padding:0 24px}
+  header{position:relative;background:linear-gradient(110deg,#674865,#8f607b 55%,#b8788f);padding:14px 0;border-bottom:0;box-shadow:0 8px 24px rgba(86,51,78,.16);z-index:10}
+  header:after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:16px;background:radial-gradient(circle at 8px 0,#fff8f4 8px,transparent 9px);background-size:22px 16px;opacity:.9}
+  .brand{font-style:normal;font-size:21px;letter-spacing:.4px;display:flex;align-items:center;gap:9px}.brand span{color:#ffe08a}.brand:before{content:"🐾";font-size:22px;filter:drop-shadow(0 3px 3px rgba(0,0,0,.18))}
+  .tool-title{color:#f9e9f1;border-left-color:rgba(255,255,255,.3)}
+  .home-btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.36);border-radius:999px;padding:8px 15px;transition:.25s}
+  .home-btn:hover{background:#fff;color:#7a526e;transform:translateY(-2px);box-shadow:0 7px 16px rgba(54,31,48,.18)}
+  main{padding:34px 0 80px}
+  .match-hero{position:relative;min-height:210px;margin-bottom:20px;border:1px solid rgba(232,194,210,.72);border-radius:28px;overflow:hidden;background:linear-gradient(120deg,rgba(255,255,255,.96),rgba(255,239,245,.92) 52%,rgba(242,237,255,.94));box-shadow:0 22px 50px rgba(122,75,106,.13);display:flex;align-items:center;padding:30px 330px 30px 38px}
+  .match-hero:before{content:"";position:absolute;width:210px;height:210px;border-radius:50%;right:63px;top:4px;background:linear-gradient(145deg,#ffe4b5,#ffc5d5);box-shadow:inset 0 0 0 15px rgba(255,255,255,.25)}
+  .hero-copy{position:relative;z-index:2}.eyebrow{display:inline-flex;align-items:center;gap:7px;background:#fff0f5;color:#a95f7e;border:1px solid #f2c8d9;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800;letter-spacing:.4px}
+  .match-hero h1{font-size:clamp(25px,3vw,39px);line-height:1.2;margin:12px 0 8px;color:#63455f;letter-spacing:-.8px}.match-hero h1 em{font-style:normal;color:#d16d8e}.match-hero p{margin:0;color:#866f82;font-size:14px;line-height:1.7;max-width:650px}
+  .match-cat{position:absolute;right:70px;bottom:12px;width:195px;height:174px;z-index:2;animation:catBob 3.2s ease-in-out infinite;transform-origin:bottom center}
+  @keyframes catBob{50%{transform:translateY(-7px) rotate(1deg)}}
+  .cat-tail{position:absolute;width:78px;height:54px;border:17px solid #c77e8c;border-left-color:transparent;border-radius:50%;right:-37px;bottom:25px;transform:rotate(22deg);animation:tailWag 2s ease-in-out infinite;transform-origin:left center}
+  @keyframes tailWag{50%{transform:rotate(7deg)}}
+  .cat-body{position:absolute;width:116px;height:96px;background:#d88d99;border-radius:52% 52% 43% 43%;left:40px;bottom:0;box-shadow:inset -12px -8px 0 rgba(143,75,91,.11)}
+  .cat-head{position:absolute;width:132px;height:108px;background:#e39aa5;border-radius:48% 48% 45% 45%;left:29px;top:8px;box-shadow:inset -10px -5px 0 rgba(151,81,96,.1)}
+  .cat-head:before,.cat-head:after{content:"";position:absolute;top:-25px;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:51px solid #e39aa5}.cat-head:before{left:0;transform:rotate(-17deg)}.cat-head:after{right:0;transform:rotate(17deg)}
+  .cat-face{position:absolute;z-index:3;left:56px;top:54px;font-size:29px;letter-spacing:8px;color:#604553;white-space:nowrap}.cat-face:after{content:"ᴗ";position:absolute;left:31px;top:12px;font-size:22px}
+  .cat-cheek{position:absolute;z-index:3;top:83px;width:17px;height:8px;background:#f26e8c;border-radius:50%;opacity:.55}.cat-cheek.l{left:49px}.cat-cheek.r{right:40px}
+  .cat-bow{position:absolute;z-index:4;left:72px;bottom:57px;font-size:36px;color:#fff4c3;filter:drop-shadow(0 3px 2px rgba(100,50,70,.15));animation:bowPulse 2.4s ease-in-out infinite}@keyframes bowPulse{50%{transform:scale(1.08)}}
+  .match-card{position:absolute;z-index:5;right:6px;top:4px;background:#fff;color:#986078;border:1px solid #f0c9d7;border-radius:16px 16px 16px 4px;padding:8px 12px;font-size:11.5px;font-weight:700;box-shadow:0 8px 20px rgba(102,60,89,.13);animation:speech 3.2s ease-in-out infinite}.match-card:after{content:"";position:absolute;left:20px;bottom:-8px;border:8px solid transparent;border-left-color:#fff;transform:rotate(18deg)}@keyframes speech{50%{transform:translateY(-4px)}}
+  .spark{position:absolute;z-index:3;color:#fff3a5;font-size:22px;animation:spark 1.8s ease-in-out infinite}.spark.s1{right:255px;top:35px}.spark.s2{right:33px;bottom:38px;animation-delay:-.8s}@keyframes spark{50%{transform:scale(1.35) rotate(20deg);opacity:.45}}
+  .card{border-color:rgba(232,211,226,.9);border-radius:22px;box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:20px;transition:transform .25s,box-shadow .25s}.card:hover{transform:translateY(-2px);box-shadow:0 20px 45px rgba(121,77,110,.16)}
+  .grid2>.card{position:relative;overflow:hidden}.grid2>.card:before{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-32px;top:-32px;background:linear-gradient(145deg,#ffe0e8,#eee4ff);opacity:.72}
+  .sec-label{color:#725069;font-size:16px;position:relative}.sec-label:first-letter{font-size:18px}
+  .drop{position:relative;overflow:hidden;border-color:#e9bfd0;border-radius:18px;padding:27px 20px;background:linear-gradient(145deg,#fffafd,#fff7ee);transition:.3s}.drop:after{content:"🐾";position:absolute;right:14px;bottom:8px;font-size:27px;opacity:.12;transform:rotate(-18deg);transition:.3s}.drop:hover{border-color:#d27a9b;background:linear-gradient(145deg,#fff1f6,#fff8e9);transform:translateY(-3px);box-shadow:0 12px 26px rgba(191,112,147,.14)}.drop:hover:after{opacity:.5;transform:rotate(7deg) scale(1.2)}
+  .drop .ic{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:17px;background:#fff;box-shadow:0 8px 18px rgba(133,83,116,.11);animation:iconFloat 2.8s ease-in-out infinite}@keyframes iconFloat{50%{transform:translateY(-5px) rotate(-3deg)}}
+  .drop .t{color:#704e68}.drop.ok{border-color:#9bd3b9;background:#f5fff9}.drop.ok:after{content:"😸";opacity:.72}
+  .btn{border-radius:999px;padding:10px 18px;transition:.23s;box-shadow:0 5px 14px rgba(104,68,94,.08)}.btn:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 9px 19px rgba(104,68,94,.15)}
+  .btn-primary{background:linear-gradient(115deg,#a96588,#d77b99);color:#fff;position:relative;overflow:hidden}.btn-primary:before{content:"🐾";margin-right:6px}.btn-gold{background:linear-gradient(115deg,#ffd36d,#ffb976);color:#62465a}
+  select,input[type=number]{border-color:#e5d2df;border-radius:10px;padding:7px 10px;outline:none}select:focus,input:focus{border-color:#cc7b9e;box-shadow:0 0 0 3px rgba(204,123,158,.13)}
+  .infobox,.warnbox{border-radius:14px}.infobox{background:#f9f5ff;border-color:#ddd2f1}.warnbox{background:#fff7e9;border-color:#efd49e}
+  .fileitem{background:#fffafd;border-color:#eadce5;border-radius:13px;padding:10px 12px}.fileitem:hover{border-color:#dbaec1;box-shadow:0 7px 16px rgba(110,70,97,.07)}
+  .stats{gap:10px}.stat{border-radius:16px;background:linear-gradient(145deg,#fff,#fff8fb);box-shadow:0 7px 16px rgba(102,68,90,.06)}.stat .v{color:#735168}.stat.flash{background:#fff9df;border-color:#f0dc9e}
+  .tbl-wrap{border-radius:16px;border-color:#e5d4e0;box-shadow:inset 0 1px 0 #fff}thead th{background:linear-gradient(110deg,#79556e,#9f6681);padding:11px}tbody tr:nth-child(even):not(.grp){background:#fffafd}tbody tr:hover{background:#fff0f5!important}tr.grp td{background:linear-gradient(110deg,#6e4d66,#93617c)!important;color:#fff2bd;padding:9px 11px}
+  .toast{background:#6d4b64;border:1px solid rgba(255,255,255,.35);border-radius:999px;box-shadow:0 13px 34px rgba(75,44,66,.25)}
+  @media(max-width:900px){.match-hero{padding:28px 220px 28px 25px}.match-cat{right:30px;transform:scale(.82);transform-origin:bottom right}.match-hero:before{right:10px}.spark{display:none}}
+  @media(max-width:650px){.wrap{padding:0 14px}.tool-title{width:100%;border-left:0;padding-left:0}.head-right{margin-left:0}.match-hero{padding:26px 20px 185px;text-align:center}.match-hero p{font-size:13px}.match-cat{right:50%;transform:translateX(50%) scale(.78);bottom:2px}.match-hero:before{right:50%;transform:translateX(50%);top:auto;bottom:-5px}.match-card{right:8px}.card{padding:15px}.row{align-items:flex-start}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
+<div class="ambient" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i><span class="float-charm">♡</span><span class="float-charm">✦</span><span class="float-charm">🐾</span><span class="float-charm">🎀</span></div>
 <header>
   <div class="wrap">
     <span class="brand">///MA<span>SA</span>RU</span>
@@ -88,6 +155,20 @@
 </header>
 
 <main class="wrap">
+
+  <section class="match-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">✦ CAT CAFÉ MATCHING STUDIO</span>
+      <h1>ให้น้องแมวช่วย <em>จับคู่ยอด</em> ให้เป๊ะ!</h1>
+      <p>วางไฟล์ทั้งสองฝั่ง แล้วปล่อยให้น้องมะลิตามหายอดที่คู่กันอย่างเป็นระเบียบ พร้อมทำไฟล์ไฮไลท์สวยๆ ให้ดาวน์โหลดกลับไปใช้งานได้ทันที</p>
+    </div>
+    <span class="spark s1">✦</span><span class="spark s2">✧</span>
+    <div class="match-cat" aria-hidden="true">
+      <div class="match-card">พร้อมจับคู่ยอด<br>ให้แล้วเมี้ยว! ♡</div>
+      <div class="cat-tail"></div><div class="cat-body"></div><div class="cat-head"></div>
+      <div class="cat-face">• •</div><i class="cat-cheek l"></i><i class="cat-cheek r"></i><div class="cat-bow">⋈</div>
+    </div>
+  </section>
 
   <div class="grid2">
     <!-- ===== ใบสำคัญรับ ===== -->
@@ -761,6 +842,25 @@ $('expAllBtn').onclick=async()=>{
   }catch(err){ console.error(err); toast('สร้างไฟล์ไม่สำเร็จ: '+err.message,true); }
   $('expAllBtn').disabled=false; $('expAllBtn').textContent='⬇️ ดาวน์โหลดทั้งหมด (ZIP)';
 };
+
+/* กิมมิค Cat Café: ฉากและน้องแมวขยับตามเมาส์แบบนุ่ม ๆ */
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const hero=document.querySelector('.match-hero');
+  const cat=document.querySelector('.match-cat');
+  document.addEventListener('pointermove',e=>{
+    const x=(e.clientX/window.innerWidth-.5), y=(e.clientY/window.innerHeight-.5);
+    document.querySelectorAll('.blob').forEach((b,i)=>{
+      const d=(i+1)*5; b.style.translate=`${x*d}px ${y*d}px`;
+    });
+    if(hero&&cat){
+      const r=hero.getBoundingClientRect();
+      if(e.clientY>r.top-80&&e.clientY<r.bottom+80){
+        cat.style.setProperty('--look-x',`${x*4}px`);
+        cat.querySelector('.cat-face').style.transform=`translate(${x*5}px,${y*3}px)`;
+      }
+    }
+  },{passive:true});
+}
 </script>
 </body>
 </html>
