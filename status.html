@@ -65,9 +65,42 @@
   .pill.ok{background:#e5f5ea;color:var(--green)} .pill.diff{background:#fff3e0;color:var(--orange)}
   .pill.wait{background:#fdeaea;color:var(--red-dk)} .pill.ret{background:#eceff3;color:#5a6577}
   .pill.claim{background:#f3e8ff;color:#7a3ea8} .pill.none{background:#fdeaea;color:var(--red-dk)}
+
+  /* ═══════════ CAT CAFÉ · STATUS STUDIO ═══════════ */
+  :root{--navy-deep:#563c52;--navy:#715069;--blue:#bd789f;--red:#d76681;--red-dk:#b74d67;
+    --ink:#4c3b4d;--muted:#8b7487;--line:#ead9e5;--bg:#fff8f4;--card:rgba(255,255,255,.92);
+    --shadow:0 16px 40px rgba(117,76,105,.12);--gold:#e8a968;--green:#579b7d;--orange:#c98a45}
+  html{scroll-behavior:smooth}
+  body{min-height:100vh;background:radial-gradient(circle at 8% 18%,rgba(255,203,216,.53),transparent 24%),radial-gradient(circle at 88% 13%,rgba(218,209,255,.55),transparent 27%),radial-gradient(circle at 79% 82%,rgba(255,224,166,.43),transparent 24%),linear-gradient(145deg,#fff9f4 0%,#fff2f6 52%,#f8f4ff 100%);overflow-x:hidden}
+  body:before{content:"";position:fixed;inset:0;z-index:-2;opacity:.24;background-image:radial-gradient(ellipse 8px 10px at 20px 20px,#e7b4c4 45%,transparent 48%),radial-gradient(circle 3px at 12px 11px,#e7b4c4 48%,transparent 52%),radial-gradient(circle 3px at 20px 8px,#e7b4c4 48%,transparent 52%),radial-gradient(circle 3px at 28px 11px,#e7b4c4 48%,transparent 52%);background-size:96px 96px;transform:rotate(-7deg)}
+  .status-ambient{position:fixed;inset:0;pointer-events:none;z-index:-1;overflow:hidden}.status-blob{position:absolute;border-radius:50%;animation:statusBlob 8s ease-in-out infinite}.status-blob.s1{width:250px;height:250px;background:#ffd5df;left:-95px;top:30%;opacity:.4}.status-blob.s2{width:310px;height:310px;background:#dfd7ff;right:-145px;top:43%;opacity:.38;animation-delay:-3s}.status-blob.s3{width:190px;height:190px;background:#ffe3ae;left:43%;bottom:-110px;opacity:.36;animation-delay:-5s}@keyframes statusBlob{50%{transform:translate(13px,-18px) scale(1.05)}}
+  .status-charm{position:absolute;font-style:normal;font-size:24px;opacity:.49;filter:drop-shadow(0 6px 5px rgba(95,57,81,.12));animation:statusCharm 6s ease-in-out infinite}.status-charm.c1{left:5%;top:20%}.status-charm.c2{right:6%;top:28%;animation-delay:-2s}.status-charm.c3{left:8%;bottom:10%;animation-delay:-4s}.status-charm.c4{right:9%;bottom:8%;animation-delay:-1s}@keyframes statusCharm{50%{transform:translateY(-15px) rotate(10deg)}}
+  .wrap{max-width:1300px;padding:0 24px}
+  header{position:relative;background:linear-gradient(110deg,#674863,#8f607b 54%,#ba798f);padding:14px 0;border-bottom:0;box-shadow:0 8px 25px rgba(79,45,69,.17);z-index:10}
+  header:after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:16px;background:radial-gradient(circle at 8px 0,#fff8f4 8px,transparent 9px);background-size:22px 16px;opacity:.95}.brand{font-style:normal;display:flex;align-items:center;gap:8px}.brand:before{content:"🐾";font-size:21px}.brand span{color:#ffe08a}.tool-title{color:#f9e7f0;border-left-color:rgba(255,255,255,.3)}.home-btn{border-radius:999px;background:rgba(255,255,255,.16);transition:.25s}.home-btn:hover{background:#fff;color:#7a526e;transform:translateY(-2px);box-shadow:0 8px 17px rgba(55,31,47,.18)}
+  main{padding:34px 0 76px}
+  .status-hero{position:relative;min-height:220px;margin-bottom:19px;border:1px solid rgba(232,195,210,.75);border-radius:29px;overflow:hidden;background:linear-gradient(120deg,rgba(255,255,255,.97),rgba(255,240,246,.94) 53%,rgba(242,238,255,.95));box-shadow:0 22px 50px rgba(119,75,104,.13);display:flex;align-items:center;padding:31px 400px 31px 38px}
+  .status-hero:before{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:70px;top:-3px;background:linear-gradient(145deg,#ffe8b7,#ffc7d8);box-shadow:inset 0 0 0 17px rgba(255,255,255,.25)}
+  .status-copy{position:relative;z-index:3}.status-tag{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid #efc8d8;border-radius:999px;background:#fff1f6;color:#a35d7a;font-size:12px;font-weight:800;letter-spacing:.45px}.status-hero h1{margin:12px 0 7px;color:#61445c;font-size:clamp(25px,3vw,39px);line-height:1.2;letter-spacing:-.7px}.status-hero h1 em{font-style:normal;color:#ce6c8c}.status-hero p{margin:0;max-width:680px;color:#887080;font-size:14px;line-height:1.7}
+  .status-cat{position:absolute;right:63px;bottom:13px;width:245px;height:180px;z-index:3;animation:inspectorCat 3.1s ease-in-out infinite;transform-origin:bottom center}@keyframes inspectorCat{50%{transform:translateY(-7px) rotate(1deg)}}
+  .st-body{position:absolute;width:113px;height:92px;background:#d68c99;border-radius:51% 51% 42% 42%;right:22px;bottom:0;box-shadow:inset -11px -7px 0 rgba(131,70,85,.1)}.st-head{position:absolute;width:126px;height:104px;background:#e39aa6;border-radius:48%;right:15px;top:12px}.st-head:before,.st-head:after{content:"";position:absolute;top:-24px;border-left:27px solid transparent;border-right:27px solid transparent;border-bottom:49px solid #e39aa6}.st-head:before{left:0;transform:rotate(-17deg)}.st-head:after{right:0;transform:rotate(17deg)}
+  .st-face{position:absolute;z-index:5;right:42px;top:59px;color:#604452;font-size:28px;letter-spacing:8px;white-space:nowrap}.st-face:after{content:"ᴗ";position:absolute;left:30px;top:12px;font-size:21px}.st-cheek{position:absolute;z-index:5;top:87px;width:17px;height:8px;background:#f27691;border-radius:50%;opacity:.55}.st-cheek.l{right:100px}.st-cheek.r{right:35px}.st-tail{position:absolute;width:75px;height:52px;border:16px solid #c77d8d;border-left-color:transparent;border-radius:50%;right:-30px;bottom:24px;transform:rotate(20deg);animation:statusTail 2s ease-in-out infinite;transform-origin:left center}@keyframes statusTail{50%{transform:rotate(7deg)}}
+  .clipboard{position:absolute;z-index:7;left:8px;bottom:0;width:86px;height:105px;border-radius:9px;background:#fffaf0;border:6px solid #80617a;box-shadow:0 10px 20px rgba(91,54,78,.17);transform:rotate(-5deg)}.clipboard:before{content:"";position:absolute;top:-13px;left:24px;width:30px;height:15px;border-radius:6px;background:#80617a}.clipboard:after{content:"✓  รับเงินแล้ว\A✓  ตรวจยอดแล้ว\A○  รอติดตาม";white-space:pre;position:absolute;left:8px;top:17px;color:#7e6075;font-size:9px;line-height:22px;font-weight:700}
+  .status-light{position:absolute;z-index:8;width:19px;height:19px;border-radius:50%;box-shadow:0 0 0 5px rgba(255,255,255,.5),0 0 16px currentColor;animation:statusLight 2.2s ease-in-out infinite}.status-light.green{left:0;top:28px;background:#6ec59c;color:#6ec59c}.status-light.orange{left:4px;top:60px;background:#efb467;color:#efb467;animation-delay:-.7s}.status-light.pink{right:1px;top:52px;background:#ed8ca9;color:#ed8ca9;animation-delay:-1.4s}@keyframes statusLight{50%{transform:scale(1.25);opacity:.58}}
+  .status-speech{position:absolute;z-index:9;right:0;top:0;padding:8px 12px;background:#fff;color:#956077;border:1px solid #efc8d7;border-radius:15px 15px 15px 4px;font-size:11.5px;font-weight:700;box-shadow:0 8px 19px rgba(101,60,87,.13);animation:statusSpeech 3s ease-in-out infinite}.status-speech:after{content:"";position:absolute;left:20px;bottom:-8px;border:8px solid transparent;border-left-color:#fff;transform:rotate(18deg)}@keyframes statusSpeech{50%{transform:translateY(-4px)}}
+  .status-spark{position:absolute;z-index:3;color:#fff2a5;font-size:22px;animation:statusSpark 1.8s ease-in-out infinite}.status-spark.a{right:302px;top:37px}.status-spark.b{right:32px;bottom:31px;animation-delay:-.8s}@keyframes statusSpark{50%{transform:scale(1.35) rotate(18deg);opacity:.45}}
+  .card{border-color:rgba(233,214,227,.92);border-radius:22px;box-shadow:var(--shadow);padding:20px;backdrop-filter:blur(10px);transition:transform .25s,box-shadow .25s}.card:hover{transform:translateY(-2px);box-shadow:0 20px 45px rgba(116,75,103,.16)}.grid2>.card{position:relative;overflow:hidden}.grid2>.card:before{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-32px;top:-32px;background:linear-gradient(145deg,#ffe0e8,#eee4ff);opacity:.72}
+  .sec-label{color:#735069;font-size:16px;position:relative}.sec-label .n{border-radius:50%;background:linear-gradient(145deg,#a76688,#d57b98);box-shadow:0 5px 12px rgba(113,66,94,.16)}.drop{position:relative;overflow:hidden;border-color:#e8bdcf;border-radius:18px;padding:27px 20px;background:linear-gradient(145deg,#fffafd,#fff7ed);transition:.3s}.drop:after{content:"🐾";position:absolute;right:14px;bottom:7px;font-size:28px;opacity:.12;transform:rotate(-18deg);transition:.3s}.drop:hover{border-color:#ce789a;background:linear-gradient(145deg,#fff1f6,#fff8e9);transform:translateY(-3px);box-shadow:0 12px 27px rgba(190,111,146,.14)}.drop:hover:after{opacity:.5;transform:rotate(7deg) scale(1.2)}.drop .ic{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:17px;background:#fff;box-shadow:0 8px 18px rgba(132,82,115,.11);animation:statusIcon 2.8s ease-in-out infinite}@keyframes statusIcon{50%{transform:translateY(-5px) rotate(-3deg)}}.drop .t{color:#704d67}
+  .fcard{border-color:#eadbe4;border-radius:13px;background:#fffafd;transition:.2s}.fcard:hover{border-color:#d9abc0;box-shadow:0 7px 16px rgba(110,70,97,.07)}.fcard .badge{background:linear-gradient(115deg,#a76286,#d67a98);border-radius:999px}
+  .btn{border-radius:999px;transition:.23s;box-shadow:0 5px 13px rgba(103,67,91,.08)}.btn:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 9px 19px rgba(103,67,91,.15)}.btn-primary{background:linear-gradient(115deg,#a76286,#d67a98)}.btn-gold{background:linear-gradient(115deg,#ffd373,#ffb773);color:#654657}.btn-gold:hover:not(:disabled){background:linear-gradient(115deg,#ffc861,#ffa967)}
+  .stats{gap:11px}.stat{position:relative;overflow:hidden;border-left:0;border-top:4px solid #d888a7;border-radius:17px;background:linear-gradient(145deg,#fff,#fff8fb);box-shadow:0 8px 18px rgba(102,67,90,.07)}.stat.n{border-top-color:#a895d5}.stat.g{border-top-color:#77b89a}.stat.r{border-top-color:#dc7c92}.stat.o{border-top-color:#e5ab66}.stat:after{content:"🐾";position:absolute;right:8px;bottom:2px;font-size:25px;opacity:.07}.stat .v{color:#735168}.toolbar{padding:11px;border:1px solid #eadbe4;border-radius:16px;background:rgba(255,255,255,.72)}.search input,select{border-color:#e5d3df;border-radius:11px}.search input:focus,select:focus{border-color:#ca7799;box-shadow:0 0 0 3px rgba(202,119,153,.14)}.tbl-wrap{border-color:#e6d6e1;border-radius:16px}table.list thead th{background:linear-gradient(110deg,#75526c,#9c6580);padding:11px}table.list tbody tr:nth-child(even){background:#fffafd}table.list tbody tr:hover{background:#fff0f5}td.trk{color:#8d5878}.pill{padding:3px 10px}.toast{background:#6c4a63;border-radius:999px;border:1px solid rgba(255,255,255,.34);box-shadow:0 13px 33px rgba(74,43,65,.25)}
+  @media(max-width:900px){.status-hero{padding:28px 265px 28px 25px}.status-cat{right:22px;transform:scale(.8);transform-origin:bottom right}.status-hero:before{right:8px}.status-spark{display:none}}
+  @media(max-width:650px){.wrap{padding:0 14px}.tool-title{width:100%;border-left:0;padding-left:0}.head-right{margin-left:0}.status-hero{padding:25px 19px 190px;text-align:center}.status-hero p{font-size:13px}.status-cat{right:50%;transform:translateX(50%) scale(.76);bottom:1px}.status-hero:before{right:50%;transform:translateX(50%);top:auto;bottom:-7px}.status-speech{right:-9px}.card{padding:15px}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
+<div class="status-ambient" aria-hidden="true"><i class="status-blob s1"></i><i class="status-blob s2"></i><i class="status-blob s3"></i><i class="status-charm c1">✅</i><i class="status-charm c2">✦</i><i class="status-charm c3">📋</i><i class="status-charm c4">🐾</i></div>
 <header>
   <div class="wrap">
     <span class="brand">///MA<span>SA</span>RU</span>
@@ -80,6 +113,11 @@
 </header>
 
 <main class="wrap">
+  <section class="status-hero">
+    <div class="status-copy"><span class="status-tag">✦ CAT CAFÉ STATUS STUDIO</span><h1>ทุกพัสดุมีสถานะ <em>ให้น้องแมวเช็ก</em></h1><p>รวมเลขพัสดุจากหลายไฟล์ ตรวจยอดและสถานะรับเงิน ค้นหาเคสที่ต้องติดตาม พร้อมส่งออกผลลัพธ์อย่างเป็นระเบียบในไม่กี่ขั้นตอน</p></div>
+    <span class="status-spark a">✦</span><span class="status-spark b">✧</span>
+    <div class="status-cat" aria-hidden="true"><div class="status-speech">กำลังตรวจทีละรายการ<br>ไม่ตกหล่นแน่นอนเมี้ยว ♡</div><i class="status-light green"></i><i class="status-light orange"></i><i class="status-light pink"></i><div class="st-tail"></div><div class="st-body"></div><div class="st-head"></div><div class="st-face">• •</div><i class="st-cheek l"></i><i class="st-cheek r"></i><div class="clipboard"></div></div>
+  </section>
   <div class="grid2">
     <!-- 1) ต้นฉบับ -->
     <div class="card">
@@ -496,6 +534,20 @@ $('exportBtn').onclick=async()=>{
     toast('ส่งออกแล้ว');
   }catch(err){ toast('ส่งออกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
 };
+
+/* กิมมิค Cat Café: ฉากและสายตาน้องแมวขยับตามเมาส์ */
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const statusHero=document.querySelector('.status-hero');
+  const statusFace=document.querySelector('.st-face');
+  document.addEventListener('pointermove',e=>{
+    const x=e.clientX/window.innerWidth-.5, y=e.clientY/window.innerHeight-.5;
+    document.querySelectorAll('.status-blob').forEach((b,i)=>{ const d=(i+1)*5; b.style.translate=`${x*d}px ${y*d}px`; });
+    if(statusHero&&statusFace){
+      const r=statusHero.getBoundingClientRect();
+      if(e.clientY>r.top-80&&e.clientY<r.bottom+80) statusFace.style.transform=`translate(${x*5}px,${y*3}px)`;
+    }
+  },{passive:true});
+}
 </script>
 </body>
 </html>
