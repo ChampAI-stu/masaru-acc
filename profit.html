@@ -51,9 +51,42 @@
   td.sku{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy)}
   td.price{font-weight:700}
   .note{background:#eef3fb;border:1px solid #d7e2f3;border-radius:10px;padding:11px 15px;font-size:13px;line-height:1.65;margin-top:6px}
+
+  /* ═══════════ CAT CAFÉ · PROFIT STUDIO ═══════════ */
+  :root{--ink:#4c3b4d;--muted:#8b7487;--line:#ead9e5;--bg:#fff8f4;--card:rgba(255,255,255,.92);--shadow:0 16px 40px rgba(117,76,105,.12);--navy:#715069;--navy-deep:#563c52;--blue:#bd789f;--gold:#e8a968;--green:#579b7d;--red:#d76681;--red-dk:#b74d67}
+  html{scroll-behavior:smooth}
+  body{min-height:100vh;background:radial-gradient(circle at 8% 18%,rgba(255,203,216,.53),transparent 24%),radial-gradient(circle at 88% 13%,rgba(218,209,255,.55),transparent 27%),radial-gradient(circle at 79% 82%,rgba(255,224,166,.43),transparent 24%),linear-gradient(145deg,#fff9f4 0%,#fff2f6 52%,#f8f4ff 100%);overflow-x:hidden}
+  body:before{content:"";position:fixed;inset:0;z-index:-2;opacity:.25;background-image:radial-gradient(ellipse 8px 10px at 20px 20px,#e7b4c4 45%,transparent 48%),radial-gradient(circle 3px at 12px 11px,#e7b4c4 48%,transparent 52%),radial-gradient(circle 3px at 20px 8px,#e7b4c4 48%,transparent 52%),radial-gradient(circle 3px at 28px 11px,#e7b4c4 48%,transparent 52%);background-size:96px 96px;transform:rotate(-7deg)}
+  .profit-ambient{position:fixed;inset:0;pointer-events:none;z-index:-1;overflow:hidden}.profit-blob{position:absolute;border-radius:50%;animation:profitBlob 8s ease-in-out infinite}.profit-blob.p1{width:250px;height:250px;background:#ffd5df;left:-95px;top:30%;opacity:.4}.profit-blob.p2{width:310px;height:310px;background:#dfd7ff;right:-145px;top:43%;opacity:.38;animation-delay:-3s}.profit-blob.p3{width:190px;height:190px;background:#ffe3ae;left:43%;bottom:-110px;opacity:.36;animation-delay:-5s}@keyframes profitBlob{50%{transform:translate(13px,-18px) scale(1.05)}}
+  .profit-charm{position:absolute;font-style:normal;font-size:24px;opacity:.5;filter:drop-shadow(0 6px 5px rgba(95,57,81,.12));animation:profitCharm 6s ease-in-out infinite}.profit-charm.c1{left:5%;top:20%}.profit-charm.c2{right:6%;top:27%;animation-delay:-2s}.profit-charm.c3{left:8%;bottom:10%;animation-delay:-4s}.profit-charm.c4{right:9%;bottom:8%;animation-delay:-1s}@keyframes profitCharm{50%{transform:translateY(-15px) rotate(10deg)}}
+  .wrap{max-width:1240px;padding:0 24px}
+  header{position:relative;background:linear-gradient(110deg,#674863,#8f607b 54%,#ba798f);padding:14px 0;box-shadow:0 8px 25px rgba(79,45,69,.17);z-index:10}
+  header:after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:16px;background:radial-gradient(circle at 8px 0,#fff8f4 8px,transparent 9px);background-size:22px 16px;opacity:.95}
+  .brand{font-style:normal;display:flex;align-items:center;gap:8px}.brand:before{content:"🐾";font-size:21px}.brand span{color:#ffe08a}.tool-title{color:#f9e7f0;border-left-color:rgba(255,255,255,.3)}.home-btn{border-radius:999px;background:rgba(255,255,255,.16);transition:.25s}.home-btn:hover{background:#fff;color:#7a526e;transform:translateY(-2px);box-shadow:0 8px 17px rgba(55,31,47,.18)}
+  main{padding:34px 0 76px}
+  .profit-hero{position:relative;min-height:220px;margin-bottom:19px;border:1px solid rgba(232,195,210,.75);border-radius:29px;overflow:hidden;background:linear-gradient(120deg,rgba(255,255,255,.97),rgba(255,240,246,.94) 53%,rgba(242,238,255,.95));box-shadow:0 22px 50px rgba(119,75,104,.13);display:flex;align-items:center;padding:31px 390px 31px 38px}
+  .profit-hero:before{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:70px;top:-3px;background:linear-gradient(145deg,#ffe8b7,#ffc7d8);box-shadow:inset 0 0 0 17px rgba(255,255,255,.25)}
+  .profit-copy{position:relative;z-index:3}.profit-tag{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid #efc8d8;border-radius:999px;background:#fff1f6;color:#a35d7a;font-size:12px;font-weight:800;letter-spacing:.45px}.profit-hero h1{margin:12px 0 7px;color:#61445c;font-size:clamp(25px,3vw,39px);line-height:1.2;letter-spacing:-.7px}.profit-hero h1 em{font-style:normal;color:#ce6c8c}.profit-hero p{margin:0;max-width:670px;color:#887080;font-size:14px;line-height:1.7}
+  .profit-cat{position:absolute;right:64px;bottom:13px;width:235px;height:178px;z-index:3;animation:accountCat 3.1s ease-in-out infinite;transform-origin:bottom center}@keyframes accountCat{50%{transform:translateY(-7px) rotate(1deg)}}
+  .account-body{position:absolute;width:113px;height:92px;background:#d68c99;border-radius:51% 51% 42% 42%;right:23px;bottom:0;box-shadow:inset -11px -7px 0 rgba(131,70,85,.1)}.account-head{position:absolute;width:126px;height:104px;background:#e39aa6;border-radius:48%;right:16px;top:12px}.account-head:before,.account-head:after{content:"";position:absolute;top:-24px;border-left:27px solid transparent;border-right:27px solid transparent;border-bottom:49px solid #e39aa6}.account-head:before{left:0;transform:rotate(-17deg)}.account-head:after{right:0;transform:rotate(17deg)}
+  .account-face{position:absolute;z-index:5;right:43px;top:59px;color:#604452;font-size:28px;letter-spacing:8px;white-space:nowrap}.account-face:after{content:"ᴗ";position:absolute;left:30px;top:12px;font-size:21px}.account-cheek{position:absolute;z-index:5;top:87px;width:17px;height:8px;background:#f27691;border-radius:50%;opacity:.55}.account-cheek.l{right:101px}.account-cheek.r{right:36px}.account-tail{position:absolute;width:75px;height:52px;border:16px solid #c77d8d;border-left-color:transparent;border-radius:50%;right:-29px;bottom:24px;transform:rotate(20deg);animation:accountTail 2s ease-in-out infinite;transform-origin:left center}@keyframes accountTail{50%{transform:rotate(7deg)}}
+  .calculator{position:absolute;z-index:7;left:12px;bottom:0;width:79px;height:93px;border-radius:12px;background:#80617a;border:5px solid #fff4f7;box-shadow:0 10px 20px rgba(91,54,78,.17);transform:rotate(-4deg)}.calculator:before{content:"฿ 88.88";position:absolute;left:7px;right:7px;top:8px;height:23px;border-radius:5px;background:#eaf5dc;color:#4d7556;font:700 10px 'IBM Plex Mono';display:grid;place-items:center}.calculator:after{content:"•••\A•••\A•••";white-space:pre;position:absolute;left:12px;top:38px;color:#fff0a9;font-size:20px;letter-spacing:5px;line-height:15px}
+  .coin{position:absolute;z-index:6;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#ffe488,#eca84e);color:#fff7cf;font-weight:800;box-shadow:0 5px 10px rgba(129,79,44,.16);animation:coinFloat 2.6s ease-in-out infinite}.coin.one{left:2px;top:36px}.coin.two{right:5px;top:50px;animation-delay:-1s}@keyframes coinFloat{50%{transform:translateY(-8px) rotate(18deg)}}
+  .profit-speech{position:absolute;z-index:9;right:1px;top:0;padding:8px 12px;background:#fff;color:#956077;border:1px solid #efc8d7;border-radius:15px 15px 15px 4px;font-size:11.5px;font-weight:700;box-shadow:0 8px 19px rgba(101,60,87,.13);animation:profitSpeech 3s ease-in-out infinite}.profit-speech:after{content:"";position:absolute;left:20px;bottom:-8px;border:8px solid transparent;border-left-color:#fff;transform:rotate(18deg)}@keyframes profitSpeech{50%{transform:translateY(-4px)}}
+  .profit-spark{position:absolute;z-index:3;color:#fff2a5;font-size:22px;animation:profitSpark 1.8s ease-in-out infinite}.profit-spark.a{right:294px;top:37px}.profit-spark.b{right:32px;bottom:31px;animation-delay:-.8s}@keyframes profitSpark{50%{transform:scale(1.35) rotate(18deg);opacity:.45}}
+  .card{border-color:rgba(233,214,227,.92);border-radius:22px;box-shadow:var(--shadow);padding:20px;backdrop-filter:blur(10px);transition:transform .25s,box-shadow .25s}.card:hover{transform:translateY(-2px);box-shadow:0 20px 45px rgba(116,75,103,.16)}
+  .sec-label{color:#735069;font-size:16px}.drop{position:relative;overflow:hidden;border-color:#e8bdcf;border-radius:18px;padding:31px 22px;background:linear-gradient(145deg,#fffafd,#fff7ed);transition:.3s}.drop:after{content:"🐾";position:absolute;right:15px;bottom:7px;font-size:29px;opacity:.12;transform:rotate(-18deg);transition:.3s}.drop:hover{border-color:#ce789a;background:linear-gradient(145deg,#fff1f6,#fff8e9);transform:translateY(-3px);box-shadow:0 12px 27px rgba(190,111,146,.14)}.drop:hover:after{opacity:.5;transform:rotate(7deg) scale(1.2)}.drop.loaded{border-color:#99cfb4;background:#f5fff9}.drop.loaded:after{content:"😸";opacity:.75}.drop .ic{display:inline-grid;place-items:center;width:55px;height:55px;border-radius:18px;background:#fff;box-shadow:0 8px 19px rgba(132,82,115,.11);animation:receiptFloat 2.8s ease-in-out infinite}@keyframes receiptFloat{50%{transform:translateY(-5px) rotate(-3deg)}}.drop .t{color:#704d67;font-size:16px}
+  .btn{border-radius:999px;transition:.23s;box-shadow:0 5px 13px rgba(103,67,91,.08)}.btn:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 9px 19px rgba(103,67,91,.15)}.btn-primary{background:linear-gradient(115deg,#a76286,#d67a98)}.btn-gold{background:linear-gradient(115deg,#ffd373,#ffb773);color:#654657}
+  select{border-color:#e5d3df;border-radius:11px;outline:none;transition:.2s}select:focus{border-color:#ca7799;box-shadow:0 0 0 3px rgba(202,119,153,.14)}.note{background:linear-gradient(110deg,#faf6ff,#fff7fa);border-color:#e4d8ee;border-radius:15px}
+  .stats{gap:11px}.stat{position:relative;overflow:hidden;border-color:#eadbe4;border-radius:17px;padding:15px;background:linear-gradient(145deg,#fff,#fff8fb);box-shadow:0 8px 18px rgba(102,67,90,.07)}.stat:after{content:"🐾";position:absolute;right:8px;bottom:2px;font-size:25px;opacity:.07}.stat:nth-child(1){border-top:4px solid #d888a7}.stat:nth-child(2){border-top:4px solid #a895d5}.stat:nth-child(3){border-top:4px solid #e6ac67}.stat .v{color:#735168}
+  .tbl-wrap{border-color:#e6d6e1;border-radius:16px}thead th{background:linear-gradient(110deg,#75526c,#9c6580);padding:11px}tbody tr:nth-child(even){background:#fffafd}tbody tr:hover{background:#fff0f5}tr.order-start td{border-top-color:#e6bad0}td.sku{color:#8c5878}.toast{background:#6c4a63;border-radius:999px;border:1px solid rgba(255,255,255,.34);box-shadow:0 13px 33px rgba(74,43,65,.25)}
+  @media(max-width:900px){.profit-hero{padding:28px 255px 28px 25px}.profit-cat{right:25px;transform:scale(.82);transform-origin:bottom right}.profit-hero:before{right:8px}.profit-spark{display:none}}
+  @media(max-width:650px){.wrap{padding:0 14px}.tool-title{width:100%;border-left:0;padding-left:0}.head-right{margin-left:0}.profit-hero{padding:25px 19px 188px;text-align:center}.profit-hero p{font-size:13px}.profit-cat{right:50%;transform:translateX(50%) scale(.78);bottom:1px}.profit-hero:before{right:50%;transform:translateX(50%);top:auto;bottom:-7px}.profit-speech{right:-9px}.card{padding:15px}.row{align-items:flex-start}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
+<div class="profit-ambient" aria-hidden="true"><i class="profit-blob p1"></i><i class="profit-blob p2"></i><i class="profit-blob p3"></i><i class="profit-charm c1">🪙</i><i class="profit-charm c2">✦</i><i class="profit-charm c3">📈</i><i class="profit-charm c4">🐾</i></div>
 <header>
   <div class="wrap">
     <span class="brand">///MA<span>SA</span>RU</span>
@@ -66,6 +99,15 @@
 </header>
 
 <main class="wrap">
+  <section class="profit-hero">
+    <div class="profit-copy">
+      <span class="profit-tag">✦ CAT CAFÉ PROFIT STUDIO</span>
+      <h1>ให้น้องแมวช่วยจัด <em>ตัวเลขกำไร</em></h1>
+      <p>แยก SKU รายออร์เดอร์ สรุปจำนวนและยอดรวมให้เป็นระเบียบ พร้อมตรวจข้อมูลก่อนส่งออก—เปลี่ยนตารางที่ซับซ้อนให้เข้าใจง่ายและน่าใช้งานกว่าเดิม</p>
+    </div>
+    <span class="profit-spark a">✦</span><span class="profit-spark b">✧</span>
+    <div class="profit-cat" aria-hidden="true"><div class="profit-speech">ตัวเลขทุกบาท<br>หนูเช็กให้เมี้ยว ♡</div><div class="coin one">฿</div><div class="coin two">฿</div><div class="account-tail"></div><div class="account-body"></div><div class="account-head"></div><div class="account-face">• •</div><i class="account-cheek l"></i><i class="account-cheek r"></i><div class="calculator"></div></div>
+  </section>
   <div class="card">
     <div class="sec-label" style="margin-top:0">1️⃣ อัปโหลดไฟล์คำสั่งซื้อ (Excel)</div>
     <div class="drop" id="drop">
@@ -325,6 +367,20 @@ async function exportResult(){
     const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='แยกSKU_'+(src.file.replace(/\.[^.]+$/,''))+'.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     toast('ส่งออกแล้ว (2 ชีท)');
   }catch(err){ toast('ส่งออกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+
+/* กิมมิค Cat Café: ฉากและสายตาน้องแมวขยับตามเมาส์ */
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const profitHero=document.querySelector('.profit-hero');
+  const accountFace=document.querySelector('.account-face');
+  document.addEventListener('pointermove',e=>{
+    const x=e.clientX/window.innerWidth-.5, y=e.clientY/window.innerHeight-.5;
+    document.querySelectorAll('.profit-blob').forEach((b,i)=>{ const d=(i+1)*5; b.style.translate=`${x*d}px ${y*d}px`; });
+    if(profitHero&&accountFace){
+      const r=profitHero.getBoundingClientRect();
+      if(e.clientY>r.top-80&&e.clientY<r.bottom+80) accountFace.style.transform=`translate(${x*5}px,${y*3}px)`;
+    }
+  },{passive:true});
 }
 </script>
 </body>
