@@ -169,42 +169,67 @@ const APPS = [
 ];
 function getRole(session){ return (session && session.user && session.user.user_metadata && session.user.user_metadata.role) || ''; }
 
-sb.auth.onAuthStateChange((e,session)=>{ if(!OFFLINE && (e==='SIGNED_OUT'||!session)) showAuth(); });
-/* ===== โหมดออฟไลน์ — ถ้าต่อระบบกลางไม่ได้ ให้เข้าหน้าหลักด้วยสิทธิ์ที่เคยเข้าไว้ในเครื่องนี้ ===== */
-var OFFLINE=false;
+sb.auth.onAuthStateChange((e,session)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!session)) showAuth(); });
+/* ===== โหมดออฟไลน์ — เข้าโหมดนี้เฉพาะตอนที่ต่อระบบกลางไม่ได้จริงเท่านั้น ===== */
+var OFFLINE=false, AUTHDECIDED=false;
+function reloginNow(){
+  try{ localStorage.removeItem('masaru_last_role'); localStorage.removeItem('masaru_last_uid'); }catch(_){}
+  try{ sb.auth.signOut(); }catch(_){}
+  OFFLINE=false; location.reload();
+}
 function offlineBanner(msg){
   if(document.getElementById('offBar')) return;
   var d=document.createElement('div'); d.id='offBar';
   d.style.cssText='position:sticky;top:0;z-index:99999;background:#B7791F;color:#fff;padding:9px 14px;'
     +'font-size:13.5px;font-weight:700;text-align:center;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.18)';
-  d.textContent='🔌 โหมดออฟไลน์ — '+msg;
+  var sp=document.createElement('span');
+  sp.textContent='🔌 โหมดออฟไลน์ — '+msg+'  ';
+  var b=document.createElement('button');
+  b.textContent='เข้าสู่ระบบใหม่';
+  b.style.cssText='background:#fff;color:#8a5a00;border:none;border-radius:7px;padding:4px 12px;'
+    +'font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit';
+  b.onclick=reloginNow;
+  d.appendChild(sp); d.appendChild(b);
   document.body.insertBefore(d, document.body.firstChild);
+}
+/* เช็คว่าระบบกลางยังตอบได้ไหม — แยก "ระบบล่ม" ออกจาก "แค่หมดอายุการเข้าระบบ" */
+function serverReachable(){
+  return new Promise(function(res){
+    var done=false, t=setTimeout(function(){ if(!done){done=true;res(false);} },6000);
+    function fin(v){ if(done) return; done=true; clearTimeout(t); res(v); }
+    try{
+      fetch(SUPABASE_URL+'/auth/v1/health',{cache:'no-store'})
+        .then(function(r){ fin(r.status<500); }).catch(function(){ fin(false); });
+    }catch(e){ fin(false); }
+  });
 }
 (async function(){
   var done=false;
-  function fallback(why){
-    if(done) return; done=true;
+  function goOffline(why){
+    if(done) return; done=true; AUTHDECIDED=true;
     var role=null, uid=null;
     try{ role=localStorage.getItem('masaru_last_role'); uid=localStorage.getItem('masaru_last_uid'); }catch(_){}
-    if(!role){ showAuth(); return; }              /* ไม่เคยเข้าระบบในเครื่องนี้ → ต้องล็อกอินตามปกติ */
+    if(!role){ showAuth(); return; }
     OFFLINE=true;
     showHub({user:{id:uid||'offline-user',user_metadata:{role:role}}});
     offlineBanner(why+' · เข้าใช้ด้วยสิทธิ์ที่เคยเข้าไว้ในเครื่องนี้');
   }
-  var to=setTimeout(function(){ fallback('ต่อระบบกลางไม่ได้ (หมดเวลารอ)'); }, 8000);
+  function goLoginScreen(){ if(done) return; done=true; AUTHDECIDED=true; showAuth(); }
+  function decide(){ serverReachable().then(function(up){ up ? goLoginScreen() : goOffline('ต่อระบบกลางไม่ได้'); }); }
+  var to=setTimeout(function(){ goOffline('ต่อระบบกลางไม่ได้ (หมดเวลารอ)'); }, 15000);
   try{
     const {data:{session}} = await sb.auth.getSession();
     if(done) return;
     clearTimeout(to);
     if(session){
-      done=true;
+      done=true; AUTHDECIDED=true;
       try{
         localStorage.setItem('masaru_last_role', getRole(session));
         localStorage.setItem('masaru_last_uid', session.user.id);
       }catch(_){}
       showHub(session);
-    } else { fallback('ใช้สิทธิ์ที่เคยเข้าระบบไว้ในเครื่องนี้'); }
-  }catch(e){ clearTimeout(to); fallback('ต่อระบบกลางไม่ได้'); }
+    } else { decide(); }
+  }catch(e){ clearTimeout(to); decide(); }
 })();
 
 function showAuth(){ $('bootScreen').classList.add('hide'); $('hubScreen').classList.add('hide'); $('authScreen').classList.remove('hide'); }
