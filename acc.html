@@ -234,9 +234,36 @@
   .m-sku-inp:focus{outline:none;border-color:var(--blue)}
   .icon-act{border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px}
   .icon-act:hover{background:#f0f3f8}
+
+  /* ===== CAT CAFE ACCOUNTING THEME ===== */
+  :root{--pink:#d95b78;--pink-soft:#fff0f4;--lav:#ece8fb;--mint:#e8f6f3;--peach:#fff0e8;--cream:#fffaf4}
+  body{min-height:100vh;background:linear-gradient(145deg,#fff9f3 0%,#fff2f6 38%,#f1edfb 72%,#eaf7f6 100%);background-attachment:fixed;overflow-x:hidden}
+  body>header,.tabbar,main,.modal-bg,.toast,.foot{position:relative;z-index:3}
+  .acc-cafe-bg{position:fixed;z-index:0;inset:0;overflow:hidden;pointer-events:none}
+  .acc-cafe-bg:before{content:"";position:absolute;inset:-8%;opacity:.18;background-image:radial-gradient(circle at 19px 20px,rgba(211,100,130,.42) 0 3px,transparent 4px),radial-gradient(circle at 29px 13px,rgba(211,100,130,.3) 0 2px,transparent 3px),radial-gradient(circle at 11px 12px,rgba(211,100,130,.3) 0 2px,transparent 3px);background-size:118px 118px;transform:rotate(-7deg)}
+  .acc-blob{position:absolute;border-radius:50%;filter:blur(2px);transition:translate .22s ease-out}.ab1{width:440px;height:440px;left:-210px;top:12%;background:radial-gradient(circle,#ffdce6,transparent 68%)}.ab2{width:520px;height:520px;right:-240px;top:25%;background:radial-gradient(circle,#ded7f5,transparent 68%)}.ab3{width:430px;height:430px;left:35%;bottom:-240px;background:radial-gradient(circle,#dff3ee,transparent 68%)}
+  .acc-float{position:absolute;font-style:normal;opacity:.25;filter:saturate(.75);animation:accFloat 5s ease-in-out infinite}.af1{left:3%;top:36%;font-size:38px}.af2{right:4%;top:47%;font-size:42px;animation-delay:1s}.af3{left:8%;bottom:8%;font-size:34px;animation-delay:2s}.af4{right:10%;bottom:13%;font-size:30px;animation-delay:3s}.af5{left:48%;top:13%;font-size:24px;animation-delay:.6s}
+  header{background:linear-gradient(100deg,#202d4c 0%,#3c4e78 62%,#75566f 100%);border-bottom-color:#e05b77;box-shadow:0 10px 34px rgba(42,44,72,.17)}
+  header::before{background:repeating-linear-gradient(115deg,transparent 0 18px,rgba(255,204,216,.08) 18px 24px)}
+  .home-btn{border-color:rgba(255,255,255,.22);border-radius:12px;transition:.25s}.home-btn:hover{background:#fff;color:#34415f;transform:translateY(-2px)}.head-badge{color:#f3cfda;border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.07)}
+  .tabbar{background:rgba(255,255,255,.82);backdrop-filter:blur(16px);box-shadow:0 5px 20px rgba(66,52,76,.05)}.tabs{gap:7px}.tab{position:relative;border-radius:13px 13px 0 0}.tab:hover{background:#fff4f7;color:#a94059}.tab.active{color:#b7445f;border-bottom-color:#dc5d78;background:linear-gradient(180deg,#fff,#fff3f6)}.tab.active:after{content:"🐾";position:absolute;right:5px;top:4px;font-size:9px;animation:pawHello 1.6s ease-in-out infinite}
+  main{padding-top:22px}.acc-hero{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:22px;margin-bottom:24px;padding:24px 28px;border:1px solid rgba(234,219,227,.9);border-radius:24px;background:linear-gradient(115deg,rgba(255,255,255,.94),rgba(255,244,248,.9));box-shadow:0 16px 44px rgba(70,52,72,.08);backdrop-filter:blur(14px)}.acc-hero:before{content:"";position:absolute;width:190px;height:190px;right:-70px;bottom:-120px;border:28px solid rgba(218,91,120,.07);border-radius:50%}.ah-kicker{font-size:11px;letter-spacing:2px;color:#c34b66;font-weight:800}.acc-hero h1{font-size:24px;color:#273653;margin:4px 0}.acc-hero p{color:var(--muted);font-size:13px}.ah-chips{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}.ah-chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:#fff0f4;color:#ae4059}.ah-chip:nth-child(2){background:#f0edfb;color:#65569a}.ah-chip:nth-child(3){background:#eaf7f4;color:#397a70}
+  .account-cat{position:relative;flex:none;width:92px;height:75px;border-radius:43px 43px 17px 17px;background:#f4c8d4;box-shadow:inset 0 -8px 0 rgba(59,55,79,.05),0 8px 20px rgba(59,45,63,.08);animation:catDesk 3.2s ease-in-out infinite}.account-cat:before,.account-cat:after{content:"";position:absolute;top:-15px;width:35px;height:35px;background:#f4c8d4;border-radius:6px 80% 7px 80%;z-index:-1}.account-cat:before{left:9px;transform:rotate(-14deg)}.account-cat:after{right:9px;transform:scaleX(-1) rotate(-14deg)}.account-cat .eye{position:absolute;top:28px;width:7px;height:8px;border-radius:50%;background:#34415f;animation:accBlink 4s infinite}.account-cat .eye.l{left:26px}.account-cat .eye.r{right:26px}.account-cat .nose{position:absolute;left:50%;top:39px;width:8px;height:6px;border-radius:50%;background:#d36e85;transform:translateX(-50%)}.account-cat .bow{position:absolute;right:-9px;top:-17px;font-size:25px;transform:rotate(10deg)}.account-cat .calc{position:absolute;right:-20px;bottom:-5px;font-size:27px;filter:drop-shadow(0 4px 4px rgba(54,48,64,.12))}
+  .section-label{color:#866477;font-weight:700}.section-label .n{background:linear-gradient(135deg,#d95b78,#b84460);box-shadow:none;border-radius:8px}
+  .up-card,.fcard,.cost-actions,.dbcard,.stat,.toolbar,.tbl-wrap,.ship-raw,.cmode{background:rgba(255,255,255,.88);border-color:#eadfe6;backdrop-filter:blur(12px);box-shadow:0 9px 26px rgba(62,49,69,.055)}
+  .up-card{overflow:hidden;border-radius:19px;padding:20px;min-height:122px}.up-card:after{content:"🐱";position:absolute;right:14px;bottom:-43px;font-size:44px;filter:drop-shadow(0 5px 5px rgba(47,44,61,.1));transition:bottom .38s cubic-bezier(.2,.9,.2,1.22),transform .35s}.up-card:hover{transform:translateY(-5px);box-shadow:0 17px 35px rgba(60,48,69,.12)}.up-card:hover:after{bottom:-5px;transform:rotate(-6deg)}.up-card:nth-child(2):after{content:"😺"}.up-card:nth-child(3):after{content:"😸"}.up-card:hover .up-ico{display:inline-block;animation:iconBounce .7s ease}.up-card .up-plus{width:31px;height:31px;display:grid;place-items:center;border-radius:50%;background:#fff0f4;color:#c84c68;transition:.25s}.up-card:hover .up-plus{transform:rotate(90deg);background:#d95b78;color:#fff}
+  .btn{border-radius:12px;transition:.22s}.btn:hover:not(:disabled){transform:translateY(-2px)}.btn-primary{background:linear-gradient(135deg,#4a608f,#2d4068);box-shadow:0 7px 16px rgba(42,60,101,.13)}.btn-gold{background:linear-gradient(135deg,#df617c,#bd3f5c);box-shadow:0 7px 16px rgba(191,59,87,.15)}.btn-ghost{background:rgba(255,255,255,.88)}
+  .stat{border-left:0;border-top:4px solid #7a6bac;border-radius:17px;transition:.24s}.stat:nth-child(2n){border-top-color:#df6b83}.stat:nth-child(3n){border-top-color:#58a193}.stat:hover{transform:translateY(-3px);box-shadow:0 15px 30px rgba(62,49,69,.09)}
+  .toolbar{border-radius:17px 17px 0 0}.tbl-wrap{border-radius:0 0 17px 17px}thead th{background:linear-gradient(180deg,#35486f,#293a5e)}tbody tr{transition:.15s}tbody tr:hover{background:#fff4f7}.search input,.toolbar select,.chk,select.plat-sel,.m-field input,.add-row input,.m-cost-inp,.m-sku-inp{border-radius:11px;border-color:#e5dce4}.search input:focus,.m-field input:focus,.add-row input:focus,.m-cost-inp:focus,.m-sku-inp:focus{border-color:#d5768d;box-shadow:0 0 0 4px rgba(217,91,120,.09)}
+  .modal-bg{background:rgba(37,35,57,.48);backdrop-filter:blur(5px)}.modal{border-radius:24px;border:1px solid rgba(255,255,255,.8);box-shadow:0 28px 80px rgba(48,39,57,.25)}.modal-head h2{color:#824d67;font-style:normal}.toast{border-radius:14px;background:linear-gradient(135deg,#35476e,#6b5069)}.foot:before{content:"🐾 ";color:#d95b78}
+  @keyframes accFloat{50%{transform:translateY(-10px) rotate(8deg)}}@keyframes catDesk{50%{transform:translateY(-5px) rotate(1deg)}}@keyframes accBlink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.12)}}@keyframes pawHello{50%{transform:translateY(-2px) rotate(12deg)}}@keyframes iconBounce{35%{transform:translateY(-5px) rotate(-6deg)}70%{transform:translateY(1px) rotate(5deg)}}
+  @media(max-width:700px){.acc-hero{padding:20px}.account-cat{transform:scale(.8);transform-origin:right center}.head-badge{display:none}.tabs{overflow-x:auto}.tab{white-space:nowrap;padding:13px 14px}.acc-float{opacity:.15}}
+  @media(max-width:480px){.account-cat{display:none}.acc-hero h1{font-size:20px}.acc-cafe-bg:before{opacity:.1}.wrap{padding-left:13px;padding-right:13px}}
+  @media(prefers-reduced-motion:reduce){.acc-cafe-bg *,.account-cat,.tab.active:after{animation:none!important}.up-card,.btn,.stat{transition:none!important}}
 </style>
 </head>
 <body>
+<div class="acc-cafe-bg" aria-hidden="true"><i class="acc-blob ab1" data-depth="8"></i><i class="acc-blob ab2" data-depth="14"></i><i class="acc-blob ab3" data-depth="6"></i><i class="acc-float af1" data-depth="10">🌸</i><i class="acc-float af2" data-depth="12">☕</i><i class="acc-float af3" data-depth="7">🎀</i><i class="acc-float af4" data-depth="9">🧶</i><i class="acc-float af5" data-depth="5">✦</i></div>
 <header>
   <div class="wrap">
     <div class="brand">
@@ -259,6 +286,10 @@
 </div></div>
 
 <main class="wrap">
+  <section class="acc-hero">
+    <div><div class="ah-kicker">MASARU ACCOUNTING WORKSPACE ✦</div><h1>จัดการงานบัญชีให้เป็นเรื่องน่ารักและง่ายขึ้น</h1><p>รวมไฟล์ ตรวจข้อมูล คำนวณต้นทุน และจัดการฐานข้อมูลในพื้นที่เดียว</p><div class="ah-chips"><span class="ah-chip">ปลอดภัยในเครื่อง</span><span class="ah-chip">ทำงานเป็นขั้นตอน</span><span class="ah-chip">Cat Crew พร้อมช่วย</span></div></div>
+    <div class="account-cat" aria-hidden="true"><i class="bow">🎀</i><i class="eye l"></i><i class="eye r"></i><i class="nose"></i><i class="calc">🧮</i></div>
+  </section>
   <div id="page-acc" class="page">
   <!-- STEP 1: เลือกประเภท แล้วอัพ -->
   <div class="section-label"><span class="n">1</span> เลือกประเภทไฟล์ แล้วอัปโหลด</div>
@@ -483,12 +514,6 @@
   </div>
 </div>
 
-<div class="modal-foot">
-      <button class="btn-cancel" id="docEditCancel">ยกเลิก</button>
-      <button class="btn-save" id="docEditSave">บันทึก</button>
-    </div>
-  </div>
-</div>
 
 <div class="foot">MASARU Internal Tools · ไฟล์ที่อัปโหลดประมวลผลในเบราว์เซอร์ · เฉพาะที่กด "บันทึกลง DB" จะเก็บบนระบบกลางของบริษัท</div>
 <div class="toast" id="toast"></div>
@@ -1641,6 +1666,17 @@ $('costExportBtn').onclick=()=>{
   XLSX.writeFile(wb,`MASARU_ต้นทุน_${view==='order'?'ต่อออเดอร์':'ต่อSKU'}_${stamp}.xlsx`);
   toast('ส่งออกแล้ว');
 };
+
+// ฉากหลัง Cat Café ขยับตามเมาส์แบบเบา ๆ โดยไม่กระทบการใช้งาน
+if(window.matchMedia('(pointer:fine)').matches){
+  document.addEventListener('pointermove',e=>{
+    const nx=e.clientX/window.innerWidth-.5, ny=e.clientY/window.innerHeight-.5;
+    document.querySelectorAll('.acc-cafe-bg [data-depth]').forEach(el=>{
+      const d=Number(el.dataset.depth)||6;
+      el.style.translate=`${nx*d}px ${ny*d}px`;
+    });
+  },{passive:true});
+}
 </script>
 </body>
 </html>
