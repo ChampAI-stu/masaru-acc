@@ -139,6 +139,7 @@
         <button class="btn btn-red btn-sm" id="delMonthBtn">🗑️ ลบทั้งเดือน</button>
       </div>
       <div id="calMonthSum" class="month-sum"></div>
+      <div id="calDupBar" style="margin:8px 0 4px"></div>
       <div id="calWarn"></div>
       <div class="cal-grid" id="calDow"></div>
       <div class="cal-grid" id="calGrid" style="margin-top:8px"></div>
@@ -354,6 +355,7 @@ $('delMonthBtn').onclick=async ()=>{
     if(e1) throw e1;
     let e2=(await sb.from('post_days').delete().eq('carrier',curCarrier).gte('pdate',from).lte('pdate',to)).error;
     if(e2) throw e2;
+    monthDupCache={};
     toast('ลบข้อมูลเดือน '+TH_MONTHS[m]+' '+y+' แล้ว');
     renderCalendar();
   }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
@@ -377,19 +379,10 @@ async function renderCalendar(){
   $('calMonthSum').innerHTML = mCount
     ? `<span>📦 เดือนนี้รวม <b>${fmtInt(mCount)}</b> ชิ้น</span><span>💰 ค่าบริการรวม <b>${fmtNum(mFee)}</b> บาท</span>`
     : `<span style="color:var(--muted)">เดือนนี้ยังไม่มีข้อมูล</span>`;
-  // ตรวจเลขพัสดุซ้ำภายในเดือน (นับจำนวนพัสดุซ้ำต่อวัน)
-  const dupDayMap={};
-  try{
-    let allp=[], off=0; const pg=1000;
-    while(true){
-      const {data,error}=await sb.from('post_parcels').select('tracking,pdate').eq('carrier',curCarrier)
-        .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days))).order('id',{ascending:true}).range(off,off+pg-1);
-      if(error) throw error;
-      allp=allp.concat(data||[]); if(!data||data.length<pg) break; off+=pg;
-    }
-    const cnt={}; allp.forEach(r=>{ if(r.tracking) cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
-    allp.forEach(r=>{ if(r.tracking && cnt[r.tracking]>1) dupDayMap[r.pdate]=(dupDayMap[r.pdate]||0)+1; });
-  }catch(err){ console.error('dup check',err); }
+  /* ตรวจเลขพัสดุซ้ำทั้งเดือน — ต้องอ่านเลขพัสดุทุกใบของเดือน (เป็นหมื่น ๆ แถว)
+     จึงเปลี่ยนเป็น "กดตรวจเอง" แล้วจำผลไว้ ไม่สแกนใหม่ทุกครั้งที่เปิดปฏิทิน */
+  const mKey=curCarrier+'|'+y+'-'+String(m+1).padStart(2,'0');
+  const dupDayMap = monthDupCache[mKey] || null;
   const todayStr=ymd(new Date());
   let html=''; const badDays=[], noFeeDays=[], dupDays=[];
   for(let i=0;i<lead;i++) html+='<div class="cal-cell empty"></div>';
@@ -402,7 +395,7 @@ async function renderCalendar(){
       sum=`<div class="cal-sum">฿ ${fmtNum(Number(info.calc_fee)||0)}</div>`;
       const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
       const hasDeclared=(Number(info.declared_fee)||0)!==0;
-      const dupN=dupDayMap[ds]||0;
+      const dupN=dupDayMap?(dupDayMap[ds]||0):0;
       const feeBad=hasDeclared && !ok;
       const isBad=feeBad || dupN>0;
       if(feeBad) badDays.push(d);
@@ -426,11 +419,52 @@ async function renderCalendar(){
   if(badDays.length) wparts.push(`❌ <b>ค่าบริการไม่ตรง ${badDays.length} วัน</b>: วันที่ <b>${badDays.join(', ')}</b>`);
   if(dupDays.length) wparts.push(`⚠️ <b>มีเลขพัสดุซ้ำ ${dupDays.length} วัน</b>: วันที่ <b>${dupDays.join(', ')}</b>`);
   if(noFeeDays.length) wparts.push(`⚠️ <b>ยังไม่แจ้งยอดรวม ${noFeeDays.length} วัน</b>: วันที่ ${noFeeDays.join(', ')}`);
+  if(dupDayMap && !dupDays.length) wparts.push(`✅ ตรวจเลขพัสดุซ้ำทั้งเดือนแล้ว — ไม่พบเลขซ้ำ`);
   $('calWarn').innerHTML = wparts.length
     ? `<div class="warnbox" style="margin-bottom:12px">🔎 วันที่ต้องตรวจสอบ/แก้ไข:<br>${wparts.join('<br>')}<br><span style="font-size:12px">— แตะวันนั้นเพื่อดูรายละเอียด</span></div>`
     : '';
   $('calGrid').innerHTML=html;
   $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
+  renderDupBar(mKey, mCount);
+}
+
+/* ===== ตรวจเลขพัสดุซ้ำทั้งเดือน (กดเอง) ===== */
+let monthDupCache={};
+function renderDupBar(mKey, mCount){
+  const box=$('calDupBar'); if(!box) return;
+  if(!mCount){ box.innerHTML=''; return; }
+  if(monthDupCache[mKey]){
+    const n=Object.keys(monthDupCache[mKey]).length;
+    box.innerHTML = `<span style="font-size:13px;color:var(--muted)">`
+      + (n?`⚠️ ตรวจแล้ว — พบเลขซ้ำใน <b>${n}</b> วัน (ไฮไลต์ในปฏิทิน)`:'✅ ตรวจแล้ว — ไม่พบเลขพัสดุซ้ำในเดือนนี้')
+      + `</span> <button class="btn btn-ghost btn-sm" id="calDupBtn">🔄 ตรวจใหม่</button>`;
+  } else {
+    box.innerHTML = `<span style="font-size:13px;color:var(--muted)">ยังไม่ได้ตรวจเลขพัสดุซ้ำของเดือนนี้</span>`
+      + ` <button class="btn btn-ghost btn-sm" id="calDupBtn">🔍 ตรวจเลขพัสดุซ้ำทั้งเดือน</button>`;
+  }
+  const b=$('calDupBtn'); if(b) b.onclick=()=>scanMonthDup(mKey);
+}
+async function scanMonthDup(mKey){
+  const b=$('calDupBtn'); if(b){ b.disabled=true; b.textContent='กำลังตรวจ...'; }
+  const y=curMonth.getFullYear(), m=curMonth.getMonth(), days=new Date(y,m+1,0).getDate();
+  const map={};
+  try{
+    let allp=[], off=0; const pg=1000;
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('tracking,pdate').eq('carrier',curCarrier)
+        .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days))).order('id',{ascending:true}).range(off,off+pg-1);
+      if(error) throw error;
+      allp=allp.concat(data||[]); if(!data||data.length<pg) break; off+=pg;
+    }
+    const cnt={}; allp.forEach(r=>{ if(r.tracking) cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
+    allp.forEach(r=>{ if(r.tracking && cnt[r.tracking]>1) map[r.pdate]=(map[r.pdate]||0)+1; });
+    monthDupCache[mKey]=map;
+    toast(Object.keys(map).length?('พบเลขซ้ำใน '+Object.keys(map).length+' วัน'):'ไม่พบเลขพัสดุซ้ำในเดือนนี้');
+    renderCalendar();
+  }catch(err){
+    toast('ตรวจเลขซ้ำไม่สำเร็จ: '+(err.message||err),true); console.error(err);
+    if(b){ b.disabled=false; b.textContent='🔍 ตรวจเลขพัสดุซ้ำทั้งเดือน'; }
+  }
 }
 
 /* ===== หน้าของวัน ===== */
@@ -674,6 +708,7 @@ async function savePreview(){
     let prev=null; try{ const {data}=await sb.from('post_days').select('*').eq('carrier',curCarrier).eq('pdate',selDate).maybeSingle(); prev=data; }catch(_){}
     const declared=(Number(prev&&prev.declared_fee)||0)+(Number(pv.declared)||0);
     await recomputeDay(selDate, declared, pv.headers);
+    monthDupCache={};   // ข้อมูลเปลี่ยน → ผลตรวจเลขซ้ำที่จำไว้ใช้ไม่ได้แล้ว
     toast('บันทึก '+fmtInt(recs.length)+' พัสดุแล้ว');
     $('previewCard').classList.add('hidden'); pv=null;
     loadDay();
@@ -702,6 +737,7 @@ $('dayClear').onclick=async ()=>{
   try{
     await sb.from('post_parcels').delete().eq('carrier',curCarrier).eq('pdate',selDate);
     await sb.from('post_days').delete().eq('carrier',curCarrier).eq('pdate',selDate);
+    monthDupCache={};
     toast('ล้างข้อมูลแล้ว'); loadDay();
   }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); }
 };
