@@ -123,6 +123,7 @@
   .tags{display:flex;gap:6px;flex-wrap:wrap}
   .tag{font-size:11px;color:#8a6d81;background:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 9px;cursor:pointer}
   .tag:hover{background:#fff0f6}
+  .tag.on{background:linear-gradient(115deg,#a76286,#d67a98);color:#fff;border-color:transparent;font-weight:700}
   .lc-meta{font-size:11.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:9px;margin-top:auto}
   .lc-act{display:flex;gap:7px;flex-wrap:wrap}
   .lc-act .btn{flex:none}
@@ -190,6 +191,11 @@
   <div class="stats" id="stats"></div>
   <div class="chips" id="catChips"></div>
   <div class="chips" id="typeChips" style="margin-top:2px"></div>
+  <div class="chips" id="tagChips" style="margin-top:2px"></div>
+  <div id="fltBar" class="hidden" style="margin-top:8px;display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)">
+    <span id="fltText"></span>
+    <button class="btn btn-ghost btn-sm" id="clearFlt">✕ ล้างตัวกรองทั้งหมด</button>
+  </div>
 
   <div id="listArea" style="margin-top:6px"></div>
 </main>
@@ -359,7 +365,7 @@ const TYPES=[
 const TYPE_MAP={}; TYPES.forEach(t=>TYPE_MAP[t.v]=t);
 const UNCAT='ยังไม่จัดหมวด';
 
-let links=[], curCat='', curType='', myName='', myUid='', editId=null, delId=null;
+let links=[], curCat='', curType='', curTag='', myName='', myUid='', editId=null, delId=null;
 
 /* ---------- utils ---------- */
 function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
@@ -430,6 +436,8 @@ function buildTypeChips(){
 }
 $('typeChips').onclick=e=>{ const b=e.target.closest('[data-t]'); if(!b) return; curType=b.dataset.t; buildTypeChips(); render(); };
 $('catChips').onclick=e=>{ const b=e.target.closest('[data-c]'); if(!b) return; curCat=b.dataset.c; render(); };
+$('tagChips').onclick=e=>{ const b=e.target.closest('[data-g]'); if(!b) return; curTag = (b.dataset.g===curTag) ? '' : b.dataset.g; render(); };
+$('clearFlt').onclick=()=>{ curCat=''; curType=''; curTag=''; $('q').value=''; buildTypeChips(); render(); };
 $('q').oninput=render;
 
 /* ---------- แสดงผล ---------- */
@@ -438,6 +446,7 @@ function filtered(){
   return links.filter(r=>{
     if(curType && r.link_type!==curType) return false;
     if(curCat && (norm(r.category)||UNCAT)!==curCat) return false;
+    if(curTag && !tagsOf(r).some(x=>x.toLowerCase()===curTag.toLowerCase())) return false;
     if(q){
       const hay=[r.title,r.description,r.category,r.owner,r.url,tagsOf(r).join(' ')].join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
@@ -454,6 +463,27 @@ function render(){
         return `<button class="chip${curCat===c?' on':''}" data-c="${esc(c)}">${esc(c)} (${n})</button>`;
       }).join('');
   $('catList').innerHTML=cats.filter(c=>c!==UNCAT).map(c=>`<option value="${esc(c)}">`).join('');
+
+  /* ชิปแท็ก — นับจำนวนจากลิงก์ทั้งหมด เรียงตามที่ใช้บ่อย */
+  const tagCount={};
+  links.forEach(r=>tagsOf(r).forEach(x=>{ tagCount[x]=(tagCount[x]||0)+1; }));
+  const tagList=Object.keys(tagCount).sort((a,b)=>tagCount[b]-tagCount[a]||a.localeCompare(b,'th'));
+  if(curTag && !tagList.some(x=>x.toLowerCase()===curTag.toLowerCase())) curTag='';
+  $('tagChips').innerHTML = tagList.length
+    ? '<span style="font-size:12px;color:var(--muted);align-self:center;margin-right:2px">คำค้น:</span>'
+      + tagList.map(x=>`<button class="chip${curTag===x?' on':''}" data-g="${esc(x)}">#${esc(x)} (${tagCount[x]})</button>`).join('')
+    : '';
+
+  /* แถบสรุปตัวกรองที่กำลังใช้ */
+  const used=[];
+  if(curCat) used.push('หมวด: '+curCat);
+  if(curType) used.push('ประเภท: '+(TYPE_MAP[curType]?TYPE_MAP[curType].label:curType));
+  if(curTag) used.push('คำค้น: #'+curTag);
+  if(norm($('q').value)) used.push('ค้นหา: "'+norm($('q').value)+'"');
+  if(used.length){
+    $('fltText').textContent='กรองด้วย → '+used.join('  ·  ')+'  (เจอ '+rows.length+' ลิงก์)';
+    $('fltBar').classList.remove('hidden');
+  } else $('fltBar').classList.add('hidden');
 
   $('stats').innerHTML=`
     <div class="stat"><div class="k">ลิงก์ทั้งหมด</div><div class="v">${links.length}</div></div>
@@ -502,7 +532,7 @@ function cardHtml(r,pin){
     </div>
     <div><span class="pill">${t.ic} ${esc(t.label)}</span></div>
     ${norm(r.description)?`<div class="lc-desc">${esc(r.description)}</div>`:'<div class="lc-desc" style="color:#b8a3b3">— ยังไม่มีคำอธิบาย กดแก้เพื่อเพิ่ม —</div>'}
-    ${tags.length?`<div class="tags">${tags.map(x=>`<span class="tag" data-tag="${esc(x)}">#${esc(x)}</span>`).join('')}</div>`:''}
+    ${tags.length?`<div class="tags">${tags.map(x=>`<span class="tag${curTag===x?' on':''}" data-tag="${esc(x)}" title="กรองด้วยคำค้นนี้">#${esc(x)}</span>`).join('')}</div>`:''}
     <div class="lc-meta">${meta.join(' · ')||'—'}</div>
     <div class="lc-act">
       <a class="btn btn-primary go" href="${esc(url)}" target="_blank" rel="noopener noreferrer" data-open="${r.id}">🚀 เปิดใช้งาน</a>
@@ -516,7 +546,8 @@ function cardHtml(r,pin){
 /* ---------- คลิกในรายการ ---------- */
 $('listArea').onclick=e=>{
   const tg=e.target.closest('[data-tag]');
-  if(tg){ $('q').value=tg.dataset.tag; render(); return; }
+  if(tg){ curTag = (tg.dataset.tag===curTag) ? '' : tg.dataset.tag; render();
+    window.scrollTo({top:0,behavior:'smooth'}); return; }
   const cp=e.target.closest('[data-copy]');
   if(cp){ copyLink(+cp.dataset.copy); return; }
   const ed=e.target.closest('[data-edit]');
