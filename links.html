@@ -117,6 +117,8 @@
   .lc-tt{flex:1;min-width:0}
   .lc-tt h3{font-size:16px;color:#5f4359;line-height:1.35;word-break:break-word}
   .lc-host{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px;word-break:break-all}
+  .lcard.mgr{border-color:#e8c58f;background:linear-gradient(150deg,#fffaf0,rgba(255,255,255,.94))}
+  .mgr-flag{position:absolute;left:13px;top:-9px;background:linear-gradient(115deg,#8a6fbf,#a98ad6);color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px;box-shadow:0 6px 14px rgba(110,80,170,.22)}
   .pin-flag{position:absolute;right:13px;top:-9px;background:linear-gradient(115deg,#ffd373,#ffb773);color:#6b4a2a;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px;box-shadow:0 6px 14px rgba(180,130,60,.22)}
   .lc-desc{font-size:13px;line-height:1.65;color:#7c6577;white-space:pre-wrap;word-break:break-word}
   .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px;background:#f6ecf3;color:#8a5e7b}
@@ -243,6 +245,9 @@
         <input type="text" id="fTags" placeholder="ปิดเดือน, ขนส่ง, flash">
       </div>
       <label class="ck"><input type="checkbox" id="fPin"> 📌 ปักหมุดไว้ด้านบนสุด (ลิงก์ที่ใช้บ่อย)</label>
+      <label class="ck hidden" id="mgrWrap" style="background:#fff6e6;border:1px solid #f0d48a;border-radius:12px;padding:10px 13px">
+        <input type="checkbox" id="fMgr"> 🔒 <b>เห็นเฉพาะผู้จัดการบัญชี</b> — คนอื่นในฝ่ายจะไม่เห็นลิงก์นี้เลย
+      </label>
       <div class="note">คำอธิบายยิ่งละเอียด คนที่มาใหม่ยิ่งใช้งานถูก — บอกด้วยว่า <b>ต้องทำอะไรในลิงก์นั้น</b> และ <b>มีอะไรห้ามแตะ</b></div>
     </div>
     <div class="mfoot">
@@ -365,7 +370,7 @@ const TYPES=[
 const TYPE_MAP={}; TYPES.forEach(t=>TYPE_MAP[t.v]=t);
 const UNCAT='ยังไม่จัดหมวด';
 
-let links=[], curCat='', curType='', curTag='', myName='', myUid='', editId=null, delId=null;
+let links=[], curCat='', curType='', curTag='', myName='', myUid='', editId=null, delId=null, isMgr=false, mgrOnlyView=false;
 
 /* ---------- utils ---------- */
 function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
@@ -390,8 +395,10 @@ sessionOrOffline().then(({data})=>{
   if(!data.session){ location.replace('index.html'); return; }
   const u=data.session.user;
   const role=(u.user_metadata && u.user_metadata.role)||'';
-  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
+  if(role!=='บัญชี' && role!=='ผู้จัดการบัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
   myUid=u.id||'';
+  isMgr = (role==='ผู้จัดการบัญชี');
+  $('mgrWrap').classList.toggle('hidden', !isMgr);   /* ช่องติ๊ก 🔒 โผล่เฉพาะผู้จัดการบัญชี */
   myName=norm((u.user_metadata&&(u.user_metadata.name||u.user_metadata.full_name))||u.email||'').split('@')[0];
   if(OFFLINE){ $('addBtn').disabled=true; $('addBtn').title='ออฟไลน์ — เพิ่มลิงก์ไม่ได้'; }
   buildTypeSelect(); buildTypeChips();
@@ -404,22 +411,22 @@ $('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} loca
 async function load(){
   if(OFFLINE){
     const c=lsGet(CACHE_KEY);
-    links = c ? (JSON.parse(c)||[]) : [];
+    links = (c ? (JSON.parse(c)||[]) : []).filter(r=> isMgr || !r.mgr_only);
     render();
     if(!links.length) toast('ออฟไลน์ และไม่มีข้อมูลที่เคยโหลดไว้ในเครื่องนี้',true);
     return;
   }
   try{
     const {data,error}=await sb.from('acc_links')
-      .select('id,title,url,description,category,link_type,icon,tags,pinned,owner,updated_at,updated_by_name')
+      .select('id,title,url,description,category,link_type,icon,tags,pinned,owner,mgr_only,updated_at,updated_by_name')
       .order('pinned',{ascending:false}).order('category',{ascending:true}).order('title',{ascending:true});
     if(error) throw error;
-    links = data || [];
+    links = (data || []).filter(r=> isMgr || !r.mgr_only);   /* กันชั้นหน้าจอ (ฐานข้อมูลกันอีกชั้นด้วย RLS) */
     lsSet(CACHE_KEY, JSON.stringify(links));
     render();
   }catch(err){
     const c=lsGet(CACHE_KEY);
-    links = c ? (JSON.parse(c)||[]) : [];
+    links = (c ? (JSON.parse(c)||[]) : []).filter(r=> isMgr || !r.mgr_only);
     render();
     toast('โหลดจากระบบกลางไม่ได้: '+(err.message||err)+(links.length?' · ใช้ข้อมูลที่เคยโหลดไว้':''),true);
   }
@@ -489,7 +496,8 @@ function render(){
     <div class="stat"><div class="k">ลิงก์ทั้งหมด</div><div class="v">${links.length}</div></div>
     <div class="stat"><div class="k">หมวดงาน</div><div class="v">${cats.length}</div></div>
     <div class="stat"><div class="k">📌 ปักหมุด</div><div class="v">${links.filter(r=>r.pinned).length}</div></div>
-    <div class="stat"><div class="k">ที่แสดงอยู่ตอนนี้</div><div class="v">${rows.length}</div></div>`;
+    <div class="stat"><div class="k">ที่แสดงอยู่ตอนนี้</div><div class="v">${rows.length}</div></div>
+    ${isMgr?`<div class="stat"><div class="k">🔒 เฉพาะผู้จัดการ</div><div class="v">${links.filter(r=>r.mgr_only).length}</div></div>`:''}`;
 
   if(!links.length){
     $('listArea').innerHTML='<div class="card empty"><span class="big">🔗</span>ยังไม่มีลิงก์ในคลัง<br>กด <b>＋ เพิ่มลิงก์</b> ด้านบนเพื่อเริ่มเก็บลิงก์แรก</div>';
@@ -521,8 +529,9 @@ function cardHtml(r,pin){
   const meta=[];
   if(norm(r.owner)) meta.push('👤 ผู้ดูแล: '+esc(r.owner));
   if(r.updated_at) meta.push('🕒 อัปเดต '+esc(fmtWhen(r.updated_at))+(norm(r.updated_by_name)?' โดย '+esc(r.updated_by_name):''));
-  return `<div class="lcard${r.pinned?' pin':''}">
+  return `<div class="lcard${r.pinned?' pin':''}${r.mgr_only?' mgr':''}">
     ${r.pinned?'<span class="pin-flag">📌 ใช้บ่อย</span>':''}
+    ${r.mgr_only?'<span class="mgr-flag">🔒 เฉพาะผู้จัดการ</span>':''}
     <div class="lc-top">
       <div class="lc-ic">${esc(iconOf(r))}</div>
       <div class="lc-tt">
@@ -579,7 +588,7 @@ $('addBtn').onclick=()=>{
   $('fUrl').value=''; $('fTitle').value=''; $('fDesc').value='';
   $('fCat').value=curCat && curCat!==UNCAT ? curCat : '';
   $('fType').value='sheet'; $('fIcon').value=''; $('fOwner').value=myName||''; $('fTags').value='';
-  $('fPin').checked=false;
+  $('fPin').checked=false; $('fMgr').checked=false;
   openModal($('edBg')); setTimeout(()=>$('fUrl').focus(),60);
 };
 function openEdit(id){
@@ -592,7 +601,7 @@ function openEdit(id){
   $('fType').value=TYPE_MAP[r.link_type]?r.link_type:'tool';
   $('fIcon').value=r.icon||''; $('fOwner').value=r.owner||'';
   $('fTags').value=tagsOf(r).join(', ');
-  $('fPin').checked=!!r.pinned;
+  $('fPin').checked=!!r.pinned; $('fMgr').checked=!!r.mgr_only;
   openModal($('edBg')); setTimeout(()=>$('fTitle').focus(),60);
 }
 $('edClose').onclick=$('edCancel').onclick=()=>closeModal($('edBg'));
@@ -611,6 +620,7 @@ $('edSave').onclick=async()=>{
     icon: norm($('fIcon').value),
     tags: norm($('fTags').value).split(',').map(norm).filter(Boolean),
     pinned: $('fPin').checked,
+    mgr_only: isMgr ? $('fMgr').checked : false,
     owner: norm($('fOwner').value),
     updated_at: new Date().toISOString(),
     updated_by_name: myName || ''
