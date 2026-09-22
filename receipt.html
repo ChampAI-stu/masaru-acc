@@ -828,7 +828,7 @@ function sessionOrOffline(){
 
 /* ===== ต้องล็อกอินก่อนใช้งาน (เช็ค session จาก Portal) ===== */
 if(sb){
-  sessionOrOffline().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; myRole=(data.session.user.user_metadata && data.session.user.user_metadata.role)||''; isViewer=(myRole!=='บัญชี'); loadSignature(); applyRoleUI(); });
+  sessionOrOffline().then(({data})=>{ if(!data.session){ location.replace('index.html'); return; } currentUserId=data.session.user.id; myRole=(data.session.user.user_metadata && data.session.user.user_metadata.role)||''; isViewer=(myRole!=='บัญชี' && myRole!=='ผู้จัดการบัญชี'); loadSignature(); applyRoleUI(); });
   sb.auth.onAuthStateChange((e,ss)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!ss)) location.replace('index.html'); });
   const _lo=document.getElementById('logoutBtn');
   if(_lo) _lo.onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
