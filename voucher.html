@@ -411,7 +411,7 @@ const $=id=>document.getElementById(id);
 sessionOrOffline().then(({data})=>{
   if(!data.session){ location.replace('index.html'); return; }
   const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
-  if(role!=='บัญชี'){ alert('เฉพาะฝ่ายบัญชีเท่านั้น'); location.replace('index.html'); return; }
+  if(role!=='บัญชี' && role!=='ผู้จัดการบัญชี'){ alert('เฉพาะฝ่ายบัญชีเท่านั้น'); location.replace('index.html'); return; }
   loadSignatures();
 });
 sb.auth.onAuthStateChange((e,s)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!s)) location.replace('index.html'); });
