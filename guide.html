@@ -440,7 +440,7 @@ function sessionOrOffline(){
   });
 }
 
-const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'บัญชีทั่วไป':'บัญชีทั่วไป', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
+const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'ผู้จัดการบัญชี':'ผู้จัดการบัญชี', 'บัญชีทั่วไป':'บัญชีทั่วไป', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
 
 /* ═══════════════════════ 📖 คู่มือการใช้งาน ═══════════════════════ */
 const GUIDE = [
@@ -977,7 +977,8 @@ function gdSection(g){
 
 let gdList=[];
 function gdBuild(role){
-  gdList = GUIDE.filter(g => g.roles==='*' || (g.roles||[]).includes(role));
+  const effRole = (role==='ผู้จัดการบัญชี') ? 'บัญชี' : role;   /* ผู้จัดการบัญชี = อ่านคู่มือฝ่ายบัญชีได้ทั้งหมด */
+  gdList = GUIDE.filter(g => g.roles==='*' || (g.roles||[]).includes(effRole));
   if(!gdList.length) gdList = GUIDE.filter(g=>g.roles==='*');
   const grps=[...new Set(gdList.map(g=>g.grp))];
   $('navSide').innerHTML = `<div class="side-mascot"><b>บรรณารักษ์เหมียว</b><span>เลือกหมวดที่ต้องการ แล้วเปิดอ่านได้เลย</span></div>` + grps.map(gr=>
