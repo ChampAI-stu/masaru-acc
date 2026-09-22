@@ -133,9 +133,9 @@
       <div class="note">
         <b>ตรรกะจำนวน</b> — <code>,</code> = สินค้าคนละรายการ · <code>/</code> = สินค้าในชุดเดียวกัน<br>
         เลขหลัง <b>*</b> ตัวแรกของแต่ละตัว = <b>จำนวนชิ้นต่อ 1 ชุด</b> · เลขชุดที่ 2 ที่ท้ายกลุ่ม = <b>จำนวนชุด</b> → <b>คูณ</b>สินค้าทุกตัวในกลุ่มนั้น<br>
-        เช่น <code>SKU*2</code> → 2 ชิ้น &nbsp;|&nbsp; <code>A*1/B*1/C*1*2</code> → 3 ชิ้น/ชุด × 2 ชุด = A 2, B 2, C 2 (รวม 6 ชิ้น)<br>
-        ตัวคูณจำนวนชุด<b>ไม่ข้ามเครื่องหมาย <code>,</code></b> — คูณเฉพาะสินค้าในกลุ่มเดียวกันเท่านั้น<br>
-        เช่น <code>SKU-A*2,SKU-B*1*3</code> → A = 2 (ไม่โดนคูณ) · B = 1×3 = 3 &nbsp;|&nbsp; <code>PTB10-2040*2*3</code> → 2×3 = 6<br>
+        <b>จำนวนชุดคูณสินค้าทุกตัวในช่องเดียวกัน</b> (ข้ามทั้ง <code>,</code> และ <code>/</code>)<br>
+        เช่น <code>A*1/B*1/C*1*2</code> → A,B,C = 1×2 = 2 ทุกตัว (รวม 6 ชิ้น)<br>
+        <code>SKU-A*2,SKU-B*1*3</code> → A = 2×3 = 6 · B = 1×3 = 3 (รวม 9 ชิ้น) &nbsp;|&nbsp; <code>PTB10-2040*2*3</code> → 2×3 = 6<br>
         <b>ราคา</b> = ยอดรวมทั้งออร์เดอร์ ใส่ที่บรรทัดแรกของออร์เดอร์ครั้งเดียว
       </div>
     </div>
@@ -300,25 +300,30 @@ function parseSeg(seg){
 }
 /* แยก 1 ช่องข้อมูลสินค้า → รายการ SKU พร้อมจำนวนจริง
    , = สินค้าคนละรายการ  ·  / = สินค้าในชุดเดียวกัน
-   ตัวเลขชุดที่ 2 ท้ายกลุ่ม = จำนวนชุด → คูณสินค้าทุกตัวในกลุ่มนั้น
-   เช่น A*1/B*1/C*1*2 → 3 ชิ้น/ชุด × 2 ชุด = A 2, B 2, C 2 (รวม 6 ชิ้น) */
+   เลขหลัง * ตัวแรกของแต่ละตัว = จำนวนชิ้นต่อ 1 ชุด
+   เลขตัวที่ 2 (ปกติอยู่ท้ายสุดของช่อง) = จำนวนชุด → คูณสินค้า "ทุกตัวในช่องนั้น"
+   เช่น SKU-A*2,SKU-B*1*3 → A = 2×3 = 6 · B = 1×3 = 3 (รวม 9 ชิ้น)
+        A*1/B*1/C*1*2      → A,B,C = 1×2 = 2 ทุกตัว (รวม 6 ชิ้น) */
 function parseCell(cell){
   const items=[], notes=[];
-  norm(cell).split(',').forEach(group=>{
-    const g=norm(group);
-    const segs=g.split('/').map(parseSeg).filter(Boolean);
-    if(!segs.length) return;
-    let setMul=1;
-    segs.forEach((sg,i)=>{
-      if(sg.nums.length>1){
-        const m=sg.nums[sg.nums.length-1];      // เลขตัวท้าย = จำนวนชุด → คูณทุกตัวในกลุ่มนี้
-        setMul=m;
-        if(i!==segs.length-1) notes.push('ตัวคูณชุด (×'+m+') ไม่ได้อยู่ท้ายกลุ่ม: '+g);
-        if(sg.nums.length>2) notes.push('มีตัวเลขหลัง * มากกว่า 2 ตัว: '+g);
-      }
-    });
-    segs.forEach(sg=> items.push({sku:sg.sku, per:sg.per, setMul, qty:sg.per*setMul}));
+  const c=norm(cell); if(!c) return {items, notes};
+  const segs=[];
+  c.split(',').forEach(group=>{
+    norm(group).split('/').forEach(seg=>{ const s=parseSeg(seg); if(s) segs.push(s); });
   });
+  if(!segs.length) return {items, notes};
+  // หาจำนวนชุดของช่องนี้ (เลขตัวที่ 2 ของ segment ที่มีเลข 2 ตัว — ปกติคือตัวสุดท้าย)
+  let setMul=1, foundAt=-1;
+  segs.forEach((sg,i)=>{
+    if(sg.nums.length>1){
+      const m=sg.nums[sg.nums.length-1];
+      if(foundAt>=0 && m!==setMul) notes.push('พบจำนวนชุดมากกว่า 1 ค่า (×'+setMul+' และ ×'+m+') → ใช้ค่าท้ายสุด: '+c);
+      setMul=m; foundAt=i;
+      if(sg.nums.length>2) notes.push('มีตัวเลขหลัง * มากกว่า 2 ตัว: '+c);
+    }
+  });
+  if(foundAt>=0 && foundAt!==segs.length-1) notes.push('จำนวนชุด (×'+setMul+') ไม่ได้อยู่ท้ายสุดของช่อง → ยังคูณให้ทุกตัว: '+c);
+  segs.forEach(sg=> items.push({sku:sg.sku, per:sg.per, setMul, qty:sg.per*setMul}));
   return {items, notes};
 }
 
