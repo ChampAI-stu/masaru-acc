@@ -131,8 +131,10 @@
         <div style="align-self:flex-end"><button class="btn btn-primary" id="splitBtn">✂️ แยก SKU</button></div>
       </div>
       <div class="note">
-        <b>ตรรกะจำนวน (ต่อ 1 SKU):</b> ตัวเลขหลัง <b>*</b> ตัวแรก = ตั้งจำนวน · <b>*</b> ตัวถัดไป = บวกเพิ่ม<br>
-        เช่น <code>SKU*2</code> → จำนวน 2 · <code>SKU*2*3</code> → จำนวน 5 (2+3) &nbsp;|&nbsp; <b>ราคา</b> = ยอดรวมทั้งออร์เดอร์ ใส่ที่บรรทัดแรกของออร์เดอร์ครั้งเดียว
+        <b>ตรรกะจำนวน</b> — <code>,</code> = สินค้าคนละรายการ · <code>/</code> = สินค้าในชุดเดียวกัน<br>
+        เลขหลัง <b>*</b> ตัวแรกของแต่ละตัว = <b>จำนวนชิ้นต่อ 1 ชุด</b> · เลขชุดที่ 2 ที่ท้ายกลุ่ม = <b>จำนวนชุด</b> → <b>คูณ</b>สินค้าทุกตัวในกลุ่มนั้น<br>
+        เช่น <code>SKU*2</code> → 2 ชิ้น &nbsp;|&nbsp; <code>A*1/B*1/C*1*2</code> → 3 ชิ้น/ชุด × 2 ชุด = A 2, B 2, C 2 (รวม 6 ชิ้น)<br>
+        <b>ราคา</b> = ยอดรวมทั้งออร์เดอร์ ใส่ที่บรรทัดแรกของออร์เดอร์ครั้งเดียว
       </div>
     </div>
   </div>
@@ -144,6 +146,7 @@
       <button class="btn btn-gold btn-sm" id="expBtn">⬇️ ส่งออก Excel</button>
     </div>
     <div class="stats" id="stats"></div>
+    <div id="warnBox" class="hidden" style="margin-top:12px;background:#fff6e6;border:1px solid #f0d48a;border-radius:12px;padding:11px 15px;font-size:12.5px;line-height:1.65;color:#7a5a12"></div>
     <div class="tbl-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
     <div style="margin-top:8px;font-size:12.5px;color:var(--muted)" id="resInfo"></div>
   </div>
@@ -282,14 +285,38 @@ async function readFile(file){
 }
 function fillSel(id,headers,sel){ $(id).innerHTML=headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${htmlesc(h)}</option>`).join(''); }
 
-/* แยก segment "SKU*n" → {sku, qty} : เอาเลขตัวแรกหลัง * เป็นจำนวน (กันเลขในชื่อ SKU ปน) */
+/* แยก segment "SKU*n" → {sku, per, nums}
+   per  = เลขตัวแรกหลัง * = จำนวนชิ้นต่อ 1 ชุด (ไม่มี * = 1 ชิ้น)
+   nums = เลขทั้งหมดหลัง * (ถ้ามี 2 ตัว ตัวท้ายคือจำนวนชุด ใช้คูณทุกตัวในชุดนั้น) */
 function parseSeg(seg){
   seg=norm(seg); if(!seg) return null;
   const parts=seg.split('*');
   const sku=norm(parts[0]); if(!sku) return null;
-  let qty=1;
-  for(let k=1;k<parts.length;k++){ const n=toNum(parts[k]); if(n!=null){ qty=n; break; } }
-  return {sku, qty};
+  const nums=[];
+  for(let k=1;k<parts.length;k++){ const n=toNum(parts[k]); if(n!=null) nums.push(n); }
+  return {sku, per: nums.length?nums[0]:1, nums};
+}
+/* แยก 1 ช่องข้อมูลสินค้า → รายการ SKU พร้อมจำนวนจริง
+   , = สินค้าคนละรายการ  ·  / = สินค้าในชุดเดียวกัน
+   ตัวเลขชุดที่ 2 ท้ายกลุ่ม = จำนวนชุด → คูณสินค้าทุกตัวในกลุ่มนั้น
+   เช่น A*1/B*1/C*1*2 → 3 ชิ้น/ชุด × 2 ชุด = A 2, B 2, C 2 (รวม 6 ชิ้น) */
+function parseCell(cell){
+  const items=[], notes=[];
+  norm(cell).split(',').forEach(group=>{
+    const segs=norm(group).split('/').map(parseSeg).filter(Boolean);
+    if(!segs.length) return;
+    let setMul=1;
+    segs.forEach((sg,i)=>{
+      if(sg.nums.length>1){
+        const m=sg.nums[sg.nums.length-1];
+        if(i===segs.length-1) setMul=m;                                  // ปกติ: ติดท้ายสุดของชุด
+        else { setMul=m; notes.push('ตัวคูณชุด (×'+m+') ไม่ได้อยู่ท้ายชุด: '+norm(group)); }
+        if(sg.nums.length>2) notes.push('มีตัวเลขหลัง * มากกว่า 2 ตัว: '+norm(group));
+      }
+    });
+    segs.forEach(sg=> items.push({sku:sg.sku, per:sg.per, setMul, qty:sg.per*setMul}));
+  });
+  return {items, notes};
 }
 
 $('splitBtn').onclick=doSplit;
@@ -299,13 +326,16 @@ function doSplit(){
   const H=src.headers;
   // หัวตารางผลลัพธ์: คอลัมน์เดิมทั้งหมด + แทรก "จำนวน(แยก)" หลังคอลัมน์ SKU
   const outH=[]; H.forEach((h,i)=>{ outH.push(h); if(i===sIdx) outH.push('จำนวน (แยก)'); });
-  const out=[]; let orders=0, skuRows=0, totalPrice=0;
-  src.rows.forEach(r=>{
+  const out=[]; let orders=0, skuRows=0, totalPrice=0, pieces=0, setOrders=0;
+  const warn=[];
+  src.rows.forEach((r,ri)=>{
     const cell=norm(r[sIdx]); if(!cell) return;
-    // แยกด้วย , (คนละบรรทัด) และ / (สินค้าย่อยในบันเดิลชุดเดียวกัน)
-    const segs=cell.split(/[,/]/).map(parseSeg).filter(Boolean);
+    const parsed=parseCell(cell);
+    const segs=parsed.items;
     if(!segs.length) return;
+    if(parsed.notes.length) parsed.notes.forEach(n=>{ if(warn.length<20) warn.push('แถว '+(ri+2)+': '+n); });
     orders++;
+    if(segs.some(s=>s.setMul>1)) setOrders++;
     const price=toNum(r[pIdx]); if(price!=null) totalPrice+=price;
     segs.forEach((sg,j)=>{
       const row=[];
@@ -316,12 +346,12 @@ function doSplit(){
         row.push(v);
         if(i===sIdx) row.push(sg.qty);               // แทรกจำนวน
       });
-      row._first=(j===0); row._sku=sg.sku; row._qty=sg.qty;
+      row._first=(j===0); row._sku=sg.sku; row._qty=sg.qty; row._per=sg.per; row._set=sg.setMul;
       out.push(row);
-      skuRows++;
+      skuRows++; pieces+=sg.qty;
     });
   });
-  result={ headers:outH, rows:out, orders, skuRows, totalPrice };
+  result={ headers:outH, rows:out, orders, skuRows, totalPrice, pieces, setOrders, warn };
   renderResult();
 }
 
@@ -330,7 +360,14 @@ function renderResult(){
   $('stats').innerHTML=`
     <div class="stat"><div class="k">จำนวนออร์เดอร์</div><div class="v">${fmtInt(r.orders)}</div></div>
     <div class="stat"><div class="k">บรรทัด SKU (หลังแยก)</div><div class="v">${fmtInt(r.skuRows)}</div></div>
+    <div class="stat"><div class="k">จำนวนชิ้นรวม</div><div class="v">${fmtInt(r.pieces)}</div></div>
+    <div class="stat"><div class="k">ออร์เดอร์ที่สั่งเป็นชุด (มีตัวคูณ)</div><div class="v">${fmtInt(r.setOrders)}</div></div>
     <div class="stat"><div class="k">ยอดรวมราคา (ทุกออร์เดอร์)</div><div class="v" style="font-size:18px">${fmtNum(r.totalPrice)}</div></div>`;
+  const wbox=$('warnBox');
+  if(r.warn && r.warn.length){
+    wbox.innerHTML='<b>⚠️ ข้อมูลรูปแบบไม่ปกติ '+fmtInt(r.warn.length)+' จุด — ควรตรวจด้วยตา</b><br>'+r.warn.map(htmlesc).join('<br>');
+    wbox.classList.remove('hidden');
+  } else wbox.classList.add('hidden');
   const skuColOut=result.headers.indexOf('จำนวน (แยก)')-1;
   const priceIdxOut=+$('cPrice').value + (( +$('cPrice').value > +$('cSku').value)?1:0); // ชดเชยคอลัมน์ที่แทรก
   $('thead').innerHTML='<tr>'+r.headers.map(h=>`<th>${htmlesc(h)}</th>`).join('')+'</tr>';
