@@ -610,7 +610,7 @@ if(sb){
   sessionOrOffline().then(({data})=>{
     if(!data.session){ location.replace('index.html'); return; }
     const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
-    if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบบัญชี'); location.replace('index.html'); return; }
+    if(role!=='บัญชี' && role!=='ผู้จัดการบัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบบัญชี'); location.replace('index.html'); return; }
   });
   sb.auth.onAuthStateChange((e,ss)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!ss)) location.replace('index.html'); });
   const _lo=document.getElementById('logoutBtn');
