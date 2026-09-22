@@ -241,7 +241,7 @@ const $=id=>document.getElementById(id);
 sessionOrOffline().then(({data})=>{
   if(!data.session){ location.replace('index.html'); return; }
   const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
-  if(role!=='บัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
+  if(role!=='บัญชี' && role!=='ผู้จัดการบัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบนี้'); location.replace('index.html'); return; }
 });
 sb.auth.onAuthStateChange((e,s)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!s)) location.replace('index.html'); });
 $('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
