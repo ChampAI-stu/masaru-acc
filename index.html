@@ -226,7 +226,7 @@
       <div class="fld"><label>อีเมล</label><input id="suEmail" type="email" placeholder="name@masaru.co.th"></div>
       <div class="fld"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="suPassword" type="password"></div>
       <div class="fld"><label>ฝ่าย</label>
-        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option><option value="บัญชีทั่วไป">บัญชีทั่วไป (ดูประวัติบิล)</option><option value="facebook">ฝ่าย Facebook</option><option value="shopee">ฝ่าย Shopee</option></select>
+        <select id="suRole"><option value="บัญชี">ฝ่ายบัญชี</option><option value="ผู้จัดการบัญชี">ผู้จัดการบัญชี</option><option value="บัญชีทั่วไป">บัญชีทั่วไป (ดูประวัติบิล)</option><option value="facebook">ฝ่าย Facebook</option><option value="shopee">ฝ่าย Shopee</option></select>
       </div>
       <div class="fld"><label>รหัสเชิญ</label><input id="suInvite" placeholder="ขอจากแอดมิน"></div>
       <button class="btn-primary" id="signupBtn">สมัครสมาชิก</button>
@@ -283,11 +283,12 @@ const $ = id => document.getElementById(id);
 /* ===== รหัสเชิญต่อฝ่าย (แก้ได้ที่นี่) — กันสมัครผิดตำแหน่ง ===== */
 const INVITE_CODES = {
   'บัญชี'       : 'ACC-VA8J-J32M-7QKW',
+  'ผู้จัดการบัญชี' : 'MGR-QX4T-B6HD-N8RV',
   'บัญชีทั่วไป' : 'ACCG-9F3K-P7MW-2XQN',
   'facebook'    : 'FB-7FPK-SWKZ-3GUJ',
   'shopee'      : 'SHP-JNMN-ZF6C-MT9U'
 };
-const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'บัญชีทั่วไป':'บัญชีทั่วไป', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
+const ROLE_LABEL = { 'บัญชี':'ฝ่ายบัญชี', 'ผู้จัดการบัญชี':'ผู้จัดการบัญชี', 'บัญชีทั่วไป':'บัญชีทั่วไป', 'facebook':'ฝ่าย Facebook', 'shopee':'ฝ่าย Shopee' };
 /* ===== ระบบที่แต่ละฝ่ายเข้าได้ (บัญชี = ทุกระบบ) ===== */
 const APPS = [
   { icon:'\uD83D\uDCCA', title:'ระบบบัญชี',  desc:'รวมไฟล์บัญชี · ลิสพัสดุ · คำนวนต้นทุน · ฐานข้อมูล', url:'acc.html',     roles:['บัญชี'] },
@@ -372,7 +373,8 @@ function showHub(session){
   const role = getRole(session);
   $('bootScreen').classList.add('hide'); $('authScreen').classList.add('hide'); $('hubScreen').classList.remove('hide');
   $('rolePill').textContent = 'ฝ่าย: ' + (ROLE_LABEL[role] || role || '—');
-  const apps = APPS.filter(a => a.roles.includes(role));
+  const effRole = (role==='ผู้จัดการบัญชี') ? 'บัญชี' : role;   /* ผู้จัดการบัญชี = สิทธิ์เท่าฝ่ายบัญชี */
+  const apps = APPS.filter(a => a.roles.includes(effRole));
   const today = new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
   $('heroDate').innerHTML = `<b style="display:block;color:#35435e;margin-bottom:2px">${today}</b>พร้อมเริ่มต้นวันดี ๆ`;
   $('hubSub').textContent = apps.length ? `เข้าใช้ได้ ${apps.length} ระบบ — แตะการ์ดเพื่อเข้าใช้งาน` : 'ยังไม่มีสิทธิ์เข้าระบบใด — ติดต่อแอดมิน';
