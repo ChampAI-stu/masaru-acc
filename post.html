@@ -973,7 +973,8 @@ $('pvCancel').onclick=()=>{ $('previewCard').classList.add('hidden'); pv=null; }
    ถ้าอยากเก็บช่องไหนกลับมา ลบชื่อออกจากรายการนี้ */
 const DROP_KEYS = {
   thaipost: ['บัญชี Wallet','COD','ผู้รับ','เบอร์โทร','ปลายทาง'],
-  flash:    []
+  flash:    ['Happy Return(Inc Vat)','Flash Care(Inc Vat)','Declared value fee(Inc Vat)',
+             'Packaging fee(Inc Vat)','On-Time Delivery(Inc Vat)','Label Fee(Inc Vat)','Box Shield(Inc Vat)']
 };
 function trimParcelData(carrier, data){
   const drop = DROP_KEYS[carrier] || [];
