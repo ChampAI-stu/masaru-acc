@@ -668,9 +668,19 @@ async function arcLoad(){
     const {data:arch,error:e2}=await sb.from('post_archives').select('mkey,path,n_rows,n_bytes,archived_at').order('mkey',{ascending:false});
     if(e2) throw e2;
     arcRows=arch||[];
-    const {data:pp,error:e3}=await sb.from('post_parcels').select('pdate').order('pdate',{ascending:true}).limit(50000);
-    if(e3) throw e3;
-    (pp||[]).forEach(r=>{ const k=arcMkey(r.pdate); inDb[k]=(inDb[k]||0)+1; });
+    /* นับจำนวนพัสดุต่อเดือนด้วย count แบบ head:true — ฐานข้อมูลส่งกลับแค่ตัวเลข
+       ไม่ส่งข้อมูลแถวเลย (เดิมดึง pdate 50,000 แถวทุกครั้งที่เปิดหน้า = กิน egress หนักมาก) */
+    const monthsAll=[...new Set([
+      ...(days||[]).map(r=>arcMkey(r.pdate)),
+      ...arcRows.map(a=>a.mkey)
+    ])].filter(Boolean).sort().reverse();
+    await Promise.all(monthsAll.map(async mk=>{
+      const d2=new Date(mk+'-01T00:00:00'); d2.setMonth(d2.getMonth()+1);
+      const {count,error}=await sb.from('post_parcels')
+        .select('id',{count:'exact',head:true})
+        .gte('pdate', mk+'-01').lt('pdate', d2.toISOString().slice(0,10));
+      if(!error && count) inDb[mk]=count;
+    }));
     const months=[...new Set([...Object.keys(inDb), ...arcRows.map(a=>a.mkey)])].sort().reverse();
     const nowKey=new Date().toISOString().slice(0,7);
     const keepFrom=(()=>{ const d=new Date(nowKey+'-01T00:00:00'); d.setMonth(d.getMonth()-(ARC_KEEP_MONTHS-1)); return d.toISOString().slice(0,7); })();
