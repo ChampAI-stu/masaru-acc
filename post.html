@@ -968,13 +968,28 @@ async function findDupExisting(trackings){
   return dup;
 }
 $('pvCancel').onclick=()=>{ $('previewCard').classList.add('hidden'); pv=null; };
+/* ═══ ช่องที่ไม่เก็บลงฐานข้อมูล (ทีมไม่ได้ใช้) ═══
+   ตั้งค่าที่นี่ที่เดียว มีผลทั้งตอนอัปไฟล์ใหม่ และปุ่มล้างข้อมูลเก่า
+   ถ้าอยากเก็บช่องไหนกลับมา ลบชื่อออกจากรายการนี้ */
+const DROP_KEYS = {
+  thaipost: ['บัญชี Wallet','COD','ผู้รับ','เบอร์โทร','ปลายทาง'],
+  flash:    []
+};
+function trimParcelData(carrier, data){
+  const drop = DROP_KEYS[carrier] || [];
+  if(!drop.length || !data) return data;
+  const out = {};
+  Object.keys(data).forEach(k=>{ if(!drop.includes(k)) out[k]=data[k]; });
+  return out;
+}
 $('pvSave').onclick=savePreview;
 async function savePreview(){
   if(!pv||!pv.parcels){ return; }
   if(!pv.parcels.length){ toast('ไม่มีพัสดุให้บันทึก',true); return; }
   const btn=$('pvSave'); btn.disabled=true; btn.textContent='กำลังบันทึก...';
   try{
-    const recs=pv.parcels.map(p=>({ carrier:curCarrier, pdate:selDate, tracking:p.tracking, fee:p.fee, data:p.data }));
+    const recs=pv.parcels.map(p=>({ carrier:curCarrier, pdate:selDate, tracking:p.tracking, fee:p.fee,
+                                    data:trimParcelData(curCarrier, p.data) }));
     for(let i=0;i<recs.length;i+=500){
       const {error}=await sb.from('post_parcels').insert(recs.slice(i,i+500));
       if(error) throw error;
