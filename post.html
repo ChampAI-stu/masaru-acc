@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASARU · รวมไฟล์ไปรษณีย์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy-deep:#16233F; --navy:#1F3864; --blue:#2E75B6; --red:#D81F2C; --red-dk:#AE1420;
+    /* ธีมเริ่มต้น (ไปรษณีย์ไทย) */
+    --hd:#8A0B24; --hd-txt:#ffffff; --hd-sub:#e7aab3; --logo-accent:#F5C518;
+    --brand:#E4002B; --brand-dk:#B00020; --brand-txt:#ffffff; --accent-line:#E4002B;
+    --ink:#1a2233; --muted:#667085; --line:#e4e8ef; --bg:#f3f5f9; --card:#fff;
+    --shadow:0 2px 10px rgba(20,40,80,.06); --gold:#C8A24B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header{background:var(--hd);color:var(--hd-txt);padding:16px 0;position:relative;overflow:hidden;transition:background .25s}
+  header .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-style:italic;letter-spacing:.5px;font-size:20px;color:var(--hd-txt)}
+  .brand span{color:var(--logo-accent)}
+  .tool-title{font-size:13px;color:var(--hd-sub);border-left:1px solid rgba(255,255,255,.28);padding-left:14px}
+  .head-right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .home-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;text-decoration:none;
+    padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .home-btn:hover{background:rgba(255,255,255,.24)}
+  main{padding:26px 0 60px}
+  .btn{border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:#eef1f6;color:var(--ink)}
+  .btn:hover{filter:brightness(.97)}
+  .btn-primary{background:var(--brand);color:var(--brand-txt)}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-gold{background:#fff;border:1.5px solid var(--brand);color:var(--brand-dk);font-weight:700}
+  .btn-gold:hover{background:var(--brand);color:var(--brand-txt);filter:none}
+  .btn-ghost{background:#fff;border:1px solid var(--line);transition:.15s}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand-dk);filter:none}
+  input:focus, select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:default}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .spacer{flex:1}
+  input[type=date],select,input[type=text]{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  label.lbl{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+  .hidden{display:none!important}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--navy-deep);color:#fff;
+    padding:12px 22px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:99;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red-dk)}
+
+  /* ===== ปฏิทิน ===== */
+
+  /* ===== ธีมตามเจ้าขนส่ง (สลับด้วย class บน body) ===== */
+  body.theme-thaipost{ --hd:#8A0B24; --hd-txt:#ffffff; --hd-sub:#e7aab3; --logo-accent:#F5C518;
+    --brand:#E4002B; --brand-dk:#B00020; --brand-txt:#ffffff; --accent-line:#E4002B; }
+  body.theme-flash{ --hd:#161616; --hd-txt:#FFD400; --hd-sub:#cccccc; --logo-accent:#FFD400;
+    --brand:#FFD400; --brand-dk:#C9A400; --brand-txt:#161616; --accent-line:#111111; }
+  .carrier-tabs{display:flex;gap:10px;margin-bottom:16px}
+  .carrier-tab{padding:10px 22px;border:1px solid var(--line);border-radius:11px;background:#fff;font-family:inherit;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;transition:.15s}
+  .carrier-tab:hover{border-color:var(--blue)}
+  .carrier-tab.active{background:var(--brand);color:var(--brand-txt);border-color:var(--brand);box-shadow:0 4px 12px rgba(0,0,0,.18)}
+  .cal-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .cal-title{font-size:20px;font-weight:700;color:var(--accent-line);min-width:180px;text-align:center}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .cal-dow{text-align:center;font-size:12px;color:var(--muted);font-weight:600;padding:4px 0}
+  .cal-cell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:82px;padding:8px;cursor:pointer;
+    display:flex;flex-direction:column;gap:4px;transition:.12s;position:relative}
+  .cal-cell:hover{border-color:var(--blue);box-shadow:var(--shadow)}
+  .cal-cell.empty{background:transparent;border:none;cursor:default}
+  .cal-cell.today{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+  .cal-daynum{font-weight:700;font-size:14px}
+  .cal-badge{font-size:11.5px;color:var(--navy);background:#eaf0fa;border-radius:6px;padding:1px 6px;align-self:flex-start}
+  .cal-fee{font-size:11px;margin-top:auto}
+  .cal-fee.ok{color:#0a7d33}.cal-fee.bad{color:var(--red)}.cal-fee.na{color:var(--muted)}
+  .cal-cell.bad{border-color:var(--red);background:#fdecec}
+  .cal-cell.okday{border-color:#bfe6cb}
+  .cal-cell.warnday{border-color:#e0a800;background:#fff8e6}
+  .cal-cell.bad.today{box-shadow:0 0 0 2px rgba(216,31,44,.25)}
+  .cal-fee.warn{color:#b8860b}
+  .cal-flag{align-self:flex-start;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:5px;order:-1}
+  .cal-flag.bad{background:var(--red);color:#fff}
+  .cal-flag.warn{background:#e0a800;color:#fff}
+  .cal-sum{font-size:11.5px;font-weight:700;color:var(--navy)}
+  .month-sum{display:flex;gap:26px;flex-wrap:wrap;background:#eef3fb;border:1px solid #d7e2f3;border-radius:10px;padding:11px 18px;margin-bottom:12px;font-size:14px}
+  .month-sum b{color:var(--accent-line);font-size:17px}
+  .today-dot{position:absolute;top:6px;right:8px;font-size:10px;color:var(--brand-dk);font-weight:700}
+
+  /* ===== ตาราง ===== */
+  .tbl-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:9px 10px;text-align:left;font-weight:600;z-index:1}
+  tbody td{padding:7px 10px;border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#f7f9fc}
+  td.dup{background:#fdeaea;color:var(--red-dk);font-weight:600}
+  .warnbox{background:#fdeaea;border:1px solid var(--red);color:var(--red-dk);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px;line-height:1.7}
+  .okbox{background:#e9f7ee;border:1px solid #0a7d33;color:#0a6b2c;border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px}
+  .feebox{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-size:14px}
+  .feebox .k{color:var(--muted);font-size:12px}
+  .feebox .v{font-weight:700;font-size:17px}
+  .sec-label{font-weight:700;color:var(--navy);margin:18px 0 6px;font-size:15px}
+
+  /* ═══════════ CAT CAFÉ · POSTAL STUDIO ═══════════ */
+  :root{--ink:#4d3c4c;--muted:#8c7587;--line:#eadbe5;--bg:#fff8f5;--card:rgba(255,255,255,.92);--shadow:0 16px 40px rgba(116,75,103,.12);--navy:#725269;--navy-deep:#563c52}
+  html{scroll-behavior:smooth}
+  body{min-height:100vh;background:radial-gradient(circle at 8% 17%,rgba(255,205,217,.52),transparent 25%),radial-gradient(circle at 88% 14%,rgba(221,211,255,.54),transparent 27%),radial-gradient(circle at 82% 82%,rgba(255,225,171,.42),transparent 24%),linear-gradient(145deg,#fffaf5,#fff2f7 52%,#f8f5ff);overflow-x:hidden}
+  body:before{content:"";position:fixed;inset:0;z-index:-2;opacity:.24;background-image:radial-gradient(ellipse 8px 10px at 20px 20px,#e8b6c7 45%,transparent 48%),radial-gradient(circle 3px at 12px 11px,#e8b6c7 48%,transparent 52%),radial-gradient(circle 3px at 20px 8px,#e8b6c7 48%,transparent 52%),radial-gradient(circle 3px at 28px 11px,#e8b6c7 48%,transparent 52%);background-size:96px 96px;transform:rotate(-7deg)}
+  .postal-ambient{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.postal-blob{position:absolute;border-radius:50%;animation:blobFloat 8s ease-in-out infinite}.postal-blob.one{width:260px;height:260px;background:#ffd7df;left:-100px;top:30%;opacity:.4}.postal-blob.two{width:320px;height:320px;background:#e0d8ff;right:-150px;top:44%;opacity:.36;animation-delay:-3s}.postal-blob.three{width:190px;height:190px;background:#ffe4b5;left:44%;bottom:-110px;opacity:.35;animation-delay:-5s}@keyframes blobFloat{50%{transform:translate(12px,-18px) scale(1.05)}}
+  .mail-charm{position:absolute;font-style:normal;font-size:25px;opacity:.48;filter:drop-shadow(0 6px 5px rgba(92,56,80,.12));animation:mailFloat 6s ease-in-out infinite}.mail-charm.c1{left:5%;top:20%}.mail-charm.c2{right:6%;top:28%;animation-delay:-2s}.mail-charm.c3{left:8%;bottom:10%;animation-delay:-4s}.mail-charm.c4{right:9%;bottom:8%;animation-delay:-1s}@keyframes mailFloat{50%{transform:translateY(-15px) rotate(9deg)}}
+  .wrap{max-width:1240px;padding:0 24px}
+  header{background:linear-gradient(110deg,#674963,#8f607b 54%,#bc7b91);padding:14px 0;overflow:visible;box-shadow:0 8px 25px rgba(78,45,69,.17);z-index:10}
+  header:after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:16px;background:radial-gradient(circle at 8px 0,#fff8f5 8px,transparent 9px);background-size:22px 16px;opacity:.95}
+  .brand{font-style:normal;display:flex;align-items:center;gap:8px}.brand:before{content:"🐾";font-size:21px}.brand span{color:#ffe18c}.tool-title{color:#f9e7f0}.home-btn{border-radius:999px;background:rgba(255,255,255,.16);transition:.25s}.home-btn:hover{background:#fff;color:#7a526e;transform:translateY(-2px);box-shadow:0 8px 17px rgba(55,31,47,.18)}
+  main{padding:34px 0 72px}
+  .postal-hero{position:relative;min-height:220px;margin-bottom:19px;border:1px solid rgba(232,196,210,.75);border-radius:29px;overflow:hidden;background:linear-gradient(120deg,rgba(255,255,255,.97),rgba(255,240,246,.93) 53%,rgba(242,238,255,.95));box-shadow:0 22px 50px rgba(119,76,105,.13);display:flex;align-items:center;padding:31px 390px 31px 38px}
+  .postal-hero:before{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:70px;top:-2px;background:linear-gradient(145deg,#ffe8b8,#ffc7d7);box-shadow:inset 0 0 0 17px rgba(255,255,255,.25)}
+  .postal-copy{position:relative;z-index:3}.postal-tag{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid #f0cada;border-radius:999px;background:#fff1f6;color:#a55e7d;font-size:12px;font-weight:800;letter-spacing:.45px}.postal-hero h1{margin:12px 0 7px;color:#62455d;font-size:clamp(25px,3vw,39px);line-height:1.2;letter-spacing:-.7px}.postal-hero h1 em{font-style:normal;color:#d06e8f}.postal-hero p{margin:0;max-width:670px;color:#887081;font-size:14px;line-height:1.7}
+  .post-cat{position:absolute;right:65px;bottom:15px;width:235px;height:175px;z-index:3;animation:postCat 3.1s ease-in-out infinite;transform-origin:bottom center}@keyframes postCat{50%{transform:translateY(-7px) rotate(1deg)}}
+  .parcel{position:absolute;left:5px;bottom:0;width:78px;height:67px;background:#d9a36f;border-radius:7px;box-shadow:inset -8px -6px 0 rgba(123,77,50,.09),0 9px 15px rgba(92,55,68,.12)}.parcel:before{content:"";position:absolute;left:31px;top:0;width:15px;height:67px;background:#f2d2a6}.parcel:after{content:"♡";position:absolute;left:11px;top:22px;color:#fff3df;font-size:20px;font-weight:800}
+  .post-body{position:absolute;width:113px;height:91px;background:#d68d99;border-radius:51% 51% 42% 42%;right:22px;bottom:0;box-shadow:inset -11px -7px 0 rgba(131,70,85,.1)}
+  .post-head{position:absolute;width:126px;height:103px;background:#e49aa6;border-radius:48%;right:15px;top:14px}.post-head:before,.post-head:after{content:"";position:absolute;top:-24px;border-left:27px solid transparent;border-right:27px solid transparent;border-bottom:49px solid #e49aa6}.post-head:before{left:0;transform:rotate(-17deg)}.post-head:after{right:0;transform:rotate(17deg)}
+  .post-cap{position:absolute;z-index:4;width:104px;height:31px;background:var(--brand);right:25px;top:3px;border-radius:50% 50% 14px 14px;transform:rotate(2deg);transition:background .3s}.post-cap:after{content:"✦";position:absolute;color:var(--brand-txt);left:45px;top:5px;font-size:16px}.post-face{position:absolute;z-index:5;right:42px;top:61px;color:#604552;font-size:28px;letter-spacing:8px;white-space:nowrap}.post-face:after{content:"ᴗ";position:absolute;left:30px;top:12px;font-size:21px}.post-cheek{position:absolute;z-index:5;top:89px;width:17px;height:8px;background:#f27691;border-radius:50%;opacity:.55}.post-cheek.l{right:100px}.post-cheek.r{right:35px}
+  .post-tail{position:absolute;width:75px;height:52px;border:16px solid #c87e8d;border-left-color:transparent;border-radius:50%;right:-30px;bottom:24px;transform:rotate(20deg);animation:postTail 2s ease-in-out infinite;transform-origin:left center}@keyframes postTail{50%{transform:rotate(7deg)}}
+  .speech-mail{position:absolute;z-index:8;right:0;top:0;padding:8px 12px;background:#fff;color:#986078;border:1px solid #efc8d7;border-radius:15px 15px 15px 4px;font-size:11.5px;font-weight:700;box-shadow:0 8px 19px rgba(101,60,87,.13);animation:speechMail 3s ease-in-out infinite}.speech-mail:after{content:"";position:absolute;left:20px;bottom:-8px;border:8px solid transparent;border-left-color:#fff;transform:rotate(18deg)}@keyframes speechMail{50%{transform:translateY(-4px)}}
+  .post-spark{position:absolute;z-index:3;color:#fff2a8;font-size:22px;animation:postSpark 1.8s ease-in-out infinite}.post-spark.a{right:293px;top:36px}.post-spark.b{right:31px;bottom:31px;animation-delay:-.8s}@keyframes postSpark{50%{transform:scale(1.35) rotate(18deg);opacity:.45}}
+  .carrier-tabs{position:relative;z-index:3;gap:12px;margin-bottom:17px;background:rgba(255,255,255,.62);border:1px solid rgba(231,211,224,.8);padding:7px;border-radius:999px;width:max-content;backdrop-filter:blur(8px);box-shadow:0 8px 22px rgba(105,68,94,.08)}.carrier-tab{border:0;border-radius:999px;padding:10px 23px;background:transparent;transition:.25s}.carrier-tab:hover{border-color:transparent;color:#9a607c;transform:translateY(-1px)}.carrier-tab.active{box-shadow:0 7px 16px rgba(95,54,78,.18)}
+  .card{border-color:rgba(233,215,227,.92);border-radius:22px;box-shadow:var(--shadow);padding:20px;backdrop-filter:blur(10px);transition:transform .25s,box-shadow .25s}.card:hover{transform:translateY(-2px);box-shadow:0 20px 45px rgba(116,75,103,.16)}
+  .btn{border-radius:999px;transition:.23s;box-shadow:0 5px 13px rgba(103,67,91,.08)}.btn:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 9px 19px rgba(103,67,91,.15)}.btn-primary{background:linear-gradient(115deg,var(--brand),color-mix(in srgb,var(--brand) 70%,#ef9bb7));}.btn-red{background:linear-gradient(115deg,#d9617d,#ed8a9c)}.btn-gold{border-color:#e6a867;color:#835a47;background:#fff9ed}.btn-gold:hover{background:linear-gradient(115deg,#ffd477,#ffb87b);color:#664656;border-color:transparent}
+  input[type=date],select,input[type=text]{border-color:#e5d3df;border-radius:11px;transition:.2s}input:focus,select:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 18%,transparent)}
+  .cal-top{background:linear-gradient(110deg,#fffafc,#fff8ef);border:1px solid #f0e0e8;border-radius:17px;padding:12px}.cal-title{color:#765168}.month-sum{background:linear-gradient(110deg,#faf6ff,#fff6f9);border-color:#e5d8ee;border-radius:15px}.month-sum b{color:#ba6485}
+  .cal-grid{gap:9px}.cal-cell{border-color:#ecdee7;border-radius:15px;min-height:88px;background:linear-gradient(145deg,#fff,#fffafd);transition:.25s;overflow:hidden}.cal-cell:not(.empty):before{content:"🐾";position:absolute;right:6px;bottom:2px;font-size:18px;opacity:.06}.cal-cell:hover{border-color:#d893af;transform:translateY(-3px);box-shadow:0 11px 21px rgba(106,68,94,.12)}.cal-cell:hover:before{opacity:.3}.cal-cell.today{border-color:#d67598;box-shadow:0 0 0 3px rgba(214,117,152,.15)}.cal-badge{background:#f4ecff;color:#785c8c;border-radius:999px}.cal-cell.bad{background:#fff0f3}.cal-cell.warnday{background:#fff9e9}.today-dot{color:#c26083}
+  .tbl-wrap{border-color:#e7d7e2;border-radius:16px}thead th{background:linear-gradient(110deg,#76536d,#9d6681);padding:11px}tbody tr:nth-child(even){background:#fffafd}tbody tr:hover{background:#fff0f5}.warnbox,.okbox{border-radius:14px}.sec-label{color:#735068;font-size:16px}.toast{background:#6d4b64;border-radius:999px;border:1px solid rgba(255,255,255,.34)}
+  @media(max-width:900px){.postal-hero{padding:28px 255px 28px 25px}.post-cat{right:25px;transform:scale(.82);transform-origin:bottom right}.postal-hero:before{right:8px}.post-spark{display:none}}
+  @media(max-width:650px){.wrap{padding:0 14px}.tool-title{width:100%;border-left:0;padding-left:0}.head-right{margin-left:0}.postal-hero{padding:25px 19px 185px;text-align:center}.postal-hero p{font-size:13px}.post-cat{right:50%;transform:translateX(50%) scale(.78);bottom:1px}.postal-hero:before{right:50%;transform:translateX(50%);top:auto;bottom:-7px}.speech-mail{right:-9px}.carrier-tabs{width:100%;justify-content:center}.carrier-tab{flex:1;padding:10px 12px}.card{padding:15px}.cal-grid{gap:4px}.cal-cell{min-height:72px;padding:5px}.cal-badge,.cal-fee,.cal-sum{font-size:9px}.row{align-items:flex-start}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+  /* โลโก้บริษัท */
+  .brand .logo{height:31px;width:auto;display:block}
+  .brand{font-style:normal!important}
+  @media(max-width:650px){.brand .logo{height:26px}}
+</style>
+</head>
+<body>
+<div class="postal-ambient" aria-hidden="true"><i class="postal-blob one"></i><i class="postal-blob two"></i><i class="postal-blob three"></i><i class="mail-charm c1">💌</i><i class="mail-charm c2">✦</i><i class="mail-charm c3">📦</i><i class="mail-charm c4">🐾</i></div>
+<header>
+  <div class="wrap">
+    <span class="brand"><img class="logo" src="data:image/png;base64,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" alt="MASARU"></span>
+    <span class="tool-title">รวมไฟล์ขนส่ง · ตรวจเลขซ้ำ · เช็คยอดรายวัน <b id="carrierName" style="color:#fff"></b></span>
+    <span id="liveDot" style="font-size:12px;color:#7fe3a0;font-weight:600;display:none">● อัปเดตสด</span>
+    <div class="head-right">
+      <a href="index.html" class="home-btn">← กลับหน้าหลัก</a>
+      <button class="home-btn" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="postal-hero">
+    <div class="postal-copy">
+      <span class="postal-tag">✦ CAT CAFÉ POSTAL STUDIO</span>
+      <h1>ให้น้องแมวช่วยดูแล <em>ทุกพัสดุ</em></h1>
+      <p>รวมไฟล์ ตรวจเลขพัสดุซ้ำ เช็กค่าบริการ และดูยอดรายวันผ่านปฏิทินแสนสะดวก—งานขนส่งที่เคยวุ่นวายจะเป็นระเบียบและน่ารักขึ้นในทุกวัน</p>
+    </div>
+    <span class="post-spark a">✦</span><span class="post-spark b">✧</span>
+    <div class="post-cat" aria-hidden="true"><div class="speech-mail">พัสดุวันนี้<br>ให้หนูดูแลนะเมี้ยว ♡</div><div class="parcel"></div><div class="post-tail"></div><div class="post-body"></div><div class="post-head"></div><div class="post-cap"></div><div class="post-face">• •</div><i class="post-cheek l"></i><i class="post-cheek r"></i></div>
+  </section>
+  <!-- ===== แท็บเลือกเจ้าขนส่ง ===== -->
+  <div class="carrier-tabs">
+    <button class="carrier-tab active" data-carrier="thaipost">🇹🇭 ไปรษณีย์ไทย</button>
+    <button class="carrier-tab" data-carrier="flash">⚡ Flash</button>
+  </div>
+  <!-- ===== ปฏิทิน ===== -->
+  <div id="viewCal">
+    <div class="card">
+      <div class="cal-top">
+        <button class="btn btn-ghost btn-sm" id="prevM">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="btn btn-ghost btn-sm" id="nextM">›</button>
+        <button class="btn btn-primary btn-sm" id="todayBtn">📅 วันนี้</button>
+        <input type="date" id="gotoDate" style="padding:6px 10px">
+        <button class="btn btn-ghost btn-sm" id="gotoBtn">🔍 ไปวันที่</button>
+        <div class="spacer"></div>
+        <span style="font-size:12.5px;color:var(--muted)">แตะวันที่เพื่ออัปโหลด/ดูข้อมูล</span>
+        <button class="btn btn-red btn-sm" id="delMonthBtn">🗑️ ลบทั้งเดือน</button>
+      </div>
+      <div id="calMonthSum" class="month-sum"></div>
+      <div id="calDupBar" style="margin:8px 0 4px"></div>
+      <div id="calWarn"></div>
+      <div class="cal-grid" id="calDow"></div>
+      <div class="cal-grid" id="calGrid" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="row" style="align-items:flex-start">
+        <div class="sec-label" style="margin:0">📦 คลังข้อมูลเดือนเก่า</div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="arcRefresh">↻ โหลดใหม่</button>
+      </div>
+      <div id="arcSpace" style="margin-top:10px;font-size:13px"></div>
+      <div id="arcList" style="margin-top:12px"></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.7">
+        เก็บเข้าคลัง = ทำไฟล์ <b>ครบทุกช่อง ไม่ตัดอะไรเลย</b> → อัปขึ้นคลัง → ตรวจว่าขึ้นครบ → แล้วค่อยลบออกจากฐานข้อมูล<br>
+        ยอดรวมรายวันในปฏิทินยังอยู่ถาวร ไม่ถูกลบ · เปิดดูเดือนที่เก็บแล้วได้จากปุ่ม 👁️ ดูจากคลัง
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="sec-label">⬇️ ส่งออกข้อมูลตามช่วงวันที่</div>
+      <div class="row">
+        <div><label class="lbl">จากวันที่</label><input type="date" id="expFrom"></div>
+        <div><label class="lbl">ถึงวันที่</label><input type="date" id="expTo"></div>
+        <div style="align-self:flex-end"><button class="btn btn-gold" id="expBtn">⬇️ ส่งออก Excel</button></div>
+        <span class="spacer"></span>
+        <span id="expInfo" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== หน้าของวัน ===== -->
+  <div id="viewDay" class="hidden">
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="backCal">‹ ปฏิทิน</button>
+        <h2 style="margin:0;font-size:19px;color:var(--navy)" id="dayTitle">—</h2>
+        <div class="spacer"></div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden">
+        <button class="btn btn-primary" id="uploadBtn">⬆️ อัปโหลดไฟล์ไปรษณีย์ของวันนี้</button>
+      </div>
+      <div id="daySaved" style="margin-top:6px;font-size:13px;color:var(--muted)"></div>
+    </div>
+
+    <!-- พรีวิวไฟล์ที่เพิ่งอัป -->
+    <div id="previewCard" class="card hidden" style="margin-top:16px">
+      <div class="sec-label">🔎 ตรวจไฟล์ก่อนบันทึก</div>
+      <div class="row">
+        <div><label class="lbl">คอลัมน์ "เลขพัสดุ"</label><select id="colTrk"></select></div>
+        <div><label class="lbl">คอลัมน์ "ค่าบริการ"</label><select id="colFee"></select></div>
+        <div style="align-self:flex-end;font-size:13px">
+          <label style="cursor:pointer"><input type="checkbox" id="lastIsFee" checked> แถวสุดท้าย = ค่าบริการรวมรายวัน</label>
+        </div>
+      </div>
+      <div id="feeCheck" class="feebox"></div>
+      <div id="feeMsg"></div>
+      <div id="dupWarn"></div>
+      <div class="tbl-wrap"><table id="pvTbl"><thead id="pvHead"></thead><tbody id="pvBody"></tbody></table></div>
+      <div class="row" style="margin-top:12px">
+        <span id="pvInfo" style="font-size:13px;color:var(--muted)"></span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="pvCancel">ยกเลิก</button>
+        <button class="btn btn-primary" id="pvSave">💾 บันทึกเข้าระบบ</button>
+      </div>
+    </div>
+
+    <!-- ข้อมูลที่บันทึกแล้วของวันนี้ -->
+    <div id="dayDataCard" class="card hidden" style="margin-top:16px">
+      <div class="row">
+        <div class="sec-label" style="margin:0">📋 ข้อมูลที่บันทึกแล้ว</div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="dayExport">⬇️ ส่งออกวันนี้</button>
+        <button class="btn btn-red btn-sm" id="dayClear">🗑️ ล้างข้อมูลวันนี้</button>
+      </div>
+      <div id="dayFee" class="feebox"></div>
+      <div id="dayFeeMsg"></div>
+      <div id="dayDup"></div>
+      <div class="tbl-wrap"><table id="dayTbl"><thead id="dayHead"></thead><tbody id="dayBody"></tbody></table></div>
+      <div style="margin-top:8px;font-size:13px;color:var(--muted)" id="dayInfo"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://ncfxwdhxfqbmqveyeort.supabase.co';
+const SUPABASE_KEY='sb_publishable_7IvXS4IhpatZXaCdCxUzcQ_JoDu5duZ';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ═══════════ โหมดออฟไลน์ — ใช้งานต่อได้เมื่อต่อระบบกลางไม่ได้ ═══════════
+   สำคัญ: จะเข้าโหมดออฟไลน์ "เฉพาะตอนที่ต่อระบบกลางไม่ได้จริง" เท่านั้น
+   ถ้าระบบกลางยังตอบได้แต่แค่หมดอายุการเข้าระบบ → ให้ไปหน้าเข้าสู่ระบบตามปกติ */
+var OFFLINE = false, AUTHDECIDED = false;
+function reloginNow(){
+  try{ localStorage.removeItem('masaru_last_role'); localStorage.removeItem('masaru_last_uid'); }catch(_){}
+  try{ if(typeof sb!=='undefined' && sb && sb.auth) sb.auth.signOut(); }catch(_){}
+  location.replace('index.html');
+}
+function offlineBanner(msg){
+  if(document.getElementById('offBar')) return;
+  var d=document.createElement('div');
+  d.id='offBar';
+  d.style.cssText='position:sticky;top:0;z-index:99999;background:#B7791F;color:#fff;'
+    +'padding:9px 14px;font-size:13.5px;font-weight:700;text-align:center;font-family:inherit;'
+    +'box-shadow:0 2px 8px rgba(0,0,0,.18)';
+  var span=document.createElement('span');
+  span.textContent='🔌 โหมดออฟไลน์ — '+msg+' · ข้อมูลที่บันทึกจะเก็บไว้ในเครื่องนี้ก่อน  ';
+  var btn=document.createElement('button');
+  btn.textContent='เข้าสู่ระบบใหม่';
+  btn.style.cssText='background:#fff;color:#8a5a00;border:none;border-radius:7px;padding:4px 12px;'
+    +'font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:4px';
+  btn.onclick=reloginNow;
+  d.appendChild(span); d.appendChild(btn);
+  document.body.insertBefore(d, document.body.firstChild);
+}
+/* เช็คว่าระบบกลางยังตอบได้ไหม (แยก "ระบบล่ม" ออกจาก "แค่หมดอายุการเข้าระบบ") */
+function serverReachable(){
+  return new Promise(function(res){
+    var done=false;
+    var t=setTimeout(function(){ if(!done){ done=true; res(false); } }, 6000);
+    function fin(v){ if(done) return; done=true; clearTimeout(t); res(v); }
+    try{
+      fetch(SUPABASE_URL+'/auth/v1/health',{cache:'no-store'})
+        .then(function(r){ fin(r.status < 500); })
+        .catch(function(){ fin(false); });
+    }catch(e){ fin(false); }
+  });
+}
+function sessionOrOffline(){
+  return new Promise(function(resolve){
+    var done=false, to=null;
+    function goOffline(why){
+      if(done) return; done=true; clearTimeout(to); AUTHDECIDED=true;
+      var role=null, uid=null;
+      try{ role=localStorage.getItem('masaru_last_role'); uid=localStorage.getItem('masaru_last_uid'); }catch(_){}
+      if(!role){ resolve({data:{session:null}}); return; }
+      OFFLINE=true;
+      offlineBanner(why);
+      resolve({data:{session:{user:{id:uid||'offline-user',user_metadata:{role:role}}}}});
+    }
+    function goLoggedOut(){            /* ระบบกลางปกติ แต่ยังไม่ได้เข้าระบบ → ไปหน้าเข้าสู่ระบบ */
+      if(done) return; done=true; clearTimeout(to); AUTHDECIDED=true;
+      resolve({data:{session:null}});
+    }
+    function decide(){ serverReachable().then(function(up){ up ? goLoggedOut() : goOffline('ต่อระบบกลางไม่ได้'); }); }
+    to=setTimeout(function(){ goOffline('ต่อระบบกลางไม่ได้ (หมดเวลารอ)'); }, 15000);
+    try{
+      sb.auth.getSession.call(sb.auth).then(function(res){
+        if(done) return;
+        var s = res && res.data && res.data.session;
+        if(s){
+          done=true; clearTimeout(to); AUTHDECIDED=true;
+          try{
+            localStorage.setItem('masaru_last_role',(s.user.user_metadata&&s.user.user_metadata.role)||'');
+            localStorage.setItem('masaru_last_uid', s.user.id);
+          }catch(_){}
+          resolve(res); return;
+        }
+        decide();
+      }).catch(function(){ decide(); });
+    }catch(e){ goOffline('ต่อระบบกลางไม่ได้'); }
+  });
+}
+
+const $=id=>document.getElementById(id);
+
+/* ===== auth: เฉพาะฝ่ายบัญชี ===== */
+sessionOrOffline().then(({data})=>{
+  if(!data.session){ location.replace('index.html'); return; }
+  const role=(data.session.user.user_metadata && data.session.user.user_metadata.role)||'';
+  if(role!=='บัญชี' && role!=='ผู้จัดการบัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบไปรษณีย์'); location.replace('index.html'); return; }
+  initCalendar();
+  initRealtime();
+  arcLoad();
+});
+sb.auth.onAuthStateChange((e,s)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!s)) location.replace('index.html'); });
+$('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
+
+/* ===== helpers ===== */
+function toast(m,e){ const t=$('toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function toNum(v){ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtNum(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(n){ return (Number(n)||0).toLocaleString('th-TH'); }
+function norm(s){ return String(s==null?'':s).trim(); }
+function htmlesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const TH_DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
+function thaiDate(str){ const [y,m,d]=str.split('-').map(Number); return `${d} ${TH_MONTHS[m-1]} ${y}`; }
+function feeMsgHTML(calc, declared, count){
+  if(!declared) return `<div class="okbox">ℹ️ ไฟล์ไม่มีค่าบริการรวมรายวัน (แถวสุดท้าย) — ข้ามการตรวจ</div>`;
+  const diff=calc-declared;
+  if(Math.abs(diff)<0.01) return `<div class="okbox">✅ <b>ค่าบริการตรงกัน</b> — คำนวณจากพัสดุ ${fmtInt(count)} ชิ้น ได้ ${fmtNum(calc)} บาท = ยอดที่ไฟล์แจ้ง</div>`;
+  const more = diff>0 ? 'ระบบคำนวณได้ <b>มากกว่า</b> ที่ไฟล์แจ้ง' : 'ระบบคำนวณได้ <b>น้อยกว่า</b> ที่ไฟล์แจ้ง';
+  return `<div class="warnbox">❌ <b>ค่าบริการไม่ตรง!</b><br>
+    • ระบบคำนวณจากพัสดุ <b>${fmtInt(count)}</b> ชิ้น = <b>${fmtNum(calc)}</b> บาท<br>
+    • ไฟล์แจ้ง (แถวสุดท้าย) = <b>${fmtNum(declared)}</b> บาท<br>
+    • ต่างกัน <b>${fmtNum(Math.abs(diff))}</b> บาท (${more})<br>
+    → ตรวจว่ามีพัสดุตกหล่น/เกิน หรือค่าบริการบางชิ้นกรอกผิด</div>`;
+}
+
+/* ===== ปฏิทิน ===== */
+/* ===== Realtime: อัปเดตสดเมื่อมีคนอื่นแก้ข้อมูล ===== */
+let rtTimer=null;
+function scheduleRefresh(){
+  clearTimeout(rtTimer);
+  rtTimer=setTimeout(()=>{
+    if(!$('viewCal').classList.contains('hidden')){ renderCalendar(); }
+    else if(!$('viewDay').classList.contains('hidden')){
+      if($('previewCard').classList.contains('hidden')) loadDay();
+    }
+  }, 700);
+}
+function initRealtime(){
+  /* ฟังเฉพาะตารางสรุปรายวัน — ทุกครั้งที่พัสดุเปลี่ยน (เพิ่ม/ล้างวัน/ลบเดือน)
+     ตารางสรุปจะถูกอัปเดตด้วยเสมอ จึงจับการเปลี่ยนแปลงได้ครบเหมือนเดิม
+     แต่ไม่ต้องรับข้อมูลพัสดุรายแถวเป็นพัน ๆ แถวมาที่ทุกเครื่องที่เปิดหน้าอยู่ */
+  sb.channel('post-rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'post_days'}, scheduleRefresh)
+    .subscribe(status=>{ $('liveDot').style.display = (status==='SUBSCRIBED') ? 'inline' : 'none'; });
+}
+
+let curMonth=new Date();
+let curCarrier='thaipost';
+const CARRIER_LABEL={ thaipost:'ไปรษณีย์ไทย', flash:'Flash' };
+document.querySelectorAll('.carrier-tab').forEach(t=>t.onclick=()=>{
+  if(t.classList.contains('active')) return;
+  document.querySelectorAll('.carrier-tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  curCarrier=t.dataset.carrier;
+  document.body.className='theme-'+curCarrier;
+  const cn=$('carrierName'); if(cn) cn.textContent='· '+CARRIER_LABEL[curCarrier];
+  $('viewDay').classList.add('hidden'); $('viewCal').classList.remove('hidden');
+  renderCalendar();
+});
+function initCalendar(){
+  document.body.className='theme-'+curCarrier;
+  const cn=$('carrierName'); if(cn) cn.textContent='· '+CARRIER_LABEL[curCarrier];
+  curMonth=new Date(); curMonth.setDate(1);
+  $('calDow').innerHTML=TH_DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  const t=new Date(); $('expFrom').value=ymd(new Date(t.getFullYear(),t.getMonth(),1)); $('expTo').value=ymd(t); $('gotoDate').value=ymd(t);
+  renderCalendar();
+}
+$('prevM').onclick=()=>{ curMonth.setMonth(curMonth.getMonth()-1); renderCalendar(); };
+$('nextM').onclick=()=>{ curMonth.setMonth(curMonth.getMonth()+1); renderCalendar(); };
+$('todayBtn').onclick=()=>{ openDay(ymd(new Date())); };
+function gotoDate(){ const v=$('gotoDate').value; if(!v){ toast('เลือกวันที่ก่อน',true); return; } const [y,m]=v.split('-').map(Number); curMonth=new Date(y,m-1,1); openDay(v); }
+$('gotoBtn').onclick=gotoDate;
+$('gotoDate').addEventListener('change',gotoDate);
+$('delMonthBtn').onclick=async ()=>{
+  const y=curMonth.getFullYear(), m=curMonth.getMonth();
+  const from=ymd(new Date(y,m,1)), to=ymd(new Date(y,m+1,0));
+  if(!confirm(`ลบข้อมูลไปรษณีย์ทั้งเดือน ${TH_MONTHS[m]} ${y}?\n(วันที่ ${from} ถึง ${to})\n\n⚠️ ลบถาวร กู้คืนไม่ได้`)) return;
+  const btn=$('delMonthBtn'); btn.disabled=true; btn.textContent='กำลังลบ...';
+  try{
+    let e1=(await sb.from('post_parcels').delete().eq('carrier',curCarrier).gte('pdate',from).lte('pdate',to)).error;
+    if(e1) throw e1;
+    let e2=(await sb.from('post_days').delete().eq('carrier',curCarrier).gte('pdate',from).lte('pdate',to)).error;
+    if(e2) throw e2;
+    monthDupCache={};
+    toast('ลบข้อมูลเดือน '+TH_MONTHS[m]+' '+y+' แล้ว');
+    renderCalendar();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent='🗑️ ลบทั้งเดือน';
+};
+
+async function renderCalendar(){
+  const y=curMonth.getFullYear(), m=curMonth.getMonth();
+  $('calTitle').textContent=`${TH_MONTHS[m]} ${y}`;
+  const first=new Date(y,m,1), lead=first.getDay(), days=new Date(y,m+1,0).getDate();
+  // ดึงสรุปรายวันของเดือนนี้
+  let dayMap={};
+  try{
+    const {data,error}=await sb.from('post_days').select('pdate,declared_fee,calc_fee,parcel_count').eq('carrier',curCarrier)
+      .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days)));
+    if(error) throw error;
+    (data||[]).forEach(r=>{ dayMap[r.pdate]=r; });
+  }catch(err){ console.error(err); }
+  // ยอดรวมทั้งเดือน
+  let mCount=0, mFee=0; Object.values(dayMap).forEach(r=>{ mCount+=Number(r.parcel_count)||0; mFee+=Number(r.calc_fee)||0; });
+  $('calMonthSum').innerHTML = mCount
+    ? `<span>📦 เดือนนี้รวม <b>${fmtInt(mCount)}</b> ชิ้น</span><span>💰 ค่าบริการรวม <b>${fmtNum(mFee)}</b> บาท</span>`
+    : `<span style="color:var(--muted)">เดือนนี้ยังไม่มีข้อมูล</span>`;
+  /* ตรวจเลขพัสดุซ้ำทั้งเดือน — ต้องอ่านเลขพัสดุทุกใบของเดือน (เป็นหมื่น ๆ แถว)
+     จึงเปลี่ยนเป็น "กดตรวจเอง" แล้วจำผลไว้ ไม่สแกนใหม่ทุกครั้งที่เปิดปฏิทิน */
+  const mKey=curCarrier+'|'+y+'-'+String(m+1).padStart(2,'0');
+  const dupDayMap = monthDupCache[mKey] || null;
+  const todayStr=ymd(new Date());
+  let html=''; const badDays=[], noFeeDays=[], dupDays=[];
+  for(let i=0;i<lead;i++) html+='<div class="cal-cell empty"></div>';
+  for(let d=1; d<=days; d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const info=dayMap[ds]; const isToday=ds===todayStr;
+    let badge='', fee='', cls='', sum='', flag='';
+    if(info && info.parcel_count){
+      badge=`<span class="cal-badge">${fmtInt(info.parcel_count)} ชิ้น</span>`;
+      sum=`<div class="cal-sum">฿ ${fmtNum(Number(info.calc_fee)||0)}</div>`;
+      const ok=Math.abs((Number(info.calc_fee)||0)-(Number(info.declared_fee)||0))<0.01;
+      const hasDeclared=(Number(info.declared_fee)||0)!==0;
+      const dupN=dupDayMap?(dupDayMap[ds]||0):0;
+      const feeBad=hasDeclared && !ok;
+      const isBad=feeBad || dupN>0;
+      if(feeBad) badDays.push(d);
+      if(!hasDeclared) noFeeDays.push(d);
+      if(dupN>0) dupDays.push(d);
+      cls = isBad ? 'bad' : (!hasDeclared ? 'warnday' : 'okday');
+      // สถานะค่าบริการ
+      let lines = hasDeclared
+        ? `<div class="cal-fee ${ok?'ok':'bad'}">${ok?'✅ ค่าบริการตรง':'❌ ค่าบริการไม่ตรง'}</div>`
+        : `<div class="cal-fee warn">— ยังไม่มีค่าบริการรวม</div>`;
+      if(dupN>0) lines += `<div class="cal-fee bad">⚠️ เลขซ้ำ ${fmtInt(dupN)}</div>`;
+      fee=lines;
+      flag = isBad ? '<span class="cal-flag bad">⚠️ ผิดปกติ</span>'
+           : (!hasDeclared ? '<span class="cal-flag warn">⚠️ ยังไม่แจ้งยอด</span>' : '');
+    }
+    html+=`<div class="cal-cell ${cls} ${isToday?'today':''}" data-date="${ds}">
+      ${isToday?'<span class="today-dot">วันนี้</span>':''}${flag}
+      <span class="cal-daynum">${d}</span>${badge}${sum}${fee}</div>`;
+  }
+  let wparts=[];
+  if(badDays.length) wparts.push(`❌ <b>ค่าบริการไม่ตรง ${badDays.length} วัน</b>: วันที่ <b>${badDays.join(', ')}</b>`);
+  if(dupDays.length) wparts.push(`⚠️ <b>มีเลขพัสดุซ้ำ ${dupDays.length} วัน</b>: วันที่ <b>${dupDays.join(', ')}</b>`);
+  if(noFeeDays.length) wparts.push(`⚠️ <b>ยังไม่แจ้งยอดรวม ${noFeeDays.length} วัน</b>: วันที่ ${noFeeDays.join(', ')}`);
+  if(dupDayMap && !dupDays.length) wparts.push(`✅ ตรวจเลขพัสดุซ้ำทั้งเดือนแล้ว — ไม่พบเลขซ้ำ`);
+  $('calWarn').innerHTML = wparts.length
+    ? `<div class="warnbox" style="margin-bottom:12px">🔎 วันที่ต้องตรวจสอบ/แก้ไข:<br>${wparts.join('<br>')}<br><span style="font-size:12px">— แตะวันนั้นเพื่อดูรายละเอียด</span></div>`
+    : '';
+  $('calGrid').innerHTML=html;
+  $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
+  renderDupBar(mKey, mCount);
+}
+
+
+/* ═══════════════════ คลังข้อมูลเดือนเก่า ═══════════════════
+   หลักการ: เก็บ "ทุกช่อง" ไม่ตัดอะไร แค่ย้ายจากตารางไปเป็นไฟล์
+   ลำดับปลอดภัย: ทำไฟล์ → อัปขึ้นคลัง → ตรวจว่าขึ้นจริง → ค่อยลบออกจากฐานข้อมูล
+   ถ้าขั้นไหนพลาด จะหยุดทันที ไม่ลบอะไรเลย */
+const ARC_BUCKET='parcel-archive';
+const ARC_KEEP_MONTHS=3;              /* เก็บกี่เดือนล่าสุดไว้ในฐานข้อมูล */
+let arcRows=[];
+
+function arcMkey(d){ return String(d).slice(0,7); }
+function arcCsvCell(v){
+  if(v==null) return '';
+  const s=(typeof v==='object')?JSON.stringify(v):String(v);
+  return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+async function arcGzip(text){
+  try{
+    if(typeof CompressionStream!=='function') throw 0;
+    const st=new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    const buf=await new Response(st).arrayBuffer();
+    return {blob:new Blob([buf],{type:'application/gzip'}), ext:'csv.gz'};
+  }catch(e){ return {blob:new Blob([text],{type:'text/csv;charset=utf-8'}), ext:'csv'}; }
+}
+async function arcGunzip(blob,name){
+  if(!/\.gz$/i.test(name)) return await blob.text();
+  try{
+    const st=blob.stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(st).text();
+  }catch(e){ throw new Error('แตกไฟล์ไม่สำเร็จ: '+(e.message||e)); }
+}
+/* ดึงพัสดุทั้งเดือนแบบแบ่งหน้า (กันหมดเวลา/ดึงทีเดียวไม่ไหว) */
+async function arcFetchMonth(mk, onProgress){
+  const from=mk+'-01';
+  const d=new Date(mk+'-01T00:00:00'); d.setMonth(d.getMonth()+1);
+  const to=d.toISOString().slice(0,10);
+  const out=[]; const STEP=2000;
+  for(let i=0;;i+=STEP){
+    const {data,error}=await sb.from('post_parcels')
+      .select('id,pdate,carrier,tracking,fee,data,created_at')
+      .gte('pdate',from).lt('pdate',to).order('id',{ascending:true}).range(i,i+STEP-1);
+    if(error) throw error;
+    if(!data||!data.length) break;
+    out.push(...data);
+    if(onProgress) onProgress(out.length);
+    if(data.length<STEP) break;
+  }
+  return out;
+}
+function arcToCsv(rows){
+  const dataKeys=[];
+  rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!dataKeys.includes(k)) dataKeys.push(k); }));
+  const head=['id','pdate','carrier','tracking','fee','created_at',...dataKeys];
+  const lines=[head.map(arcCsvCell).join(',')];
+  rows.forEach(r=>{
+    const d=r.data||{};
+    lines.push([r.id,r.pdate,r.carrier,r.tracking,r.fee,r.created_at,...dataKeys.map(k=>d[k])].map(arcCsvCell).join(','));
+  });
+  return lines.join('\n');
+}
+/* ── เก็บเดือนเข้าคลัง ── */
+async function arcSave(mk){
+  const info=$('arcMsg_'+mk);
+  const say=t=>{ if(info) info.textContent=t; };
+  if(!confirm('เก็บเดือน '+mk+' เข้าคลัง?\n\n1) ทำไฟล์ครบทุกช่อง\n2) อัปขึ้นคลัง\n3) ตรวจว่าขึ้นครบ\n4) ลบออกจากฐานข้อมูล\n\nถ้าขั้นไหนพลาดจะหยุดทันที ไม่ลบอะไร')) return;
+  try{
+    say('กำลังดึงข้อมูล...');
+    const rows=await arcFetchMonth(mk, n=>say('กำลังดึงข้อมูล... '+fmtInt(n)+' พัสดุ'));
+    if(!rows.length){ say('เดือนนี้ไม่มีข้อมูลในฐานข้อมูล'); return; }
+    say('กำลังทำไฟล์ ('+fmtInt(rows.length)+' พัสดุ)...');
+    const csv=arcToCsv(rows);
+    const {blob,ext}=await arcGzip(csv);
+    const path=mk+'.'+ext;
+    say('กำลังอัปขึ้นคลัง ('+(blob.size/1048576).toFixed(1)+' MB)...');
+    const up=await sb.storage.from(ARC_BUCKET).upload(path, blob, {upsert:true, contentType: ext.endsWith('gz')?'application/gzip':'text/csv'});
+    if(up.error) throw new Error('อัปขึ้นคลังไม่สำเร็จ: '+up.error.message);
+    /* ตรวจว่าไฟล์ขึ้นจริงและขนาดตรง ก่อนลบ */
+    say('กำลังตรวจไฟล์ในคลัง...');
+    const chk=await sb.storage.from(ARC_BUCKET).download(path);
+    if(chk.error || !chk.data) throw new Error('ตรวจไฟล์ในคลังไม่ผ่าน — ยกเลิก ไม่ลบข้อมูล');
+    if(chk.data.size !== blob.size) throw new Error('ขนาดไฟล์ในคลังไม่ตรง ('+chk.data.size+' vs '+blob.size+') — ยกเลิก ไม่ลบข้อมูล');
+    const back=await arcGunzip(chk.data, path);
+    const gotRows=back.split('\n').length-1;
+    if(gotRows < rows.length) throw new Error('ไฟล์ในคลังมี '+gotRows+' แถว แต่ต้องมี '+rows.length+' — ยกเลิก ไม่ลบข้อมูล');
+    await sb.from('post_archives').upsert({ mkey:mk, path, n_rows:rows.length, n_bytes:blob.size, archived_at:new Date().toISOString() },{onConflict:'mkey'});
+    say('กำลังลบออกจากฐานข้อมูล...');
+    const from=mk+'-01'; const d2=new Date(mk+'-01T00:00:00'); d2.setMonth(d2.getMonth()+1);
+    const del=await sb.from('post_parcels').delete().gte('pdate',from).lt('pdate',d2.toISOString().slice(0,10));
+    if(del.error) throw new Error('ลบไม่สำเร็จ (ไฟล์ในคลังอยู่ครบแล้ว): '+del.error.message);
+    toast('เก็บเดือน '+mk+' เข้าคลังแล้ว ('+fmtInt(rows.length)+' พัสดุ)');
+    monthDupCache={}; arcLoad();
+  }catch(err){ say('❌ '+(err.message||err)); toast(err.message||String(err), true); }
+}
+/* ── เปิดดูเดือนที่เก็บไว้ ── */
+async function arcView(mk, download){
+  const info=$('arcMsg_'+mk); const say=t=>{ if(info) info.textContent=t; };
+  try{
+    const rec=arcRows.find(x=>x.mkey===mk); if(!rec) return;
+    say('กำลังดึงไฟล์จากคลัง...');
+    const {data,error}=await sb.storage.from(ARC_BUCKET).download(rec.path);
+    if(error||!data) throw new Error('ดึงไฟล์ไม่สำเร็จ: '+((error&&error.message)||''));
+    if(download){
+      const url=URL.createObjectURL(data); const a=document.createElement('a');
+      a.href=url; a.download='พัสดุ_'+mk+'_'+rec.path.split('.').slice(1).join('.');
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      say('ดาวน์โหลดแล้ว — เอาไปเก็บใน Drive ได้'); return;
+    }
+    const text=await arcGunzip(data, rec.path);
+    const lines=text.split('\n').filter(x=>x.length);
+    say('เปิดจากคลัง: '+fmtInt(lines.length-1)+' พัสดุ (อ่านอย่างเดียว)');
+    arcShowTable(mk, lines);
+  }catch(err){ say('❌ '+(err.message||err)); }
+}
+function arcParseCsvLine(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ out.push(cur); cur=''; }
+    else cur+=c;
+  }
+  out.push(cur); return out;
+}
+function arcShowTable(mk, lines){
+  const head=arcParseCsvLine(lines[0]);
+  const cap=500;
+  const body=lines.slice(1,cap+1).map(l=>arcParseCsvLine(l));
+  const box=$('arcTable_'+mk); if(!box) return;
+  box.innerHTML='<div class="tbl-wrap" style="max-height:50vh;margin-top:8px"><table><thead><tr>'
+    + head.map(x=>'<th>'+escapeHtml(x)+'</th>').join('')+'</tr></thead><tbody>'
+    + body.map(r=>'<tr>'+head.map((_,i)=>'<td>'+escapeHtml(r[i]||'')+'</td>').join('')+'</tr>').join('')
+    + '</tbody></table></div>'
+    + (lines.length-1>cap ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">แสดง '+fmtInt(cap)+' แถวแรกจาก '+fmtInt(lines.length-1)+' · กด ⬇️ โหลดไฟล์เพื่อดูครบ</div>' : '');
+}
+function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* ── หน้ารายการคลัง ── */
+async function arcLoad(){
+  const list=$('arcList'); if(!list) return;
+  list.innerHTML='<div style="color:var(--muted);font-size:13px">กำลังโหลด...</div>';
+  try{
+    const inDb={};
+    const {data:days,error:e1}=await sb.from('post_days').select('pdate,parcel_count');
+    if(e1) throw e1;
+    const {data:arch,error:e2}=await sb.from('post_archives').select('mkey,path,n_rows,n_bytes,archived_at').order('mkey',{ascending:false});
+    if(e2) throw e2;
+    arcRows=arch||[];
+    /* นับจำนวนพัสดุต่อเดือนด้วย count แบบ head:true — ฐานข้อมูลส่งกลับแค่ตัวเลข
+       ไม่ส่งข้อมูลแถวเลย (เดิมดึง pdate 50,000 แถวทุกครั้งที่เปิดหน้า = กิน egress หนักมาก) */
+    const monthsAll=[...new Set([
+      ...(days||[]).map(r=>arcMkey(r.pdate)),
+      ...arcRows.map(a=>a.mkey)
+    ])].filter(Boolean).sort().reverse();
+    await Promise.all(monthsAll.map(async mk=>{
+      const d2=new Date(mk+'-01T00:00:00'); d2.setMonth(d2.getMonth()+1);
+      const {count,error}=await sb.from('post_parcels')
+        .select('id',{count:'exact',head:true})
+        .gte('pdate', mk+'-01').lt('pdate', d2.toISOString().slice(0,10));
+      if(!error && count) inDb[mk]=count;
+    }));
+    const months=[...new Set([...Object.keys(inDb), ...arcRows.map(a=>a.mkey)])].sort().reverse();
+    const nowKey=new Date().toISOString().slice(0,7);
+    const keepFrom=(()=>{ const d=new Date(nowKey+'-01T00:00:00'); d.setMonth(d.getMonth()-(ARC_KEEP_MONTHS-1)); return d.toISOString().slice(0,7); })();
+    let totBytes=0; arcRows.forEach(a=>totBytes+=(a.n_bytes||0));
+    $('arcSpace').innerHTML='📊 ในคลัง <b>'+arcRows.length+'</b> เดือน · '
+      + fmtInt(arcRows.reduce((s,a)=>s+(a.n_rows||0),0))+' พัสดุ · ใช้พื้นที่คลัง <b>'+(totBytes/1048576).toFixed(1)+' MB</b> จาก 1,024 MB'
+      + ' &nbsp;·&nbsp; เก็บในฐานข้อมูล '+ARC_KEEP_MONTHS+' เดือนล่าสุด (ตั้งแต่ '+keepFrom+')';
+    list.innerHTML = months.length? months.map(mk=>{
+      const a=arcRows.find(x=>x.mkey===mk), n=inDb[mk]||0;
+      const old = mk < keepFrom;
+      return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:9px;background:#fff">'
+        +'<div class="row"><b style="font-size:15px">'+mk+'</b>'
+        +'<span style="font-size:12.5px;color:var(--muted)">ในฐานข้อมูล '+fmtInt(n)+' พัสดุ'
+        + (a? ' · ในคลัง '+fmtInt(a.n_rows)+' พัสดุ ('+((a.n_bytes||0)/1048576).toFixed(1)+' MB)':'')+'</span>'
+        +'<div class="spacer"></div>'
+        + (n&&old? '<button class="btn btn-gold btn-sm" data-arc-save="'+mk+'">📦 เก็บเข้าคลัง</button>':'')
+        + (n&&!old? '<span style="font-size:12px;color:var(--muted)">เดือนล่าสุด — ยังไม่ต้องเก็บ</span>':'')
+        + (a? '<button class="btn btn-ghost btn-sm" data-arc-view="'+mk+'">👁️ ดูจากคลัง</button>'
+             +'<button class="btn btn-ghost btn-sm" data-arc-dl="'+mk+'">⬇️ โหลดไฟล์</button>':'')
+        +'</div>'
+        +'<div id="arcMsg_'+mk+'" style="font-size:12.5px;color:var(--muted);margin-top:6px"></div>'
+        +'<div id="arcTable_'+mk+'"></div></div>';
+    }).join('') : '<div style="color:var(--muted);font-size:13px">ยังไม่มีข้อมูล</div>';
+  }catch(err){ list.innerHTML='<div style="color:var(--red)">โหลดคลังไม่สำเร็จ: '+escapeHtml(err.message||err)+'</div>'; }
+}
+$('arcRefresh').onclick=arcLoad;
+$('arcList').onclick=e=>{
+  const s=e.target.closest('[data-arc-save]'); if(s) return arcSave(s.dataset.arcSave);
+  const v=e.target.closest('[data-arc-view]'); if(v) return arcView(v.dataset.arcView,false);
+  const d=e.target.closest('[data-arc-dl]');   if(d) return arcView(d.dataset.arcDl,true);
+};
+
+/* ===== ตรวจเลขพัสดุซ้ำทั้งเดือน (กดเอง) ===== */
+let monthDupCache={};
+function renderDupBar(mKey, mCount){
+  const box=$('calDupBar'); if(!box) return;
+  if(!mCount){ box.innerHTML=''; return; }
+  if(monthDupCache[mKey]){
+    const n=Object.keys(monthDupCache[mKey]).length;
+    box.innerHTML = `<span style="font-size:13px;color:var(--muted)">`
+      + (n?`⚠️ ตรวจแล้ว — พบเลขซ้ำใน <b>${n}</b> วัน (ไฮไลต์ในปฏิทิน)`:'✅ ตรวจแล้ว — ไม่พบเลขพัสดุซ้ำในเดือนนี้')
+      + `</span> <button class="btn btn-ghost btn-sm" id="calDupBtn">🔄 ตรวจใหม่</button>`;
+  } else {
+    box.innerHTML = `<span style="font-size:13px;color:var(--muted)">ยังไม่ได้ตรวจเลขพัสดุซ้ำของเดือนนี้</span>`
+      + ` <button class="btn btn-ghost btn-sm" id="calDupBtn">🔍 ตรวจเลขพัสดุซ้ำทั้งเดือน</button>`;
+  }
+  const b=$('calDupBtn'); if(b) b.onclick=()=>scanMonthDup(mKey);
+}
+async function scanMonthDup(mKey){
+  const b=$('calDupBtn'); if(b){ b.disabled=true; b.textContent='กำลังตรวจ...'; }
+  const y=curMonth.getFullYear(), m=curMonth.getMonth(), days=new Date(y,m+1,0).getDate();
+  const map={};
+  try{
+    let allp=[], off=0; const pg=1000;
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('tracking,pdate').eq('carrier',curCarrier)
+        .gte('pdate', ymd(new Date(y,m,1))).lte('pdate', ymd(new Date(y,m,days))).order('id',{ascending:true}).range(off,off+pg-1);
+      if(error) throw error;
+      allp=allp.concat(data||[]); if(!data||data.length<pg) break; off+=pg;
+    }
+    const cnt={}; allp.forEach(r=>{ if(r.tracking) cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
+    allp.forEach(r=>{ if(r.tracking && cnt[r.tracking]>1) map[r.pdate]=(map[r.pdate]||0)+1; });
+    monthDupCache[mKey]=map;
+    toast(Object.keys(map).length?('พบเลขซ้ำใน '+Object.keys(map).length+' วัน'):'ไม่พบเลขพัสดุซ้ำในเดือนนี้');
+    renderCalendar();
+  }catch(err){
+    toast('ตรวจเลขซ้ำไม่สำเร็จ: '+(err.message||err),true); console.error(err);
+    if(b){ b.disabled=false; b.textContent='🔍 ตรวจเลขพัสดุซ้ำทั้งเดือน'; }
+  }
+}
+
+/* ===== หน้าของวัน ===== */
+let selDate=null, pv=null;
+function openDay(ds){
+  selDate=ds;
+  $('viewCal').classList.add('hidden'); $('viewDay').classList.remove('hidden');
+  $('dayTitle').textContent='📅 '+thaiDate(ds);
+  $('uploadBtn').textContent='⬆️ อัปโหลดไฟล์ไปรษณีย์ ('+thaiDate(ds)+')';
+  $('previewCard').classList.add('hidden'); pv=null;
+  loadDay();
+}
+$('backCal').onclick=()=>{ $('viewDay').classList.add('hidden'); $('viewCal').classList.remove('hidden'); renderCalendar(); };
+$('uploadBtn').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; };
+
+/* ---- โหลดข้อมูลของวันที่บันทึกแล้ว ---- */
+async function loadDay(){
+  $('daySaved').textContent='กำลังโหลด...';
+  let rows=[], from=0; const page=1000;
+  try{
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('id,tracking,fee,created_at').eq('carrier',curCarrier)
+        .eq('pdate',selDate).order('created_at',{ascending:true}).order('id',{ascending:true}).range(from,from+page-1);
+      if(error) throw error;
+      rows=rows.concat(data||[]); if(!data||data.length<page) break; from+=page;
+    }
+  }catch(err){ $('daySaved').textContent='โหลดไม่สำเร็จ'; toast('โหลดข้อมูลไม่สำเร็จ: '+(err.message||err),true); return; }
+  let day=null;
+  try{ const {data}=await sb.from('post_days').select('*').eq('carrier',curCarrier).eq('pdate',selDate).maybeSingle(); day=data; }catch(_){}
+  if(!rows.length){
+    $('daySaved').textContent='ยังไม่มีข้อมูลของวันนี้ — กดอัปโหลดไฟล์เพื่อเริ่ม';
+    $('dayDataCard').classList.add('hidden'); return;
+  }
+  $('daySaved').textContent='';
+  $('dayDataCard').classList.remove('hidden');
+  // หัวคอลัมน์
+  let headers=(day&&day.headers)||[];
+  // ถ้ายังไม่มีหัวคอลัมน์ที่เก็บไว้ จะให้หน้าแรกของตารางเป็นคนกำหนดให้เอง
+  // ตรวจซ้ำข้ามวัน
+  const dupSet=await findDupTrackings(rows.map(r=>r.tracking));
+  // ค่าบริการ
+  const calc=rows.reduce((a,r)=>a+(Number(r.fee)||0),0);
+  const declared=Number(day&&day.declared_fee)||0;
+  const ok=Math.abs(calc-declared)<0.01;
+  $('dayFee').innerHTML=`
+    <div><div class="k">จำนวนพัสดุ</div><div class="v">${fmtInt(rows.length)}</div></div>
+    <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
+    <div><div class="k">ค่าบริการรายวัน (แจ้ง)</div><div class="v">${fmtNum(declared)}</div></div>
+    <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง'):'—'}</div></div>`;
+  $('dayFeeMsg').innerHTML=feeMsgHTML(calc, declared, rows.length);
+  const dupInDay=rows.filter(r=>dupSet.has(r.tracking));
+  $('dayDup').innerHTML = dupInDay.length
+    ? `<div class="warnbox">⚠️ พบเลขพัสดุที่ซ้ำกับในระบบ ${dupInDay.length} รายการ (ไฮไลต์แดงในตาราง): ${[...new Set(dupInDay.map(r=>r.tracking))].slice(0,20).map(htmlesc).join(', ')}${dupInDay.length>20?' ...':''}</div>` : '';
+  dayRows=rows; dayHeaders=headers.slice(); dayDupSet=dupSet; dayPage=0; dayDataCache={};
+  await renderDayPage();
+}
+
+/* ---- ตารางรายวันแบบแบ่งหน้า ----
+   ดึงรายละเอียดพัสดุเฉพาะหน้าที่กำลังดู ไม่ดึงทั้งวันมาทีเดียว */
+let dayRows=[], dayHeaders=[], dayDupSet=new Set(), dayPage=0, dayDataCache={};
+const DAY_PAGE=200;
+async function renderDayPage(){
+  const total=dayRows.length, pages=Math.max(1,Math.ceil(total/DAY_PAGE));
+  if(dayPage>pages-1) dayPage=pages-1;
+  if(dayPage<0) dayPage=0;
+  const slice=dayRows.slice(dayPage*DAY_PAGE,(dayPage+1)*DAY_PAGE);
+  const need=slice.filter(r=>!(r.id in dayDataCache)).map(r=>r.id);
+  if(need.length){
+    $('dayInfo').textContent='กำลังโหลดตาราง...';
+    for(let i=0;i<need.length;i+=200){
+      const part=need.slice(i,i+200);
+      try{
+        const {data,error}=await sb.from('post_parcels').select('id,data').in('id',part);
+        if(error) throw error;
+        (data||[]).forEach(row=>{ dayDataCache[row.id]=row.data||{}; });
+      }catch(err){ $('dayInfo').textContent='โหลดตารางไม่สำเร็จ'; toast('โหลดตารางไม่สำเร็จ: '+(err.message||err),true); return; }
+      part.forEach(id=>{ if(!(id in dayDataCache)) dayDataCache[id]={}; });
+    }
+  }
+  if(!dayHeaders.length){
+    const set=[]; slice.forEach(r=>Object.keys(dayDataCache[r.id]||{}).forEach(k=>{ if(!set.includes(k)) set.push(k); }));
+    dayHeaders=set;
+  }
+  renderTable('day', dayHeaders, slice.map(r=>dayDataCache[r.id]||{}), slice.map(r=>r.tracking), dayDupSet);
+  const a=total?dayPage*DAY_PAGE+1:0, b=Math.min(total,(dayPage+1)*DAY_PAGE);
+  $('dayInfo').innerHTML = `ทั้งหมด <b>${fmtInt(total)}</b> พัสดุ · แสดง ${fmtInt(a)}–${fmtInt(b)}`
+    + (pages>1 ? ` &nbsp;<button class="btn btn-ghost btn-sm" id="dayPrev"${dayPage===0?' disabled':''}>‹ ก่อนหน้า</button>`
+               + ` <span style="margin:0 4px">หน้า ${dayPage+1}/${pages}</span>`
+               + `<button class="btn btn-ghost btn-sm" id="dayNext"${dayPage>=pages-1?' disabled':''}>ถัดไป ›</button>` : '');
+  const pv=$('dayPrev'), nx=$('dayNext');
+  if(pv) pv.onclick=()=>{ dayPage--; renderDayPage(); };
+  if(nx) nx.onclick=()=>{ dayPage++; renderDayPage(); };
+}
+
+/* ---- ตรวจเลขพัสดุซ้ำในระบบ ---- */
+async function findDupTrackings(trackings){
+  const uniq=[...new Set(trackings.filter(Boolean))]; const dup=new Set();
+  for(let i=0;i<uniq.length;i+=200){
+    const chunk=uniq.slice(i,i+200);
+    try{
+      const {data,error}=await sb.from('post_parcels').select('tracking').eq('carrier',curCarrier).in('tracking',chunk);
+      if(error) throw error;
+      const cnt={}; (data||[]).forEach(r=>{ cnt[r.tracking]=(cnt[r.tracking]||0)+1; });
+      Object.keys(cnt).forEach(t=>{ if(cnt[t]>1) dup.add(t); });
+    }catch(err){ console.error(err); }
+  }
+  return dup;
+}
+
+/* ---- ตารางทั่วไป ---- */
+function renderTable(prefix, headers, dataRows, trackings, dupSet){
+  $(prefix+'Head').innerHTML='<tr><th>วันที่</th>'+headers.map(h=>`<th>${htmlesc(h)}</th>`).join('')+'</tr>';
+  $(prefix+'Body').innerHTML=dataRows.map((row,i)=>{
+    const isDup=dupSet&&trackings&&dupSet.has(trackings[i]);
+    return '<tr>'+`<td>${htmlesc(selDate)}</td>`+headers.map(h=>{
+      const v=row[h]; const cellDup=isDup;
+      return `<td class="${cellDup?'dup':''}">${htmlesc(v==null?'':v)}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+}
+
+/* ---- อัปโหลด + พรีวิว ---- */
+async function handleFile(file){
+  try{
+    const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    let headers=null; const sheets=[]; const usedNames=[];
+    const trackRe=/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ/i;
+    const feeRe=/ค่าบริการ|ค่าขนส่ง|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|cod|amount|fee/i;
+    for(const name of wb.SheetNames){
+      { const ws=wb.Sheets[name]; let mnR=Infinity,mnC=Infinity,mxR=-1,mxC=-1;
+        Object.keys(ws).forEach(k=>{ if(k[0]==='!') return; const c=XLSX.utils.decode_cell(k);
+          if(c.r<mnR)mnR=c.r; if(c.c<mnC)mnC=c.c; if(c.r>mxR)mxR=c.r; if(c.c>mxC)mxC=c.c; });
+        if(mxR>=0) ws['!ref']=XLSX.utils.encode_range({s:{r:mnR,c:mnC},e:{r:mxR,c:mxC}}); }
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:true});
+      if(!aoa.length) continue;
+      // 1) หาแถว "หัวตารางจริง" = แถวที่มีทั้งคำ Barcode/เลขพัสดุ และ ค่าบริการ
+      let hi=-1;
+      for(let i=0;i<Math.min(aoa.length,15);i++){
+        const cells=(aoa[i]||[]).map(x=>norm(x));
+        if(cells.some(c=>trackRe.test(c)) && cells.some(c=>feeRe.test(c))){ hi=i; break; }
+      }
+      let hdr=null, dataStart;
+      if(hi>=0){ hdr=(aoa[hi]||[]).map((h,i)=> norm(h)||('คอลัมน์'+(i+1))); dataStart=hi+1; }
+      else {
+        // ไม่มีแถวหัวตาราง (ข้อมูลติดหัวข้อความเลย) → หาแถวข้อมูลแถวแรก ไม่ตัดพัสดุทิ้ง
+        dataStart=-1;
+        for(let i=0;i<Math.min(aoa.length,15);i++){ if((aoa[i]||[]).filter(x=>norm(x)!=='').length>=3){ dataStart=i; break; } }
+        if(dataStart<0) continue;
+      }
+      const rows=aoa.slice(dataStart).filter(r=>(r||[]).some(x=>norm(x)!==''));
+      if(!rows.length) continue;
+      if(!headers && hdr) headers=hdr;   // ใช้หัวจากชีตที่มีหัวจริง
+      sheets.push({name, rows}); usedNames.push(name);
+    }
+    if(!sheets.length){ toast('ไม่พบข้อมูลในไฟล์ (ทุกชีต)',true); return; }
+    // ถ้าไม่มีชีตไหนมีหัวจริงเลย → สร้างหัว generic
+    if(!headers){ let w=0; sheets.forEach(sh=>sh.rows.forEach(r=>{ if(r.length>w) w=r.length; })); headers=[]; for(let i=0;i<w;i++) headers.push('คอลัมน์'+(i+1)); }
+    // ตัดคอลัมน์ท้ายที่ว่างเปล่า (ไม่มีชื่อจริง + ไม่มีข้อมูล)
+    let maxCol=0;
+    sheets.forEach(sh=>sh.rows.forEach(r=>{ for(let i=0;i<r.length;i++){ if(norm(r[i])!=='') maxCol=Math.max(maxCol,i); } }));
+    headers.forEach((h,i)=>{ if(h && !/^คอลัมน์\d+$/.test(h)) maxCol=Math.max(maxCol,i); });
+    headers=headers.slice(0,maxCol+1);
+    pv={ file:file.name, headers, sheets, usedNames };
+    // เดาคอลัมน์
+    const trkGuess=headers.findIndex(h=>/พัสดุ|tracking|barcode|บาร์โค|ems|เลขที่สิ่งของ|item|track/i.test(h));
+    const feeGuess=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|จำนวนเงิน|ยอด|ราคา|amount|net|รวม/i.test(h));
+    fillColSelect('colTrk', headers, trkGuess>=0?trkGuess:0);
+    fillColSelect('colFee', headers, feeGuess>=0?feeGuess:headers.length-1);
+    $('previewCard').classList.remove('hidden');
+    $('lastIsFee').checked=true;
+    await refreshPreview();
+    $('previewCard').scrollIntoView({behavior:'smooth'});
+  }catch(err){ toast('อ่านไฟล์ไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+}
+function fillColSelect(id, headers, sel){
+  $(id).innerHTML=headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${htmlesc(h)}</option>`).join('');
+}
+$('colTrk').onchange=refreshPreview; $('colFee').onchange=refreshPreview; $('lastIsFee').onchange=refreshPreview;
+
+async function refreshPreview(){
+  if(!pv) return;
+  const trkIdx=+$('colTrk').value, feeIdx=+$('colFee').value, lastIsFee=$('lastIsFee').checked;
+  const parcels=[]; let declared=0;
+  (pv.sheets||[]).forEach(sh=>{
+    let dataRows=sh.rows.slice();
+    if(lastIsFee && dataRows.length){ const last=dataRows[dataRows.length-1]; declared+=toNum(last[feeIdx])||0; dataRows=dataRows.slice(0,-1); }
+    dataRows.forEach(r=>{
+      const obj={}; pv.headers.forEach((h,i)=> obj[h]= r[i]==null?'':r[i]);
+      parcels.push({ tracking:norm(r[trkIdx]), fee:toNum(r[feeIdx]), data:obj });
+    });
+  });
+  pv.parcels=parcels; pv.declared=declared;
+  const calc=parcels.reduce((a,p)=>a+(Number(p.fee)||0),0);
+  const ok=Math.abs(calc-declared)<0.01;
+  $('feeCheck').innerHTML=`
+    <div><div class="k">จำนวนพัสดุ</div><div class="v">${fmtInt(parcels.length)}</div></div>
+    <div><div class="k">ค่าบริการรวม (คำนวณ)</div><div class="v">${fmtNum(calc)}</div></div>
+    <div><div class="k">ค่าบริการรายวัน (แถวสุดท้าย)</div><div class="v">${fmtNum(declared)}</div></div>
+    <div><div class="k">ผลตรวจ</div><div class="v" style="color:${ok?'#0a7d33':'var(--red)'}">${declared?(ok?'✅ ตรง':'❌ ไม่ตรง (ต่าง '+fmtNum(calc-declared)+')'):'— ไม่มีค่าบริการรวม'}</div></div>`;
+  $('feeMsg').innerHTML=feeMsgHTML(calc, declared, parcels.length);
+  // ตรวจซ้ำ: ในไฟล์เอง + กับระบบ
+  const trks=parcels.map(p=>p.tracking).filter(Boolean);
+  const inFileCnt={}; trks.forEach(t=>inFileCnt[t]=(inFileCnt[t]||0)+1);
+  const inFileDup=Object.keys(inFileCnt).filter(t=>inFileCnt[t]>1);
+  const dbDupSet=await findDupExisting(trks);
+  const dupSet=new Set([...inFileDup, ...dbDupSet]);
+  let warn='';
+  if(inFileDup.length) warn+=`<div>• ซ้ำภายในไฟล์นี้ ${inFileDup.length} เลข: ${inFileDup.slice(0,15).map(htmlesc).join(', ')}${inFileDup.length>15?' ...':''}</div>`;
+  if(dbDupSet.size) warn+=`<div>• ซ้ำกับที่มีในระบบแล้ว ${dbDupSet.size} เลข: ${[...dbDupSet].slice(0,15).map(htmlesc).join(', ')}${dbDupSet.size>15?' ...':''}</div>`;
+  $('dupWarn').innerHTML = warn ? `<div class="warnbox">⚠️ พบเลขพัสดุซ้ำ (ไฮไลต์แดงในตาราง)<br>${warn}<br>ตรวจสอบก่อนบันทึก — ถ้ายืนยันก็บันทึกได้</div>`
+                                : `<div class="okbox">✅ ไม่พบเลขพัสดุซ้ำ</div>`;
+  pv.dupSet=dupSet;
+  renderTable('pv', pv.headers, parcels.map(p=>p.data), parcels.map(p=>p.tracking), dupSet);
+  $('pvInfo').textContent=`ไฟล์: ${pv.file} · อ่าน ${fmtInt((pv.usedNames||[]).length)} ชีต (${(pv.usedNames||[]).join(', ')}) · ${fmtInt(parcels.length)} พัสดุ${lastIsFee?' (ตัดแถวค่าบริการรวมออกแล้ว)':''}`;
+}
+/* ตรวจซ้ำเฉพาะที่ "มีอยู่แล้วในระบบ" (นับ >=1) */
+async function findDupExisting(trackings){
+  const uniq=[...new Set(trackings.filter(Boolean))]; const dup=new Set();
+  for(let i=0;i<uniq.length;i+=200){
+    const chunk=uniq.slice(i,i+200);
+    try{ const {data,error}=await sb.from('post_parcels').select('tracking').eq('carrier',curCarrier).in('tracking',chunk);
+      if(error) throw error; (data||[]).forEach(r=>dup.add(r.tracking));
+    }catch(err){ console.error(err); }
+  }
+  return dup;
+}
+$('pvCancel').onclick=()=>{ $('previewCard').classList.add('hidden'); pv=null; };
+/* ═══ ช่องที่ไม่เก็บลงฐานข้อมูล (ทีมไม่ได้ใช้) ═══
+   ตั้งค่าที่นี่ที่เดียว มีผลทั้งตอนอัปไฟล์ใหม่ และปุ่มล้างข้อมูลเก่า
+   ถ้าอยากเก็บช่องไหนกลับมา ลบชื่อออกจากรายการนี้ */
+const DROP_KEYS = {
+  thaipost: ['บัญชี Wallet','COD','ผู้รับ','เบอร์โทร','ปลายทาง',
+             'Barcode','ค่าบริการ','ลำดับ','ขนาด'],
+  flash:    ['Happy Return(Inc Vat)','Flash Care(Inc Vat)','Declared value fee(Inc Vat)',
+             'Packaging fee(Inc Vat)','On-Time Delivery(Inc Vat)','Label Fee(Inc Vat)','Box Shield(Inc Vat)']
+};
+/* คอลัมน์ที่ Excel ไม่มีหัวข้อ (คอลัมน์9, คอลัมน์ 10, Column12, …) = ว่างเสมอ ตัดทิ้งทุกขนส่ง */
+const BLANK_COL_RE = /^(คอลัมน์|column)\s*\d+$/i;
+function trimParcelData(carrier, data){
+  if(!data) return data;
+  /* เทียบแบบไม่สนตัวพิมพ์เล็ก-ใหญ่และช่องว่างหน้าหลัง กันไฟล์ที่หัวตารางสะกดต่างกัน
+     เช่น "บัญชี Wallet" กับ "บัญชี wallet" */
+  const drop = (DROP_KEYS[carrier] || []).map(s=>s.trim().toLowerCase());
+  const out = {};
+  Object.keys(data).forEach(k=>{
+    const kk = String(k).trim().toLowerCase();
+    if(drop.includes(kk)) return;
+    if(BLANK_COL_RE.test(kk)) return;
+    out[k] = data[k];
+  });
+  return out;
+}
+$('pvSave').onclick=savePreview;
+async function savePreview(){
+  if(!pv||!pv.parcels){ return; }
+  if(!pv.parcels.length){ toast('ไม่มีพัสดุให้บันทึก',true); return; }
+  const btn=$('pvSave'); btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  try{
+    const recs=pv.parcels.map(p=>({ carrier:curCarrier, pdate:selDate, tracking:p.tracking, fee:p.fee,
+                                    data:trimParcelData(curCarrier, p.data) }));
+    for(let i=0;i<recs.length;i+=500){
+      const {error}=await sb.from('post_parcels').insert(recs.slice(i,i+500));
+      if(error) throw error;
+    }
+    // อัปเดตสรุปรายวัน (declared สะสม + recompute calc/count)
+    let prev=null; try{ const {data}=await sb.from('post_days').select('*').eq('carrier',curCarrier).eq('pdate',selDate).maybeSingle(); prev=data; }catch(_){}
+    const declared=(Number(prev&&prev.declared_fee)||0)+(Number(pv.declared)||0);
+    await recomputeDay(selDate, declared, pv.headers);
+    monthDupCache={};   // ข้อมูลเปลี่ยน → ผลตรวจเลขซ้ำที่จำไว้ใช้ไม่ได้แล้ว
+    toast('บันทึก '+fmtInt(recs.length)+' พัสดุแล้ว');
+    $('previewCard').classList.add('hidden'); pv=null;
+    loadDay();
+  }catch(err){ toast('บันทึกไม่สำเร็จ: '+(err.message||err),true); console.error(err); }
+  btn.disabled=false; btn.textContent='💾 บันทึกเข้าระบบ';
+}
+async function recomputeDay(ds, declared, headers){
+  // รวม fee + count จาก parcels ของวันนั้น
+  let sum=0, cnt=0, from=0; const page=1000;
+  while(true){
+    const {data,error}=await sb.from('post_parcels').select('fee').eq('carrier',curCarrier).eq('pdate',ds).order('id',{ascending:true}).range(from,from+page-1);
+    if(error) throw error;
+    (data||[]).forEach(r=>{ sum+=Number(r.fee)||0; cnt++; });
+    if(!data||data.length<page) break; from+=page;
+  }
+  const payload={ carrier:curCarrier, pdate:ds, calc_fee:sum, parcel_count:cnt, updated_at:new Date().toISOString() };
+  if(declared!=null) payload.declared_fee=declared;
+  if(headers) payload.headers=headers;
+  const {error}=await sb.from('post_days').upsert(payload, {onConflict:'carrier,pdate'});
+  if(error) throw error;
+}
+
+/* ---- ล้างข้อมูลวันนี้ ---- */
+$('dayClear').onclick=async ()=>{
+  if(!confirm(`ล้างข้อมูล ${CARRIER_LABEL[curCarrier]} ของ ${thaiDate(selDate)} ทั้งหมด?\n(ลบถาวร)`)) return;
+  try{
+    await sb.from('post_parcels').delete().eq('carrier',curCarrier).eq('pdate',selDate);
+    await sb.from('post_days').delete().eq('carrier',curCarrier).eq('pdate',selDate);
+    monthDupCache={};
+    toast('ล้างข้อมูลแล้ว'); loadDay();
+  }catch(err){ toast('ลบไม่สำเร็จ: '+(err.message||err),true); }
+};
+
+/* ---- ส่งออกวันนี้ ---- */
+$('dayExport').onclick=()=> exportRange(selDate, selDate, CARRIER_LABEL[curCarrier]+'_'+selDate+'.xlsx');
+/* ---- ส่งออกช่วงวันที่ ---- */
+$('expBtn').onclick=()=>{ const f=$('expFrom').value, t=$('expTo').value; if(!f||!t){ toast('เลือกช่วงวันที่',true); return; } exportRange(f,t,CARRIER_LABEL[curCarrier]+'_'+f+'_ถึง_'+t+'.xlsx'); };
+
+async function exportRange(from,to,fname){
+  $('expInfo').textContent='กำลังดึงข้อมูล...';
+  let rows=[], off=0; const page=1000;
+  try{
+    while(true){
+      const {data,error}=await sb.from('post_parcels').select('pdate,tracking,fee,data').eq('carrier',curCarrier)
+        .gte('pdate',from).lte('pdate',to).order('pdate',{ascending:true}).order('id',{ascending:true}).range(off,off+page-1);
+      if(error) throw error;
+      rows=rows.concat(data||[]); if(!data||data.length<page) break; off+=page;
+    }
+  }catch(err){ $('expInfo').textContent=''; toast('ดึงข้อมูลไม่สำเร็จ: '+(err.message||err),true); return; }
+  if(!rows.length){ $('expInfo').textContent=''; toast('ไม่มีข้อมูลในช่วงนี้',true); return; }
+  // union headers
+  const headers=[]; rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!headers.includes(k)) headers.push(k); }));
+  const feeCol=headers.findIndex(h=>/ค่าบริการ|ค่าส่ง|ค่าจัดส่ง|ค่าฝาก|ค่าธรรมเนียม|fee/i.test(h));
+  const W=1+headers.length;
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('ไปรษณีย์');
+  // หัวตาราง
+  ws.addRow(['วันที่', ...headers]);
+  ws.columns.forEach((c,i)=>{ const name=(i===0?'วันที่':headers[i-1])||''; c.width=Math.max(12, String(name).length+3); });
+  ws.getRow(1).eachCell({includeEmpty:true}, cell=>{
+    cell.font={bold:true, color:{argb:'FFFFFFFF'}};
+    cell.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FF1F3864'}};
+    cell.alignment={vertical:'middle'};
+  });
+  let curDate=null, dayCount=0, daySum=0;
+  function flushDay(){
+    if(curDate===null) return;
+    const arr=new Array(W).fill('');
+    arr[0]=`▶ สรุปวันที่ ${curDate}`;
+    arr[1]=`จำนวน ${fmtInt(dayCount)} ชิ้น รวม ${fmtNum(daySum)} บาท`;
+    if(feeCol>=0) arr[1+feeCol]=daySum;
+    const r=ws.addRow(arr);
+    for(let ci=1; ci<=W; ci++){
+      const c=r.getCell(ci);
+      c.font={bold:true, color:{argb:'FF5C4300'}, size:12};
+      c.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FFFFE08A'}};
+      c.border={top:{style:'medium',color:{argb:'FFD9A404'}}, bottom:{style:'medium',color:{argb:'FFD9A404'}}};
+    }
+    ws.addRow([]); // บรรทัดว่างคั่นวัน
+  }
+  rows.forEach(r=>{
+    if(r.pdate!==curDate){ flushDay(); curDate=r.pdate; dayCount=0; daySum=0; }
+    ws.addRow([r.pdate, ...headers.map(h=>{ const v=(r.data||{})[h]; return v==null?'':v; })]);
+    dayCount++; daySum+=Number(r.fee)||0;
+  });
+  flushDay();
+  // บรรทัดสุดท้าย = ผลรวมทั้งเดือน/ช่วง (เหลืองเข้ม)
+  const grandCount=rows.length, grandSum=rows.reduce((a,r)=>a+(Number(r.fee)||0),0);
+  ws.addRow([]);
+  const g=new Array(W).fill('');
+  g[0]='รวมทั้งหมด';
+  g[1]=`รวมทั้งสิ้น ${fmtInt(grandCount)} ชิ้น = ${fmtNum(grandSum)} บาท`;
+  if(feeCol>=0) g[1+feeCol]=grandSum;
+  const gr=ws.addRow(g);
+  for(let ci=1; ci<=W; ci++){
+    const c=gr.getCell(ci);
+    c.font={bold:true, color:{argb:'FF3A2C00'}, size:13};
+    c.fill={type:'pattern', pattern:'solid', fgColor:{argb:'FFE6A817'}};
+    c.border={top:{style:'thick',color:{argb:'FFB8860B'}}, bottom:{style:'thick',color:{argb:'FFB8860B'}}};
+  }
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  $('expInfo').textContent=`ส่งออก ${fmtInt(rows.length)} รายการแล้ว`;
+  toast('ส่งออกแล้ว');
+}
+
+/* กิมมิค Cat Café: ฉากและสายตาน้องแมวขยับตามเมาส์ */
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const postalHero=document.querySelector('.postal-hero');
+  const postalFace=document.querySelector('.post-face');
+  document.addEventListener('pointermove',e=>{
+    const x=e.clientX/window.innerWidth-.5, y=e.clientY/window.innerHeight-.5;
+    document.querySelectorAll('.postal-blob').forEach((b,i)=>{ const d=(i+1)*5; b.style.translate=`${x*d}px ${y*d}px`; });
+    if(postalHero&&postalFace){
+      const r=postalHero.getBoundingClientRect();
+      if(e.clientY>r.top-80&&e.clientY<r.bottom+80) postalFace.style.transform=`translate(${x*5}px,${y*3}px)`;
+    }
+  },{passive:true});
+}
+</script>
+</body>
+</html>
