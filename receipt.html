@@ -2070,9 +2070,45 @@ async function deleteBill(key){
   if(isCash) renderCash(); else renderDoc();
   toast('ลบบิลแล้ว');
 }
-/* ลายเซ็น: ใบเก่าเก็บรูปไว้ในตัวเอง → ใช้ของเดิม (เอกสารไม่เปลี่ยน)
-   ใบใหม่เก็บแค่ signer_id → ไปดึงรูปจากโปรไฟล์ผู้เซ็น แล้วจำไว้ใช้ซ้ำ */
-const sigCache={};
+/* ═══ ลายเซ็นบนใบเสร็จ ═══
+   หลักการ: ลายเซ็นบนใบที่ออกไปแล้ว "ห้ามเปลี่ยน" ตลอดไป
+   - sig_key = รหัสจากเนื้อรูป (SHA-256) → ชี้ไปที่คลัง signature_archive
+     รูปในคลังไม่มีวันถูกแก้ เซ็นใหม่ = ได้รหัสใหม่ ใบเก่ายังชี้รหัสเดิม
+   - ใบเก่าที่ฝังรูปไว้ในตัวเอง (data.signature) ยังใช้ได้เหมือนเดิม
+   - signer_id เก็บไว้เพื่อรู้ว่า "ใครเซ็น" เท่านั้น ไม่ได้ใช้ดึงรูปแล้ว */
+const sigCache={}, archCache={};
+async function sigKeyOf(txt){
+  try{
+    const buf=new TextEncoder().encode(String(txt||''));
+    const d=await crypto.subtle.digest('SHA-256', buf);
+    return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return null; }
+}
+async function fetchArch(keys){
+  const need=[...new Set(keys.filter(k=>k && !(k in archCache)))];
+  if(!need.length) return;
+  if(OFFLINE){ need.forEach(k=>{ archCache[k]=null; }); return; }
+  for(let i=0;i<need.length;i+=100){
+    const part=need.slice(i,i+100);
+    try{
+      const {data}=await sb.from('signature_archive').select('sig_key,signature').in('sig_key',part);
+      (data||[]).forEach(row=>{ archCache[row.sig_key]=row.signature||null; });
+    }catch(err){ console.error('load signature_archive',err); }
+    part.forEach(k=>{ if(!(k in archCache)) archCache[k]=null; });
+  }
+}
+/* เก็บลายเซ็นเข้าคลัง (ถ้ามีอยู่แล้วไม่ทำอะไร) แล้วคืนรหัสรูป */
+async function ensureSigKey(sig){
+  if(!sig) return null;
+  const k=await sigKeyOf(sig);
+  if(!k) return null;
+  archCache[k]=sig;
+  if(OFFLINE) return k;
+  try{
+    await sb.from('signature_archive').upsert({sig_key:k, signature:sig}, {onConflict:'sig_key', ignoreDuplicates:true});
+  }catch(err){ console.error('save signature_archive',err); return null; }
+  return k;
+}
 async function fetchSigs(ids){
   const need=[...new Set(ids.filter(x=>x && !(x in sigCache)))];
   if(OFFLINE){ need.forEach(u=>{ sigCache[u]=mySignature||null; }); return; }
@@ -2087,13 +2123,16 @@ async function fetchSigs(ids){
 }
 async function sigForBill(r){
   const d=(r&&r.data)||{};
-  if(d.signature) return d.signature;              // ใบเก่า
+  if(d.signature) return d.signature;                         // ใบเก่าที่ฝังรูปไว้
+  if(d.sig_key){ await fetchArch([d.sig_key]); if(archCache[d.sig_key]) return archCache[d.sig_key]; }
   if(!d.signer_id) return null;
-  await fetchSigs([d.signer_id]); return sigCache[d.signer_id]||null;
+  await fetchSigs([d.signer_id]); return sigCache[d.signer_id]||null;   // เผื่อใบเก่ารุ่นกลาง
 }
 async function sigForBills(list){
+  await fetchArch(list.map(r=>((r.data||{}).sig_key)));
   await fetchSigs(list.map(r=>((r.data||{}).signer_id)));
-  return list.map(r=>{ const d=r.data||{}; return d.signature || sigCache[d.signer_id] || null; });
+  return list.map(r=>{ const d=r.data||{};
+    return d.signature || archCache[d.sig_key] || sigCache[d.signer_id] || null; });
 }
 function billToF(r){
   const d=r.data||{};
@@ -2113,7 +2152,10 @@ async function saveReceiptData(key){
   const year=new Date().getFullYear();
   const data={ customer:f.customer, tax:f.tax, branch:f.branch, date:f.date, addr:f.addr, shop:f.shop,
     total:f.total, key, internal:row.internal||'', signer_id: currentUserId||null,
+    sig_key: await ensureSigKey(mySignature),
     lines:f.lines.map(l=>({no:l.no,desc:l.desc,qty:l.qty,unit:l.unit,amount:l.amount})) };
+  /* ออฟไลน์: อัปลายเซ็นเข้าคลังไม่ได้ → ฝังรูปไว้ในใบก่อน (ใบช่วงออฟไลน์มีไม่กี่ใบ) */
+  if(OFFLINE && mySignature) data.signature = mySignature;
   if(OFFLINE){
     // โหมดออฟไลน์ → บันทึกลงเครื่องนี้ (เครื่องเดียวคนเดียว จึงไม่มีปัญหาเลขชน)
     const dn=dn0, seq=seqFromDn(dn);
