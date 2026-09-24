@@ -972,15 +972,25 @@ $('pvCancel').onclick=()=>{ $('previewCard').classList.add('hidden'); pv=null; }
    ตั้งค่าที่นี่ที่เดียว มีผลทั้งตอนอัปไฟล์ใหม่ และปุ่มล้างข้อมูลเก่า
    ถ้าอยากเก็บช่องไหนกลับมา ลบชื่อออกจากรายการนี้ */
 const DROP_KEYS = {
-  thaipost: ['บัญชี Wallet','COD','ผู้รับ','เบอร์โทร','ปลายทาง'],
+  thaipost: ['บัญชี Wallet','COD','ผู้รับ','เบอร์โทร','ปลายทาง',
+             'Barcode','ค่าบริการ','ลำดับ','ขนาด'],
   flash:    ['Happy Return(Inc Vat)','Flash Care(Inc Vat)','Declared value fee(Inc Vat)',
              'Packaging fee(Inc Vat)','On-Time Delivery(Inc Vat)','Label Fee(Inc Vat)','Box Shield(Inc Vat)']
 };
+/* คอลัมน์ที่ Excel ไม่มีหัวข้อ (คอลัมน์9, คอลัมน์ 10, Column12, …) = ว่างเสมอ ตัดทิ้งทุกขนส่ง */
+const BLANK_COL_RE = /^(คอลัมน์|column)\s*\d+$/i;
 function trimParcelData(carrier, data){
-  const drop = DROP_KEYS[carrier] || [];
-  if(!drop.length || !data) return data;
+  if(!data) return data;
+  /* เทียบแบบไม่สนตัวพิมพ์เล็ก-ใหญ่และช่องว่างหน้าหลัง กันไฟล์ที่หัวตารางสะกดต่างกัน
+     เช่น "บัญชี Wallet" กับ "บัญชี wallet" */
+  const drop = (DROP_KEYS[carrier] || []).map(s=>s.trim().toLowerCase());
   const out = {};
-  Object.keys(data).forEach(k=>{ if(!drop.includes(k)) out[k]=data[k]; });
+  Object.keys(data).forEach(k=>{
+    const kk = String(k).trim().toLowerCase();
+    if(drop.includes(kk)) return;
+    if(BLANK_COL_RE.test(kk)) return;
+    out[k] = data[k];
+  });
   return out;
 }
 $('pvSave').onclick=savePreview;
