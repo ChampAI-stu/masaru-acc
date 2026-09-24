@@ -195,6 +195,20 @@
     </div>
 
     <div class="card" style="margin-top:18px">
+      <div class="row" style="align-items:flex-start">
+        <div class="sec-label" style="margin:0">📦 คลังข้อมูลเดือนเก่า</div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="arcRefresh">↻ โหลดใหม่</button>
+      </div>
+      <div id="arcSpace" style="margin-top:10px;font-size:13px"></div>
+      <div id="arcList" style="margin-top:12px"></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.7">
+        เก็บเข้าคลัง = ทำไฟล์ <b>ครบทุกช่อง ไม่ตัดอะไรเลย</b> → อัปขึ้นคลัง → ตรวจว่าขึ้นครบ → แล้วค่อยลบออกจากฐานข้อมูล<br>
+        ยอดรวมรายวันในปฏิทินยังอยู่ถาวร ไม่ถูกลบ · เปิดดูเดือนที่เก็บแล้วได้จากปุ่ม 👁️ ดูจากคลัง
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
       <div class="sec-label">⬇️ ส่งออกข้อมูลตามช่วงวันที่</div>
       <div class="row">
         <div><label class="lbl">จากวันที่</label><input type="date" id="expFrom"></div>
@@ -349,6 +363,7 @@ sessionOrOffline().then(({data})=>{
   if(role!=='บัญชี' && role!=='ผู้จัดการบัญชี'){ alert('บัญชีนี้ไม่มีสิทธิ์เข้าระบบไปรษณีย์'); location.replace('index.html'); return; }
   initCalendar();
   initRealtime();
+  arcLoad();
 });
 sb.auth.onAuthStateChange((e,s)=>{ if(AUTHDECIDED && !OFFLINE && (e==='SIGNED_OUT'||!s)) location.replace('index.html'); });
 $('logoutBtn').onclick=async()=>{ try{ await sb.auth.signOut(); }catch(_){} location.href='index.html'; };
@@ -506,6 +521,187 @@ async function renderCalendar(){
   $('calGrid').querySelectorAll('.cal-cell[data-date]').forEach(c=> c.onclick=()=>openDay(c.dataset.date));
   renderDupBar(mKey, mCount);
 }
+
+
+/* ═══════════════════ คลังข้อมูลเดือนเก่า ═══════════════════
+   หลักการ: เก็บ "ทุกช่อง" ไม่ตัดอะไร แค่ย้ายจากตารางไปเป็นไฟล์
+   ลำดับปลอดภัย: ทำไฟล์ → อัปขึ้นคลัง → ตรวจว่าขึ้นจริง → ค่อยลบออกจากฐานข้อมูล
+   ถ้าขั้นไหนพลาด จะหยุดทันที ไม่ลบอะไรเลย */
+const ARC_BUCKET='parcel-archive';
+const ARC_KEEP_MONTHS=3;              /* เก็บกี่เดือนล่าสุดไว้ในฐานข้อมูล */
+let arcRows=[];
+
+function arcMkey(d){ return String(d).slice(0,7); }
+function arcCsvCell(v){
+  if(v==null) return '';
+  const s=(typeof v==='object')?JSON.stringify(v):String(v);
+  return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+async function arcGzip(text){
+  try{
+    if(typeof CompressionStream!=='function') throw 0;
+    const st=new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    const buf=await new Response(st).arrayBuffer();
+    return {blob:new Blob([buf],{type:'application/gzip'}), ext:'csv.gz'};
+  }catch(e){ return {blob:new Blob([text],{type:'text/csv;charset=utf-8'}), ext:'csv'}; }
+}
+async function arcGunzip(blob,name){
+  if(!/\.gz$/i.test(name)) return await blob.text();
+  try{
+    const st=blob.stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(st).text();
+  }catch(e){ throw new Error('แตกไฟล์ไม่สำเร็จ: '+(e.message||e)); }
+}
+/* ดึงพัสดุทั้งเดือนแบบแบ่งหน้า (กันหมดเวลา/ดึงทีเดียวไม่ไหว) */
+async function arcFetchMonth(mk, onProgress){
+  const from=mk+'-01';
+  const d=new Date(mk+'-01T00:00:00'); d.setMonth(d.getMonth()+1);
+  const to=d.toISOString().slice(0,10);
+  const out=[]; const STEP=2000;
+  for(let i=0;;i+=STEP){
+    const {data,error}=await sb.from('post_parcels')
+      .select('id,pdate,carrier,tracking,fee,data,created_at')
+      .gte('pdate',from).lt('pdate',to).order('id',{ascending:true}).range(i,i+STEP-1);
+    if(error) throw error;
+    if(!data||!data.length) break;
+    out.push(...data);
+    if(onProgress) onProgress(out.length);
+    if(data.length<STEP) break;
+  }
+  return out;
+}
+function arcToCsv(rows){
+  const dataKeys=[];
+  rows.forEach(r=>Object.keys(r.data||{}).forEach(k=>{ if(!dataKeys.includes(k)) dataKeys.push(k); }));
+  const head=['id','pdate','carrier','tracking','fee','created_at',...dataKeys];
+  const lines=[head.map(arcCsvCell).join(',')];
+  rows.forEach(r=>{
+    const d=r.data||{};
+    lines.push([r.id,r.pdate,r.carrier,r.tracking,r.fee,r.created_at,...dataKeys.map(k=>d[k])].map(arcCsvCell).join(','));
+  });
+  return lines.join('\n');
+}
+/* ── เก็บเดือนเข้าคลัง ── */
+async function arcSave(mk){
+  const info=$('arcMsg_'+mk);
+  const say=t=>{ if(info) info.textContent=t; };
+  if(!confirm('เก็บเดือน '+mk+' เข้าคลัง?\n\n1) ทำไฟล์ครบทุกช่อง\n2) อัปขึ้นคลัง\n3) ตรวจว่าขึ้นครบ\n4) ลบออกจากฐานข้อมูล\n\nถ้าขั้นไหนพลาดจะหยุดทันที ไม่ลบอะไร')) return;
+  try{
+    say('กำลังดึงข้อมูล...');
+    const rows=await arcFetchMonth(mk, n=>say('กำลังดึงข้อมูล... '+fmtInt(n)+' พัสดุ'));
+    if(!rows.length){ say('เดือนนี้ไม่มีข้อมูลในฐานข้อมูล'); return; }
+    say('กำลังทำไฟล์ ('+fmtInt(rows.length)+' พัสดุ)...');
+    const csv=arcToCsv(rows);
+    const {blob,ext}=await arcGzip(csv);
+    const path=mk+'.'+ext;
+    say('กำลังอัปขึ้นคลัง ('+(blob.size/1048576).toFixed(1)+' MB)...');
+    const up=await sb.storage.from(ARC_BUCKET).upload(path, blob, {upsert:true, contentType: ext.endsWith('gz')?'application/gzip':'text/csv'});
+    if(up.error) throw new Error('อัปขึ้นคลังไม่สำเร็จ: '+up.error.message);
+    /* ตรวจว่าไฟล์ขึ้นจริงและขนาดตรง ก่อนลบ */
+    say('กำลังตรวจไฟล์ในคลัง...');
+    const chk=await sb.storage.from(ARC_BUCKET).download(path);
+    if(chk.error || !chk.data) throw new Error('ตรวจไฟล์ในคลังไม่ผ่าน — ยกเลิก ไม่ลบข้อมูล');
+    if(chk.data.size !== blob.size) throw new Error('ขนาดไฟล์ในคลังไม่ตรง ('+chk.data.size+' vs '+blob.size+') — ยกเลิก ไม่ลบข้อมูล');
+    const back=await arcGunzip(chk.data, path);
+    const gotRows=back.split('\n').length-1;
+    if(gotRows < rows.length) throw new Error('ไฟล์ในคลังมี '+gotRows+' แถว แต่ต้องมี '+rows.length+' — ยกเลิก ไม่ลบข้อมูล');
+    await sb.from('post_archives').upsert({ mkey:mk, path, n_rows:rows.length, n_bytes:blob.size, archived_at:new Date().toISOString() },{onConflict:'mkey'});
+    say('กำลังลบออกจากฐานข้อมูล...');
+    const from=mk+'-01'; const d2=new Date(mk+'-01T00:00:00'); d2.setMonth(d2.getMonth()+1);
+    const del=await sb.from('post_parcels').delete().gte('pdate',from).lt('pdate',d2.toISOString().slice(0,10));
+    if(del.error) throw new Error('ลบไม่สำเร็จ (ไฟล์ในคลังอยู่ครบแล้ว): '+del.error.message);
+    toast('เก็บเดือน '+mk+' เข้าคลังแล้ว ('+fmtInt(rows.length)+' พัสดุ)');
+    monthDupCache={}; arcLoad();
+  }catch(err){ say('❌ '+(err.message||err)); toast(err.message||String(err), true); }
+}
+/* ── เปิดดูเดือนที่เก็บไว้ ── */
+async function arcView(mk, download){
+  const info=$('arcMsg_'+mk); const say=t=>{ if(info) info.textContent=t; };
+  try{
+    const rec=arcRows.find(x=>x.mkey===mk); if(!rec) return;
+    say('กำลังดึงไฟล์จากคลัง...');
+    const {data,error}=await sb.storage.from(ARC_BUCKET).download(rec.path);
+    if(error||!data) throw new Error('ดึงไฟล์ไม่สำเร็จ: '+((error&&error.message)||''));
+    if(download){
+      const url=URL.createObjectURL(data); const a=document.createElement('a');
+      a.href=url; a.download='พัสดุ_'+mk+'_'+rec.path.split('.').slice(1).join('.');
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      say('ดาวน์โหลดแล้ว — เอาไปเก็บใน Drive ได้'); return;
+    }
+    const text=await arcGunzip(data, rec.path);
+    const lines=text.split('\n').filter(x=>x.length);
+    say('เปิดจากคลัง: '+fmtInt(lines.length-1)+' พัสดุ (อ่านอย่างเดียว)');
+    arcShowTable(mk, lines);
+  }catch(err){ say('❌ '+(err.message||err)); }
+}
+function arcParseCsvLine(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ out.push(cur); cur=''; }
+    else cur+=c;
+  }
+  out.push(cur); return out;
+}
+function arcShowTable(mk, lines){
+  const head=arcParseCsvLine(lines[0]);
+  const cap=500;
+  const body=lines.slice(1,cap+1).map(l=>arcParseCsvLine(l));
+  const box=$('arcTable_'+mk); if(!box) return;
+  box.innerHTML='<div class="tbl-wrap" style="max-height:50vh;margin-top:8px"><table><thead><tr>'
+    + head.map(x=>'<th>'+escapeHtml(x)+'</th>').join('')+'</tr></thead><tbody>'
+    + body.map(r=>'<tr>'+head.map((_,i)=>'<td>'+escapeHtml(r[i]||'')+'</td>').join('')+'</tr>').join('')
+    + '</tbody></table></div>'
+    + (lines.length-1>cap ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">แสดง '+fmtInt(cap)+' แถวแรกจาก '+fmtInt(lines.length-1)+' · กด ⬇️ โหลดไฟล์เพื่อดูครบ</div>' : '');
+}
+function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* ── หน้ารายการคลัง ── */
+async function arcLoad(){
+  const list=$('arcList'); if(!list) return;
+  list.innerHTML='<div style="color:var(--muted);font-size:13px">กำลังโหลด...</div>';
+  try{
+    const inDb={};
+    const {data:days,error:e1}=await sb.from('post_days').select('pdate,parcel_count');
+    if(e1) throw e1;
+    const {data:arch,error:e2}=await sb.from('post_archives').select('mkey,path,n_rows,n_bytes,archived_at').order('mkey',{ascending:false});
+    if(e2) throw e2;
+    arcRows=arch||[];
+    const {data:pp,error:e3}=await sb.from('post_parcels').select('pdate').order('pdate',{ascending:true}).limit(50000);
+    if(e3) throw e3;
+    (pp||[]).forEach(r=>{ const k=arcMkey(r.pdate); inDb[k]=(inDb[k]||0)+1; });
+    const months=[...new Set([...Object.keys(inDb), ...arcRows.map(a=>a.mkey)])].sort().reverse();
+    const nowKey=new Date().toISOString().slice(0,7);
+    const keepFrom=(()=>{ const d=new Date(nowKey+'-01T00:00:00'); d.setMonth(d.getMonth()-(ARC_KEEP_MONTHS-1)); return d.toISOString().slice(0,7); })();
+    let totBytes=0; arcRows.forEach(a=>totBytes+=(a.n_bytes||0));
+    $('arcSpace').innerHTML='📊 ในคลัง <b>'+arcRows.length+'</b> เดือน · '
+      + fmtInt(arcRows.reduce((s,a)=>s+(a.n_rows||0),0))+' พัสดุ · ใช้พื้นที่คลัง <b>'+(totBytes/1048576).toFixed(1)+' MB</b> จาก 1,024 MB'
+      + ' &nbsp;·&nbsp; เก็บในฐานข้อมูล '+ARC_KEEP_MONTHS+' เดือนล่าสุด (ตั้งแต่ '+keepFrom+')';
+    list.innerHTML = months.length? months.map(mk=>{
+      const a=arcRows.find(x=>x.mkey===mk), n=inDb[mk]||0;
+      const old = mk < keepFrom;
+      return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:9px;background:#fff">'
+        +'<div class="row"><b style="font-size:15px">'+mk+'</b>'
+        +'<span style="font-size:12.5px;color:var(--muted)">ในฐานข้อมูล '+fmtInt(n)+' พัสดุ'
+        + (a? ' · ในคลัง '+fmtInt(a.n_rows)+' พัสดุ ('+((a.n_bytes||0)/1048576).toFixed(1)+' MB)':'')+'</span>'
+        +'<div class="spacer"></div>'
+        + (n&&old? '<button class="btn btn-gold btn-sm" data-arc-save="'+mk+'">📦 เก็บเข้าคลัง</button>':'')
+        + (n&&!old? '<span style="font-size:12px;color:var(--muted)">เดือนล่าสุด — ยังไม่ต้องเก็บ</span>':'')
+        + (a? '<button class="btn btn-ghost btn-sm" data-arc-view="'+mk+'">👁️ ดูจากคลัง</button>'
+             +'<button class="btn btn-ghost btn-sm" data-arc-dl="'+mk+'">⬇️ โหลดไฟล์</button>':'')
+        +'</div>'
+        +'<div id="arcMsg_'+mk+'" style="font-size:12.5px;color:var(--muted);margin-top:6px"></div>'
+        +'<div id="arcTable_'+mk+'"></div></div>';
+    }).join('') : '<div style="color:var(--muted);font-size:13px">ยังไม่มีข้อมูล</div>';
+  }catch(err){ list.innerHTML='<div style="color:var(--red)">โหลดคลังไม่สำเร็จ: '+escapeHtml(err.message||err)+'</div>'; }
+}
+$('arcRefresh').onclick=arcLoad;
+$('arcList').onclick=e=>{
+  const s=e.target.closest('[data-arc-save]'); if(s) return arcSave(s.dataset.arcSave);
+  const v=e.target.closest('[data-arc-view]'); if(v) return arcView(v.dataset.arcView,false);
+  const d=e.target.closest('[data-arc-dl]');   if(d) return arcView(d.dataset.arcDl,true);
+};
 
 /* ===== ตรวจเลขพัสดุซ้ำทั้งเดือน (กดเอง) ===== */
 let monthDupCache={};
